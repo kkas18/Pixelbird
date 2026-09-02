@@ -1,8 +1,8 @@
 # Pixelfugl
 
-Et moderne flakse-spill i glatt vektorstil (v2): parallakse-bakgrunn,
-gradienter og myke skygger, partikler, skjermristing, dag/natt-tema,
-syntetisert lyd og vibrasjon. Bygget som en installerbar PWA, optimalisert for Samsung Galaxy
+Et moderne flakse-spill i glatt vektorstil (v3): fem parallakse-lag,
+lysstråler, gradienter og myke skygger, partikler, fartsspor, skjermristing,
+dag/natt-tema, generert chiptune-musikk, syntetisert lyd og vibrasjon. Bygget som en installerbar PWA, optimalisert for Samsung Galaxy
 (portrett) og andre Android-telefoner.
 
 All grafikk og lyd er generert i koden – ingen bildefiler eller lydfiler
@@ -41,7 +41,7 @@ også i en undermappe.
 ## Kontroller
 
 - **Trykk** hvor som helst på skjermen (eller mellomrom / pil opp) for å flakse.
-- Knappene på startskjermen slår **lyd** av/på og bytter **dag/natt**.
+- Knappene på startskjermen slår **lydeffekter** og **musikk** av/på og bytter **dag/natt**.
 - Beste poengsum lagres lokalt på enheten.
 
 Medaljer: 10 bronse, 20 sølv, 30 gull, 40 platina.
@@ -70,6 +70,25 @@ Dukker opp i gapet fra 3 poeng. Fly gjennom for å plukke opp.
 - **Dobbelt** (gul) – 8 sekunder med 2 poeng per rør.
 
 Aktive effekter vises som striper under poengsummen.
+
+## Fysikk
+
+Tidsbasert modell med fast steg på 120 Hz (uavhengig av skjermens
+oppdateringsfrekvens):
+
+- Tyngdekraft og flaks i px/s², luftmotstand og terminalfart (560 px/s).
+- Flaks blander inn fart i stedet for å overstyre den – gir jevnere følelse.
+- Rotasjon som fjær mot målvinkel med demping, squash-and-stretch på fuglen.
+- Presis sirkel-mot-avrundet-rektangel-kollisjon (hettene har runde hjørner).
+- Ved krasj spretter fuglen av røret, tumler og spretter én gang i bakken.
+
+## Musikk
+
+Alt er generert i Web Audio – ingen lydfiler. En 8-takters loop i C-dur på
+128 BPM med bass, akkord-arpeggio, lead med chorus, og trommer. På menyen
+spilles en rolig, filtrert versjon; i spill åpnes filteret og trommene
+kommer inn. Sakte film demper filteret, game over gir en kort sting.
+Musikken starter ved første trykk (nettlesere krever brukerhandling).
 
 ## Oppdatere
 

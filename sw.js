@@ -1,6 +1,6 @@
 /* Pixelfugl service worker – cache-first for appens egne filer,
    stale-while-revalidate for fonten. Bump VERSION ved hver utgivelse. */
-const VERSION = 'pixelfugl-v2.0.0';
+const VERSION = 'pixelfugl-v3.0.0';
 const CORE = [
   './',
   './index.html',

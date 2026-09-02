@@ -47,26 +47,28 @@
 <script>
 'use strict';
 /* ============================================================
-   PIXELFUGL v2 – glatt vektorgrafikk, vanskelighetsgrader,
-   rør-varianter og power-ups. Logisk bredde 288 px,
-   høyde følger skjermen. Fast tidssteg 60 Hz.
+   PIXELFUGL v3
+   – Tidsbasert fysikk (px/s, px/s²) med fast tidssteg 120 Hz
+   – Fem parallakse-lag, lysstråler, støv, vignett
+   – Generert chiptune-musikk (Web Audio)
+   Logisk bredde 288 px, høyde følger skjermen.
    ============================================================ */
 
 const LOGICAL_W = 288;
-const STEP = 1 / 60;
-const MAX_FALL = 8.5;
-const PIPE_W = 56;
-const PIPE_CAP_H = 26;
+const STEP = 1 / 120;               // fysikk-steg (sekunder)
+const PIPE_W = 56, PIPE_CAP_H = 26, PIPE_CAP_R = 7;
 const GROUND_H = 92;
-const BIRD_X = 78;
-const BIRD_R = 11;
-const POWER_R = 13;
+const BIRD_X = 78, BIRD_R = 11, POWER_R = 13;
+const TERMINAL = 560;               // px/s
+const AIR_DRAG = 0.35;              // 1/s
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
 
-/* ---------- Vanskelighetsgrader ---------- */
+/* ---------- Vanskelighetsgrader (alle hastigheter i px/s) ---------- */
 const DIFFS = {
-  lett:   { label: 'Lett',   gap: 152, speed: 1.9, spacing: 192, gravity: 0.28, flap: -5.3, variantsFrom: 14, color: '#5DD07A' },
-  normal: { label: 'Normal', gap: 130, speed: 2.2, spacing: 172, gravity: 0.32, flap: -5.6, variantsFrom: 8,  color: '#FFD23F' },
-  hard:   { label: 'Hard',   gap: 112, speed: 2.6, spacing: 156, gravity: 0.36, flap: -5.9, variantsFrom: 4,  color: '#FF6B57' }
+  lett:   { label: 'Lett',   gap: 152, speed: 118, spacing: 192, gravity: 1050, flap: -330, variantsFrom: 14, color: '#5DD07A' },
+  normal: { label: 'Normal', gap: 130, speed: 136, spacing: 172, gravity: 1180, flap: -345, variantsFrom: 8,  color: '#FFD23F' },
+  hard:   { label: 'Hard',   gap: 112, speed: 160, spacing: 156, gravity: 1320, flap: -362, variantsFrom: 4,  color: '#FF6B57' }
 };
 let diffName = localStorage.getItem('pf.diff') || 'normal';
 if (!DIFFS[diffName]) diffName = 'normal';
@@ -74,7 +76,6 @@ let D = DIFFS[diffName];
 const bestKey = () => 'pf.best.' + diffName;
 let best = +localStorage.getItem(bestKey()) || 0;
 
-/* ---------- Power-ups ---------- */
 const POWERS = {
   shield: { label: 'Skjold',     color: '#3FA9F5', glow: 'rgba(63,169,245,.55)', dur: 0 },
   slow:   { label: 'Sakte film', color: '#B06BFF', glow: 'rgba(176,107,255,.55)', dur: 6 },
@@ -84,56 +85,147 @@ const POWERS = {
 /* ---------- Tema ---------- */
 const THEMES = {
   day: {
-    skyTop: '#5BC8F0', skyBot: '#CFF1FF', sun: '#FFF3B0', cloud: 'rgba(255,255,255,.92)', cloudShade: 'rgba(255,255,255,.55)',
-    farHill: '#A6E3B0', hill: '#7BD389', hillShade: '#5DBF6E',
-    groundTop: '#7FCB4A', groundTop2: '#66B53A', ground: '#EBDDA5', groundStripe: '#DFCF90',
-    pipe: '#5EBF3E', pipeLight: '#93E36E', pipeDark: '#3B8F2A', pipeEdge: 'rgba(0,0,0,.18)',
-    text: '#FFFFFF', textShadow: 'rgba(0,40,60,.35)', stars: false
+    skyTop: '#4FB9EE', skyMid: '#8CDCF7', skyBot: '#DDF6FF', sun: '#FFF3B0', rays: 'rgba(255,255,255,.10)',
+    cloud: 'rgba(255,255,255,.94)', cloudShade: 'rgba(200,232,245,.9)',
+    mountain: '#B7DFF0', mountainSnow: '#EEF9FF', forest: '#7FC8A0', forestDark: '#5FAE83',
+    hill: '#7BD389', hillShade: '#58B868', bush: '#4FA85C', bushLight: '#6CC276',
+    groundTop: '#7FCB4A', groundTop2: '#5FAE36', ground: '#EBDDA5', groundStripe: '#DCCC8E', path: '#E2D398',
+    pipe: '#5EBF3E', pipeLight: '#A3EA7A', pipeDark: '#347F24', pipeEdge: 'rgba(0,0,0,.2)',
+    text: '#FFFFFF', textShadow: 'rgba(0,40,60,.35)', stars: false, vignette: 'rgba(0,30,60,.18)'
   },
   night: {
-    skyTop: '#17213F', skyBot: '#3D4F7C', sun: '#FFF7D6', cloud: 'rgba(120,140,190,.55)', cloudShade: 'rgba(80,100,150,.35)',
-    farHill: '#3B5A6E', hill: '#2E7A4E', hillShade: '#225C3A',
-    groundTop: '#4B9A32', groundTop2: '#3A7C27', ground: '#BFB27E', groundStripe: '#B0A26F',
-    pipe: '#4FA836', pipeLight: '#7FCC5C', pipeDark: '#2E7420', pipeEdge: 'rgba(0,0,0,.25)',
-    text: '#FFFFFF', textShadow: 'rgba(0,0,20,.5)', stars: true
+    skyTop: '#141C38', skyMid: '#2A3A66', skyBot: '#4A5F92', sun: '#FFF7D6', rays: 'rgba(255,255,255,.04)',
+    cloud: 'rgba(130,150,200,.5)', cloudShade: 'rgba(90,110,160,.4)',
+    mountain: '#3A4F78', mountainSnow: '#6E82AE', forest: '#2E5F5A', forestDark: '#234A47',
+    hill: '#2F7A50', hillShade: '#245E3C', bush: '#1F5A36', bushLight: '#2C7247',
+    groundTop: '#4B9A32', groundTop2: '#387A26', ground: '#BFB27E', groundStripe: '#AE9F6C', path: '#B8AA76',
+    pipe: '#4FA836', pipeLight: '#86D262', pipeDark: '#2A6B1E', pipeEdge: 'rgba(0,0,0,.28)',
+    text: '#FFFFFF', textShadow: 'rgba(0,0,20,.5)', stars: true, vignette: 'rgba(0,0,20,.35)'
   }
 };
 const hr = new Date().getHours();
 let themeName = localStorage.getItem('pf.theme') || ((hr >= 20 || hr < 6) ? 'night' : 'day');
 let T = THEMES[themeName];
 
-/* ---------- Lyd (Web Audio) ---------- */
-const Sound = (() => {
-  let ac = null, muted = localStorage.getItem('pf.muted') === '1';
-  const ensure = () => { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); };
-  const tone = (freq, dur, type = 'sine', vol = 0.18, slideTo = null, delay = 0) => {
-    if (muted || !ac) return;
-    const t0 = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+/* ============================================================
+   LYD + MUSIKK (Web Audio, alt syntetisert)
+   ============================================================ */
+const Audio = (() => {
+  let ac = null, master, sfxGain, musGain, musFilter;
+  let sfxMuted = localStorage.getItem('pf.muted') === '1';
+  let musMuted = localStorage.getItem('pf.music') === '1';
+  const midi = n => 440 * Math.pow(2, (n - 69) / 12);
+
+  function ensure() {
+    if (!ac) {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination);
+      sfxGain = ac.createGain(); sfxGain.gain.value = sfxMuted ? 0 : 1; sfxGain.connect(master);
+      musFilter = ac.createBiquadFilter(); musFilter.type = 'lowpass'; musFilter.frequency.value = 900; musFilter.Q.value = 0.7;
+      musGain = ac.createGain(); musGain.gain.value = musMuted ? 0 : 0.55;
+      musGain.connect(musFilter).connect(master);
+      Music.init();
+    }
+    if (ac.state === 'suspended') ac.resume();
+  }
+  // generiske stemmer
+  function voice(dest, freq, t0, dur, type, vol, opts = {}) {
+    const o = ac.createOscillator(), g = ac.createGain();
     o.type = type; o.frequency.setValueAtTime(freq, t0);
-    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
-    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(g).connect(ac.destination); o.start(t0); o.stop(t0 + dur + 0.02);
-  };
-  const noise = (dur, vol = 0.25, lp = 1200) => {
-    if (muted || !ac) return;
+    if (opts.slide) o.frequency.exponentialRampToValueAtTime(opts.slide, t0 + dur);
+    const a = opts.attack || 0.005, r = opts.release || dur * 0.6;
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + a);
+    g.gain.setValueAtTime(vol, Math.max(t0 + a, t0 + dur - r)); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    let node = o;
+    if (opts.lp) { const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = opts.lp; o.connect(f); node = f; }
+    node.connect(g).connect(dest); o.start(t0); o.stop(t0 + dur + 0.02);
+  }
+  function noise(dest, t0, dur, vol, hp = 3000, lp = 12000) {
     const n = Math.floor(ac.sampleRate * dur), buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
-    const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-    s.buffer = buf; f.type = 'lowpass'; f.frequency.value = lp; g.gain.value = vol;
-    s.connect(f).connect(g).connect(ac.destination); s.start();
-  };
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2);
+    const s = ac.createBufferSource(), h = ac.createBiquadFilter(), l = ac.createBiquadFilter(), g = ac.createGain();
+    s.buffer = buf; h.type = 'highpass'; h.frequency.value = hp; l.type = 'lowpass'; l.frequency.value = lp; g.gain.value = vol;
+    s.connect(h).connect(l).connect(g).connect(dest); s.start(t0);
+  }
+  function kick(t0) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(150, t0); o.frequency.exponentialRampToValueAtTime(42, t0 + 0.12);
+    g.gain.setValueAtTime(0.7, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+    o.connect(g).connect(musGain); o.start(t0); o.stop(t0 + 0.22);
+  }
+
+  /* ---------- Sequencer: 8 takter, 128 BPM, C-dur ---------- */
+  const Music = (() => {
+    const BPM = 128, STEPS = 64;           // 8 takter × 8 åttendedeler
+    const eighth = 60 / BPM / 2;
+    // Akkorder per takt: C  G  Am  F  C  G  F  G
+    const CHORDS = [[48, 52, 55], [43, 47, 50], [45, 48, 52], [41, 45, 48], [48, 52, 55], [43, 47, 50], [41, 45, 48], [43, 47, 50]];
+    const BASS = [48, 48, 55, 48,  43, 43, 50, 43,  45, 45, 52, 45,  41, 41, 48, 41,  48, 48, 55, 48,  43, 43, 50, 43,  41, 41, 48, 41,  43, 47, 50, 55];
+    // Lead (0 = pause), to fraser à 4 takter
+    const LEAD = [
+      72, 0, 76, 79, 76, 72, 79, 0,   74, 0, 79, 74, 71, 74, 79, 0,   69, 0, 72, 76, 72, 69, 76, 0,   77, 76, 74, 72, 74, 0, 0, 0,
+      72, 0, 76, 79, 81, 79, 76, 72,  74, 0, 79, 83, 81, 79, 74, 0,   69, 72, 76, 81, 79, 76, 72, 69, 77, 79, 81, 83, 84, 0, 0, 0
+    ];
+    const KICK  = [1, 0, 0, 0, 1, 0, 1, 0];
+    const SNARE = [0, 0, 1, 0, 0, 0, 1, 0];
+    let step = 0, nextTime = 0, timer = null, playing = false, mode = 'menu', energy = 0;
+
+    function schedule(i, t) {
+      const bar = (i >> 3) % 8, sub = i & 7;
+      const chord = CHORDS[bar];
+      // bass – triangel, hver åttendedel i to-noters puls
+      const b = BASS[(i >> 1) % 32];
+      voice(musGain, midi(b), t, eighth * 0.9, 'triangle', 0.32, { lp: 800, release: eighth * 0.4 });
+      // arpeggio-pad – myk sag
+      const an = chord[(sub + (bar & 1)) % 3] + 12 + (sub >= 4 ? 12 : 0);
+      voice(musGain, midi(an), t, eighth * 0.85, 'sawtooth', 0.045, { lp: 1800, attack: 0.02, release: eighth * 0.5 });
+      // lead – pulsbølge lengre nede i miksen
+      const ln = LEAD[i % STEPS];
+      if (ln) {
+        voice(musGain, midi(ln), t, eighth * 0.95, 'square', 0.085, { lp: 2600, release: eighth * 0.35 });
+        voice(musGain, midi(ln) * 1.003, t + 0.012, eighth * 0.9, 'triangle', 0.05, { release: eighth * 0.35 }); // lett chorus
+      }
+      // trommer bare i "play"-modus
+      if (mode === 'play') {
+        if (KICK[sub]) kick(t);
+        if (SNARE[sub]) noise(musGain, t, 0.12, 0.28, 1500, 7000);
+        noise(musGain, t, 0.03, sub & 1 ? 0.06 : 0.1, 6000, 14000); // hi-hat
+      }
+    }
+    function tick() {
+      while (nextTime < ac.currentTime + 0.15) { schedule(step, nextTime); step++; nextTime += eighth; }
+    }
+    return {
+      init() {},
+      start() { if (playing || !ac) return; playing = true; step = 0; nextTime = ac.currentTime + 0.05; timer = setInterval(tick, 40); },
+      stop() { playing = false; clearInterval(timer); timer = null; },
+      setMode(m) {
+        mode = m; if (!ac) return;
+        const t = ac.currentTime;
+        musFilter.frequency.cancelScheduledValues(t);
+        musFilter.frequency.setTargetAtTime(m === 'play' ? 9000 : 900, t, 0.35);
+      },
+      slowmo(on) { if (!ac) return; musFilter.frequency.setTargetAtTime(on ? 500 : (mode === 'play' ? 9000 : 900), ac.currentTime, 0.25); },
+      get playing() { return playing; }
+    };
+  })();
+
   return {
-    unlock: ensure,
-    flap() { tone(540, 0.09, 'triangle', 0.16, 820); },
-    point() { tone(880, 0.07, 'sine', 0.16); tone(1320, 0.14, 'sine', 0.16, null, 0.07); },
-    power() { tone(660, 0.08, 'triangle', 0.16); tone(990, 0.08, 'triangle', 0.16, null, 0.08); tone(1320, 0.18, 'triangle', 0.16, null, 0.16); },
-    shieldPop() { noise(0.12, 0.2, 2500); tone(1200, 0.2, 'sine', 0.14, 300); },
-    hit() { noise(0.18, 0.35, 900); tone(160, 0.2, 'sawtooth', 0.16, 60); },
-    die() { tone(440, 0.45, 'triangle', 0.14, 110, 0.15); },
-    swoosh() { noise(0.16, 0.1, 2400); },
-    tick() { tone(1500, 0.03, 'square', 0.05); },
-    toggle() { muted = !muted; localStorage.setItem('pf.muted', muted ? '1' : '0'); return muted; },
-    get muted() { return muted; }
+    unlock() { ensure(); if (!Music.playing) Music.start(); },
+    music: Music,
+    flap() { if (!ac) return; voice(sfxGain, 540, ac.currentTime, 0.09, 'triangle', 0.18, { slide: 860 }); },
+    point() { if (!ac) return; const t = ac.currentTime; voice(sfxGain, 880, t, 0.07, 'sine', 0.18); voice(sfxGain, 1320, t + 0.07, 0.14, 'sine', 0.18); },
+    power() { if (!ac) return; const t = ac.currentTime; [660, 990, 1320].forEach((f, i) => voice(sfxGain, f, t + i * 0.08, 0.16, 'triangle', 0.16)); },
+    shieldPop() { if (!ac) return; noise(sfxGain, ac.currentTime, 0.12, 0.2, 1000, 5000); voice(sfxGain, 1200, ac.currentTime, 0.2, 'sine', 0.14, { slide: 300 }); },
+    hit() { if (!ac) return; noise(sfxGain, ac.currentTime, 0.2, 0.4, 100, 1200); voice(sfxGain, 160, ac.currentTime, 0.22, 'sawtooth', 0.16, { slide: 60 }); },
+    die() { if (!ac) return; voice(sfxGain, 440, ac.currentTime + 0.15, 0.5, 'triangle', 0.14, { slide: 110 }); },
+    thud() { if (!ac) return; noise(sfxGain, ac.currentTime, 0.1, 0.3, 60, 500); },
+    sting() { if (!ac) return; const t = ac.currentTime; [67, 63, 60, 55].forEach((n, i) => voice(musGain, midi(n), t + i * 0.16, 0.3, 'square', 0.1, { lp: 2000 })); },
+    swoosh() { if (!ac) return; noise(sfxGain, ac.currentTime, 0.16, 0.1, 1500, 6000); },
+    tick() { if (!ac) return; voice(sfxGain, 1500, ac.currentTime, 0.03, 'square', 0.05); },
+    toggleSfx() { sfxMuted = !sfxMuted; localStorage.setItem('pf.muted', sfxMuted ? '1' : '0'); if (sfxGain) sfxGain.gain.setTargetAtTime(sfxMuted ? 0 : 1, ac.currentTime, 0.02); },
+    toggleMusic() { musMuted = !musMuted; localStorage.setItem('pf.music', musMuted ? '1' : '0'); if (musGain) musGain.gain.setTargetAtTime(musMuted ? 0 : 0.55, ac.currentTime, 0.1); },
+    get sfxMuted() { return sfxMuted; }, get musMuted() { return musMuted; }
   };
 })();
 const buzz = ms => { if ('vibrate' in navigator) try { navigator.vibrate(ms); } catch (e) {} };
@@ -142,44 +234,38 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 /* ---------- Canvas ---------- */
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha: false });
-let dpr = 1, scale = 1, W = LOGICAL_W, H = 560, safeTop = 0, safeBottom = 0;
+let dpr = 1, scale = 1, W = LOGICAL_W, H = 560, safeTop = 0;
 
 /* ---------- Tilstand ---------- */
 const State = { MENU: 0, READY: 1, PLAY: 2, DEAD: 3, OVER: 4 };
 let state = State.MENU;
-let score = 0, frame = 0, time = 0;
-let groundX = 0, cloudX = 0, farX = 0, hillX = 0;
-let bird, pipes = [], particles = [], powers = [], floats = [];
-let shake = 0, flash = 0, overT = 0, transitionT = 0, newBest = false;
+let score = 0, time = 0, scorePop = 0;
+let scroll = 0;                       // total avstand rullet (px) – driver alle parallakse-lag
+let bird, pipes = [], particles = [], powers = [], floats = [], trail = [], dust = [], stars = [];
+let shake = 0, flash = 0, overT = 0, transitionT = 0, newBest = false, groundBounced = false;
 let active = { shield: false, slow: 0, double: 0 };
-let timeScale = 1;
-let stars = [];
+let timeScale = 1, slowWas = false;
 let deferredPrompt = null;
 const hud = {};
 
-function resetBird() { bird = { x: BIRD_X, y: 0, vy: 0, rot: 0, flapT: 99 }; }
-function goMenu() { state = State.MENU; resetBird(); pipes = []; particles = []; powers = []; floats = []; score = 0; }
+function resetBird() { bird = { x: BIRD_X, y: 0, vx: 0, vy: 0, rot: 0, angVel: 0, flapT: 9, sx: 1, sy: 1 }; }
+function goMenu() { state = State.MENU; resetBird(); pipes = []; particles = []; powers = []; floats = []; trail = []; score = 0; Audio.music.setMode('menu'); }
 function goReady() {
-  state = State.READY; resetBird(); pipes = []; particles = []; powers = []; floats = []; score = 0; newBest = false;
-  active = { shield: false, slow: 0, double: 0 }; timeScale = 1; transitionT = 1; Sound.swoosh();
+  state = State.READY; resetBird(); pipes = []; particles = []; powers = []; floats = []; trail = []; score = 0; newBest = false; groundBounced = false;
+  active = { shield: false, slow: 0, double: 0 }; timeScale = 1; transitionT = 1; Audio.swoosh(); Audio.music.setMode('menu');
 }
-function goPlay() { state = State.PLAY; spawnPipe(W + 60); }
+function goPlay() { state = State.PLAY; spawnPipe(W + 60); Audio.music.setMode('play'); }
 
 function spawnPipe(x) {
   const playH = H - GROUND_H;
   let gap = Math.max(D.gap * 0.72, D.gap - Math.min(score, 30) * 0.9);
   let variant = 'normal';
-  if (score >= D.variantsFrom) {
-    const r = Math.random();
-    if (r < 0.24) variant = 'moving'; else if (r < 0.44) variant = 'narrow';
-  }
+  if (score >= D.variantsFrom) { const r = Math.random(); if (r < 0.24) variant = 'moving'; else if (r < 0.44) variant = 'narrow'; }
   if (variant === 'narrow') gap *= 0.8;
-  const margin = 40 + safeTop;
-  const amp = variant === 'moving' ? 26 : 0;
+  const margin = 40 + safeTop, amp = variant === 'moving' ? 26 : 0;
   const top = margin + amp + Math.random() * (playH - gap - margin - 40 - amp * 2);
-  const p = { x, top, baseTop: top, gap, variant, amp, phase: Math.random() * Math.PI * 2, freq: 0.035 + Math.random() * 0.02, scored: false, glow: 0 };
+  const p = { x, top, baseTop: top, gap, variant, amp, phase: Math.random() * Math.PI * 2, freq: 2.2 + Math.random() * 1.2, scored: false, glow: 0 };
   pipes.push(p);
-  // power-up i gapet (ikke i smale rør)
   if (score >= 3 && variant !== 'narrow' && Math.random() < 0.16 && !powers.some(q => q.x > W - 100)) {
     const keys = Object.keys(POWERS);
     const kind = active.shield ? (Math.random() < 0.5 ? 'slow' : 'double') : keys[(Math.random() * keys.length) | 0];
@@ -188,24 +274,26 @@ function spawnPipe(x) {
 }
 
 /* ---------- Partikler ---------- */
-function burst(x, y, n, colors, spd, life, grav = 0.12, size = 3) {
+function burst(x, y, n, colors, spd, life, grav = 700, size = 3) {
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2, s = spd * (0.4 + Math.random() * 0.8);
-    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 0.5, life, max: life, grav,
-      c: colors[(Math.random() * colors.length) | 0], r: size * (0.5 + Math.random()) });
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 30, life, max: life, grav, c: colors[(Math.random() * colors.length) | 0], r: size * (0.5 + Math.random()) });
   }
 }
-function floatText(x, y, txt, color) { floats.push({ x, y, txt, color, life: 50, max: 50 }); }
+function floatText(x, y, txt, color) { floats.push({ x, y, txt, color, life: 0.85, max: 0.85 }); }
 
 /* ---------- Input ---------- */
 function flap() {
-  Sound.unlock();
+  Audio.unlock();
   if (state === State.MENU) { goReady(); return; }
   if (state === State.READY) goPlay();
   if (state === State.PLAY) {
-    bird.vy = D.flap; bird.flapT = 0;
-    Sound.flap(); buzz(8);
-    burst(bird.x - 12, bird.y + 6, 4, ['#FFFFFF', '#CFF1FF'], 1.4, 20, 0.04, 2);
+    // bland inn i stedet for å overstyre: litt av eksisterende oppdrift beholdes
+    bird.vy = Math.min(bird.vy, 0) * 0.25 + D.flap;
+    bird.flapT = 0; bird.sy = 1.22; bird.sx = 0.84;
+    bird.angVel = -9;
+    Audio.flap(); buzz(8);
+    burst(bird.x - 12, bird.y + 6, 4, ['#FFFFFF', '#CFF1FF'], 90, 0.35, 250, 2);
     return;
   }
   if (state === State.OVER && overT > 0.7) goReady();
@@ -215,10 +303,8 @@ function onPointer(e) {
   const r = canvas.getBoundingClientRect();
   const x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
   for (const k in hud) {
-    const b = hud[k]; if (!b) continue;
-    if (x >= b.x - 4 && x <= b.x + b.w + 4 && y >= b.y - 4 && y <= b.y + b.h + 4) {
-      Sound.unlock(); b.fn(); Sound.tick(); buzz(6); return;
-    }
+    const b = hud[k];
+    if (x >= b.x - 4 && x <= b.x + b.w + 4 && y >= b.y - 4 && y <= b.y + b.h + 4) { Audio.unlock(); b.fn(); Audio.tick(); buzz(6); return; }
   }
   flap();
 }
@@ -232,116 +318,153 @@ function toggleTheme() {
   document.querySelector('meta[name=theme-color]').content = T.skyTop; document.documentElement.style.setProperty('--sky', T.skyTop);
 }
 
-/* ---------- Oppdatering ---------- */
-function update() {
-  frame++; time += STEP;
-  const ts = (state === State.PLAY && active.slow > 0) ? 0.55 : 1;
-  timeScale += (ts - timeScale) * 0.15;
-  const moving = (state === State.DEAD || state === State.OVER) ? 0 : D.speed * timeScale;
-  groundX = (groundX + moving) % 40;
-  cloudX = (cloudX + moving * 0.12) % 360;
-  farX = (farX + moving * 0.25) % 240;
-  hillX = (hillX + moving * 0.45) % 160;
+/* ---------- Kollisjon: sirkel mot avrundet rektangel ---------- */
+function circleRRect(cx, cy, r, x, y, w, h, rad) {
+  const ix = clamp(cx, x + rad, x + w - rad), iy = clamp(cy, y + rad, y + h - rad);
+  const dx = cx - ix, dy = cy - iy;
+  return dx * dx + dy * dy < (r + rad) * (r + rad);
+}
+function hitsPipe(p, groundY) {
+  const r = BIRD_R - 1;
+  return circleRRect(bird.x, bird.y, r, p.x, -20, PIPE_W, p.top - PIPE_CAP_H + 22, 0)
+      || circleRRect(bird.x, bird.y, r, p.x - 5, p.top - PIPE_CAP_H, PIPE_W + 10, PIPE_CAP_H, PIPE_CAP_R)
+      || circleRRect(bird.x, bird.y, r, p.x - 5, p.top + p.gap, PIPE_W + 10, PIPE_CAP_H, PIPE_CAP_R)
+      || circleRRect(bird.x, bird.y, r, p.x, p.top + p.gap + PIPE_CAP_H - 2, PIPE_W, groundY, 0);
+}
 
-  if (transitionT > 0) transitionT = Math.max(0, transitionT - 0.06);
-  if (shake > 0) shake = Math.max(0, shake - 0.9);
-  if (flash > 0) flash = Math.max(0, flash - 0.08);
+/* ---------- Oppdatering (dt i sekunder) ---------- */
+function update(dt) {
+  time += dt;
+  const wantSlow = state === State.PLAY && active.slow > 0;
+  timeScale = lerp(timeScale, wantSlow ? 0.55 : 1, 1 - Math.pow(0.001, dt));
+  if (wantSlow !== slowWas) { Audio.music.slowmo(wantSlow); slowWas = wantSlow; }
+  const gdt = dt * timeScale;      // spilltid
+  const scrolling = state !== State.DEAD && state !== State.OVER;
+  if (scrolling) scroll += D.speed * gdt;
 
-  const groundY = H - GROUND_H;
-  const idleY = groundY * 0.42;
+  transitionT = Math.max(0, transitionT - dt * 3.5);
+  shake = Math.max(0, shake - dt * 55);
+  flash = Math.max(0, flash - dt * 4.5);
+  scorePop = Math.max(0, scorePop - dt * 5);
+
+  const groundY = H - GROUND_H, idleY = groundY * 0.42;
 
   if (state === State.MENU || state === State.READY) {
-    bird.y = idleY + Math.sin(time * 3.2) * 6; bird.rot = Math.sin(time * 3.2 + 1) * 0.08; bird.flapT += 1;
+    bird.y = idleY + Math.sin(time * 3.2) * 6; bird.rot = Math.sin(time * 3.2 + 1) * 0.08; bird.flapT += dt;
+    bird.sx = lerp(bird.sx, 1, dt * 10); bird.sy = lerp(bird.sy, 1, dt * 10);
   }
 
   if (state === State.PLAY) {
-    bird.vy = Math.min(bird.vy + D.gravity * timeScale, MAX_FALL);
-    bird.y += bird.vy * timeScale; bird.flapT++;
-    const target = bird.vy < 0 ? -0.42 : Math.min(1.35, (bird.vy - 1) * 0.26);
-    bird.rot += (target - bird.rot) * (bird.vy < 0 ? 0.45 : 0.08);
-    if (bird.y < safeTop + 6) { bird.y = safeTop + 6; bird.vy = 0; }
-
+    // tyngdekraft + luftmotstand + terminalfart
+    bird.vy += D.gravity * gdt;
+    bird.vy -= bird.vy * AIR_DRAG * gdt;
+    bird.vy = clamp(bird.vy, -900, TERMINAL);
+    bird.y += bird.vy * gdt;
+    bird.flapT += gdt;
+    // rotasjon som fjær mot målvinkel
+    const target = bird.vy < 0 ? -0.45 : clamp((bird.vy - 60) / 380, 0, 1) * 1.4;
+    const k = bird.vy < 0 ? 140 : 40, damp = bird.vy < 0 ? 16 : 10;
+    bird.angVel += ((target - bird.rot) * k - bird.angVel * damp) * gdt;
+    bird.rot += bird.angVel * gdt;
+    // squash & stretch – fjærer tilbake til 1, strekkes litt ved fall
+    const fallStretch = clamp(bird.vy / TERMINAL, 0, 1) * 0.1;
+    bird.sx = lerp(bird.sx, 1 - fallStretch * 0.5, 1 - Math.pow(0.0005, gdt));
+    bird.sy = lerp(bird.sy, 1 + fallStretch, 1 - Math.pow(0.0005, gdt));
+    if (bird.y < safeTop + 6) { bird.y = safeTop + 6; bird.vy = Math.max(bird.vy, 0); }
+    // fartsspor
+    if (Math.abs(bird.vy) > 200) { trail.push({ x: bird.x, y: bird.y, rot: bird.rot, life: 0.22 }); }
     for (const p of pipes) {
-      p.x -= D.speed * timeScale;
-      if (p.variant === 'moving') { p.phase += p.freq * timeScale; p.top = p.baseTop + Math.sin(p.phase) * p.amp; }
-      if (p.glow > 0) p.glow -= 0.04;
+      p.x -= D.speed * gdt;
+      if (p.variant === 'moving') { p.phase += p.freq * gdt; p.top = p.baseTop + Math.sin(p.phase) * p.amp; }
+      p.glow = Math.max(0, p.glow - dt * 2.5);
     }
     const last = pipes[pipes.length - 1];
     if (last && last.x < W - D.spacing) spawnPipe(last.x + D.spacing);
     if (pipes.length && pipes[0].x < -PIPE_W - 20) pipes.shift();
 
-    if (active.slow > 0) active.slow = Math.max(0, active.slow - STEP);
-    if (active.double > 0) active.double = Math.max(0, active.double - STEP);
+    active.slow = Math.max(0, active.slow - dt); active.double = Math.max(0, active.double - dt);
 
-    // power-ups
     for (const q of powers) {
-      q.x -= D.speed * timeScale; q.t += STEP;
+      q.x -= D.speed * gdt; q.t += dt;
       q.y = q.pipe.top + q.pipe.gap / 2 + Math.sin(q.t * 4) * 4;
       if (!q.taken && Math.hypot(q.x - bird.x, q.y - bird.y) < POWER_R + BIRD_R - 2) collect(q);
     }
     powers = powers.filter(q => !q.taken && q.x > -40);
 
-    // poeng + kollisjon
     for (const p of pipes) {
       if (!p.scored && p.x + PIPE_W / 2 < bird.x) {
-        p.scored = true; p.glow = 1;
+        p.scored = true; p.glow = 1; scorePop = 1;
         const gain = active.double > 0 ? 2 : 1; score += gain;
-        Sound.point(); buzz(12);
-        burst(bird.x + 16, bird.y, 8, ['#FFD23F', '#FFFFFF', '#FFB800'], 1.4, 26, 0.02, 2.5);
+        Audio.point(); buzz(12);
+        burst(bird.x + 16, bird.y, 8, ['#FFD23F', '#FFFFFF', '#FFB800'], 85, 0.45, 150, 2.5);
         if (gain === 2) floatText(bird.x + 4, bird.y - 22, '+2', '#FFB800');
         if (score > best) { best = score; newBest = true; localStorage.setItem(bestKey(), best); }
       }
-      const inX = bird.x + BIRD_R > p.x && bird.x - BIRD_R < p.x + PIPE_W;
-      if (inX && (bird.y - BIRD_R < p.top || bird.y + BIRD_R > p.top + p.gap)) {
-        if (active.shield) { useShield(p); } else { die(false); break; }
+      if (p.x < bird.x + BIRD_R + 6 && p.x + PIPE_W > bird.x - BIRD_R - 6 && hitsPipe(p, groundY)) {
+        if (active.shield) useShield(p); else { die(false, p); break; }
       }
     }
     if (state === State.PLAY && bird.y + BIRD_R >= groundY) { bird.y = groundY - BIRD_R; die(true); }
   }
 
   if (state === State.DEAD) {
-    bird.vy = Math.min(bird.vy + D.gravity * 1.2, MAX_FALL + 2);
-    bird.y += bird.vy; bird.rot = Math.min(1.5, bird.rot + 0.12);
+    // rekyl fra røret, tumling, sprett i bakken
+    bird.vy += D.gravity * 1.15 * dt; bird.vy = Math.min(bird.vy, TERMINAL + 150);
+    bird.vx -= bird.vx * 2.2 * dt;
+    bird.x += bird.vx * dt; bird.y += bird.vy * dt;
+    bird.angVel -= bird.angVel * 1.5 * dt; bird.rot += bird.angVel * dt;
+    bird.sx = lerp(bird.sx, 1, dt * 6); bird.sy = lerp(bird.sy, 1, dt * 6);
+    trail.push({ x: bird.x, y: bird.y, rot: bird.rot, life: 0.2 });
     if (bird.y + BIRD_R >= groundY) {
       bird.y = groundY - BIRD_R;
-      burst(bird.x, groundY, 14, [T.ground, T.groundStripe, '#FFFFFF'], 2, 30, 0.14, 3);
-      state = State.OVER; overT = 0; Sound.swoosh(); buzz([20, 30, 40]);
+      burst(bird.x, groundY, 14, [T.ground, T.groundStripe, '#FFFFFF'], 110, 0.5, 800, 3);
+      Audio.thud(); buzz(30);
+      if (!groundBounced && bird.vy > 220) { groundBounced = true; bird.vy = -bird.vy * 0.32; bird.angVel = 6; bird.sy = 0.7; bird.sx = 1.25; shake = Math.max(shake, 4); }
+      else { bird.vy = 0; bird.vx = 0; bird.angVel = 0; bird.rot = 1.5; state = State.OVER; overT = 0; Audio.swoosh(); Audio.sting(); }
     }
   }
-  if (state === State.OVER) overT = Math.min(3, overT + STEP);
+  if (state === State.OVER) overT = Math.min(3, overT + dt);
 
   for (let i = particles.length - 1; i >= 0; i--) {
-    const q = particles[i]; q.x += q.vx; q.y += q.vy; q.vy += q.grav; q.vx *= 0.98; q.life--;
+    const q = particles[i]; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += q.grav * dt; q.vx -= q.vx * 1.2 * dt; q.life -= dt;
     if (q.life <= 0) particles.splice(i, 1);
   }
-  for (let i = floats.length - 1; i >= 0; i--) { const f = floats[i]; f.y -= 0.7; f.life--; if (f.life <= 0) floats.splice(i, 1); }
+  for (let i = floats.length - 1; i >= 0; i--) { const f = floats[i]; f.y -= 42 * dt; f.life -= dt; if (f.life <= 0) floats.splice(i, 1); }
+  for (let i = trail.length - 1; i >= 0; i--) { trail[i].life -= dt; if (trail[i].life <= 0) trail.splice(i, 1); }
+  for (const m of dust) { m.x -= (D.speed * 0.2 * (scrolling ? 1 : 0) + m.vx) * dt; m.y += Math.sin(time * m.f + m.p) * 6 * dt; if (m.x < -10) { m.x = W + 10; m.y = Math.random() * (groundY - 40); } }
 }
 
 function collect(q) {
   q.taken = true; const P = POWERS[q.kind];
   if (q.kind === 'shield') active.shield = true; else active[q.kind] = P.dur;
-  Sound.power(); buzz([10, 20, 10]);
-  burst(q.x, q.y, 14, [P.color, '#FFFFFF'], 2.2, 30, 0.04, 2.5);
+  Audio.power(); buzz([10, 20, 10]);
+  burst(q.x, q.y, 14, [P.color, '#FFFFFF'], 130, 0.5, 250, 2.5);
   floatText(bird.x + 4, bird.y - 26, P.label, P.color);
 }
 function useShield(p) {
-  active.shield = false; Sound.shieldPop(); buzz([20, 10, 30]);
+  active.shield = false; Audio.shieldPop(); buzz([20, 10, 30]);
   shake = reduceMotion ? 0 : 5; flash = 0.35;
-  burst(bird.x, bird.y, 18, ['#3FA9F5', '#FFFFFF', '#9BD6FF'], 2.6, 32, 0.02, 3);
-  // dytt fuglen til midten av gapet så den ikke treffer igjen umiddelbart
-  bird.y = p.top + p.gap / 2; bird.vy = -1.5;
-  p.scored = true; // ikke gi poeng for et rør du «krasjet gjennom»
+  burst(bird.x, bird.y, 18, ['#3FA9F5', '#FFFFFF', '#9BD6FF'], 160, 0.55, 150, 3);
+  bird.y = p.top + p.gap / 2; bird.vy = -90; p.scored = true;
 }
-function die(onGround) {
-  Sound.hit(); if (!onGround) Sound.die();
+function die(onGround, p) {
+  Audio.hit(); if (!onGround) Audio.die();
   buzz([40, 20, 60]); shake = reduceMotion ? 0 : 9; flash = 1;
-  burst(bird.x, bird.y, 12, ['#3FA9F5', '#FFFFFF', '#FF8A3D'], 2.2, 28, 0.12, 3);
+  burst(bird.x, bird.y, 12, ['#3FA9F5', '#FFFFFF', '#FF8A3D'], 130, 0.5, 700, 3);
   active = { shield: false, slow: 0, double: 0 };
-  if (onGround) { state = State.OVER; overT = 0; bird.rot = 1.5; }
-  else { state = State.DEAD; bird.vy = Math.max(bird.vy, -3); }
+  if (onGround) { state = State.OVER; overT = 0; bird.rot = 1.5; Audio.sting(); }
+  else {
+    state = State.DEAD;
+    // rekyl: bort fra røret og litt opp, med rotasjon
+    const fromRight = p ? bird.x < p.x + PIPE_W / 2 : true;
+    bird.vx = fromRight ? -150 : 90; bird.vy = Math.min(bird.vy, 0) * 0.3 - 160;
+    bird.angVel = fromRight ? 11 : -7; bird.sx = 0.8; bird.sy = 1.2;
+  }
 }
 
-/* ---------- Tegnehjelpere ---------- */
+/* ============================================================
+   TEGNING
+   ============================================================ */
 function rr(x, y, w, h, r) {
   const rad = Math.min(r, w / 2, h / 2);
   ctx.beginPath(); ctx.moveTo(x + rad, y); ctx.arcTo(x + w, y, x + w, y + h, rad); ctx.arcTo(x + w, y + h, x, y + h, rad);
@@ -354,81 +477,121 @@ function text(txt, x, y, size, opts = {}) {
   if (shadow) { ctx.fillStyle = T.textShadow; ctx.fillText(txt, x, y + Math.max(1.5, size * 0.07)); }
   ctx.fillStyle = color; ctx.fillText(txt, x, y); ctx.globalAlpha = 1;
 }
+const wrap = (v, m) => ((v % m) + m) % m;
 
-function drawBackground(groundY) {
+function drawSky(groundY) {
   const g = ctx.createLinearGradient(0, 0, 0, groundY);
-  g.addColorStop(0, T.skyTop); g.addColorStop(1, T.skyBot);
+  g.addColorStop(0, T.skyTop); g.addColorStop(0.55, T.skyMid); g.addColorStop(1, T.skyBot);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, groundY);
-
   if (T.stars) {
     for (const s of stars) { ctx.globalAlpha = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(time * 2 + s.p)); ctx.fillStyle = '#FFF7D6'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill(); }
     ctx.globalAlpha = 1;
   }
-  // sol / måne med glød
+  // sol / måne
   const sx = W - 52, sy = safeTop + 132;
-  const sg = ctx.createRadialGradient(sx, sy, 10, sx, sy, 70);
-  sg.addColorStop(0, T.stars ? 'rgba(255,247,214,.35)' : 'rgba(255,243,176,.55)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = sg; ctx.fillRect(sx - 70, sy - 70, 140, 140);
-  ctx.fillStyle = T.sun; ctx.beginPath(); ctx.arc(sx, sy, 22, 0, 7); ctx.fill();
-  if (T.stars) { ctx.fillStyle = T.skyTop; ctx.beginPath(); ctx.arc(sx + 9, sy - 6, 18, 0, 7); ctx.fill(); }
-
-  // skyer
-  for (let i = -1; i < 2; i++) {
-    const cx = i * 360 - cloudX;
-    cloud(cx + 30, groundY - 250, 1.0); cloud(cx + 160, groundY - 300, 0.75); cloud(cx + 260, groundY - 210, 1.2);
+  const sg = ctx.createRadialGradient(sx, sy, 10, sx, sy, 90);
+  sg.addColorStop(0, T.stars ? 'rgba(255,247,214,.35)' : 'rgba(255,243,176,.6)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = sg; ctx.fillRect(sx - 90, sy - 90, 180, 180);
+  // lysstråler som roterer sakte
+  if (!reduceMotion) {
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(time * 0.05); ctx.fillStyle = T.rays;
+    for (let i = 0; i < 6; i++) { ctx.rotate(Math.PI / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-40, 420); ctx.lineTo(40, 420); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
   }
-  // fjerne åser
-  ctx.fillStyle = T.farHill;
-  ctx.beginPath(); ctx.moveTo(-10, groundY);
-  for (let x = -10; x <= W + 10; x += 6) ctx.lineTo(x, groundY - 44 - Math.sin((x + farX) / 240 * Math.PI * 2) * 22 - Math.cos((x + farX) / 90) * 8);
-  ctx.lineTo(W + 10, groundY); ctx.closePath(); ctx.fill();
-  // nære åser
-  const hg = ctx.createLinearGradient(0, groundY - 40, 0, groundY);
-  hg.addColorStop(0, T.hill); hg.addColorStop(1, T.hillShade);
-  ctx.fillStyle = hg;
-  ctx.beginPath(); ctx.moveTo(-10, groundY);
-  for (let x = -10; x <= W + 10; x += 6) ctx.lineTo(x, groundY - 14 - Math.abs(Math.sin((x + hillX) / 160 * Math.PI)) * 30);
-  ctx.lineTo(W + 10, groundY); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = T.sun; ctx.beginPath(); ctx.arc(sx, sy, 22, 0, 7); ctx.fill();
+  if (T.stars) { ctx.fillStyle = T.skyMid; ctx.beginPath(); ctx.arc(sx + 9, sy - 6, 18, 0, 7); ctx.fill(); }
 }
 function cloud(x, y, s) {
   const c = (dx, dy, r) => { ctx.beginPath(); ctx.arc(x + dx * s, y + dy * s, r * s, 0, 7); ctx.fill(); };
   ctx.fillStyle = T.cloudShade; c(0, 4, 14); c(18, 2, 20); c(38, 4, 14);
   ctx.fillStyle = T.cloud; c(0, 0, 14); c(18, -4, 20); c(38, 0, 14);
 }
+function drawLayers(groundY) {
+  // 1) skyer
+  const cx0 = -wrap(scroll * 0.08, 360);
+  for (let i = -1; i < 2; i++) { const cx = i * 360 + cx0; cloud(cx + 30, groundY - 270, 1.0); cloud(cx + 160, groundY - 320, 0.7); cloud(cx + 260, groundY - 230, 1.25); }
+  // 2) fjell (med snø)
+  const mx = wrap(scroll * 0.12, 260);
+  ctx.fillStyle = T.mountain;
+  ctx.beginPath(); ctx.moveTo(-10, groundY);
+  for (let x = -10; x <= W + 10; x += 5) { const u = (x + mx) / 260 * Math.PI * 2; ctx.lineTo(x, groundY - 92 - Math.abs(Math.sin(u)) * 70 - Math.abs(Math.sin(u * 2.3 + 1)) * 22); }
+  ctx.lineTo(W + 10, groundY); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = T.mountainSnow;
+  for (let x = -10; x <= W + 10; x += 2) {
+    const u = (x + mx) / 260 * Math.PI * 2, h = Math.abs(Math.sin(u)) * 70 + Math.abs(Math.sin(u * 2.3 + 1)) * 22;
+    if (h > 74) ctx.fillRect(x, groundY - 92 - h, 2, (h - 74) * 0.9);
+  }
+  // 3) skog (avrundede trær)
+  const fx = wrap(scroll * 0.25, 48);
+  for (let x = -48 - fx; x < W + 48; x += 48) {
+    const i = Math.round((x + fx) / 48), hgt = 34 + (i % 3) * 9;
+    ctx.fillStyle = i % 2 ? T.forestDark : T.forest;
+    ctx.beginPath(); ctx.moveTo(x, groundY - 36); ctx.lineTo(x + 16, groundY - 36 - hgt); ctx.lineTo(x + 32, groundY - 36); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x + 24, groundY - 30); ctx.lineTo(x + 38, groundY - 30 - hgt * 0.7); ctx.lineTo(x + 52, groundY - 30); ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle = T.forestDark; ctx.fillRect(0, groundY - 40, W, 40);
+  // 4) åser
+  const hg = ctx.createLinearGradient(0, groundY - 44, 0, groundY); hg.addColorStop(0, T.hill); hg.addColorStop(1, T.hillShade);
+  ctx.fillStyle = hg; const hx = wrap(scroll * 0.45, 160);
+  ctx.beginPath(); ctx.moveTo(-10, groundY);
+  for (let x = -10; x <= W + 10; x += 5) ctx.lineTo(x, groundY - 12 - Math.abs(Math.sin((x + hx) / 160 * Math.PI)) * 32);
+  ctx.lineTo(W + 10, groundY); ctx.closePath(); ctx.fill();
+  // 5) busker + blomster foran åsene
+  const bx = wrap(scroll * 0.7, 120);
+  for (let x = -120 - bx; x < W + 120; x += 120) {
+    ctx.fillStyle = T.bush; ctx.beginPath(); ctx.arc(x + 20, groundY - 4, 14, 0, 7); ctx.arc(x + 38, groundY - 6, 17, 0, 7); ctx.arc(x + 56, groundY - 3, 12, 0, 7); ctx.fill();
+    ctx.fillStyle = T.bushLight; ctx.beginPath(); ctx.arc(x + 34, groundY - 12, 9, 0, 7); ctx.fill();
+    ctx.fillStyle = '#FF6B9A'; ctx.beginPath(); ctx.arc(x + 86, groundY - 5, 2.5, 0, 7); ctx.fill();
+    ctx.fillStyle = '#FFD23F'; ctx.beginPath(); ctx.arc(x + 98, groundY - 4, 2.5, 0, 7); ctx.fill();
+  }
+}
 function drawGround(groundY) {
   ctx.fillStyle = T.ground; ctx.fillRect(0, groundY, W, GROUND_H);
-  const g = ctx.createLinearGradient(0, groundY, 0, groundY + 14);
-  g.addColorStop(0, T.groundTop); g.addColorStop(1, T.groundTop2);
-  ctx.fillStyle = g; ctx.fillRect(0, groundY, W, 14);
-  ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(0, groundY + 14, W, 2);
-  ctx.fillStyle = T.groundStripe;
-  for (let x = -40 - groundX; x < W + 40; x += 40) { rr(x, groundY + 26, 22, 6, 3); ctx.fill(); rr(x + 24, groundY + 44, 12, 6, 3); ctx.fill(); }
+  const g = ctx.createLinearGradient(0, groundY, 0, groundY + 16); g.addColorStop(0, T.groundTop); g.addColorStop(1, T.groundTop2);
+  ctx.fillStyle = g; ctx.fillRect(0, groundY, W, 16);
+  // gresstrå som vaier
+  const gx = wrap(scroll, 14);
+  ctx.strokeStyle = T.groundTop; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  for (let x = -14 - gx; x < W + 14; x += 14) {
+    const sway = Math.sin(time * 3 + x * 0.3) * 2;
+    ctx.beginPath(); ctx.moveTo(x, groundY + 1); ctx.quadraticCurveTo(x + 1 + sway, groundY - 5, x + 3 + sway, groundY - 9); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(0, groundY + 16, W, 2);
+  // sti
+  ctx.fillStyle = T.path; rr(-10, groundY + 30, W + 20, 26, 12); ctx.fill();
+  ctx.fillStyle = T.groundStripe; const sx = wrap(scroll, 40);
+  for (let x = -40 - sx; x < W + 40; x += 40) { rr(x, groundY + 40, 22, 6, 3); ctx.fill(); rr(x + 24, groundY + 66, 12, 6, 3); ctx.fill(); }
   ctx.fillStyle = 'rgba(0,0,0,.05)';
-  for (let x = -40 - groundX * 1.0; x < W + 40; x += 40) { ctx.beginPath(); ctx.moveTo(x, groundY); ctx.lineTo(x + 16, groundY); ctx.lineTo(x + 8, groundY + 14); ctx.lineTo(x - 8, groundY + 14); ctx.closePath(); ctx.fill(); }
+  for (let x = -40 - sx; x < W + 40; x += 40) { ctx.beginPath(); ctx.moveTo(x, groundY); ctx.lineTo(x + 16, groundY); ctx.lineTo(x + 8, groundY + 16); ctx.lineTo(x - 8, groundY + 16); ctx.closePath(); ctx.fill(); }
 }
 
+function pipeGradient(x0, x1) {
+  const g = ctx.createLinearGradient(x0, 0, x1, 0);
+  g.addColorStop(0, T.pipeDark); g.addColorStop(0.16, T.pipeLight); g.addColorStop(0.5, T.pipe); g.addColorStop(0.85, T.pipeDark); g.addColorStop(1, T.pipeDark);
+  return g;
+}
+function drawPipeShadow(p, groundY) {
+  ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.beginPath(); ctx.ellipse(p.x + PIPE_W / 2 + 6, groundY + 6, PIPE_W / 2 + 10, 5, 0, 0, 7); ctx.fill();
+}
 function drawPipe(p, groundY) {
   const x = p.x;
   const accent = p.variant === 'moving' ? '#FF8A3D' : p.variant === 'narrow' ? '#B06BFF' : null;
   const body = (y, h) => {
-    const g = ctx.createLinearGradient(x, 0, x + PIPE_W, 0);
-    g.addColorStop(0, T.pipeDark); g.addColorStop(0.18, T.pipeLight); g.addColorStop(0.55, T.pipe); g.addColorStop(1, T.pipeDark);
-    ctx.fillStyle = g; ctx.fillRect(x, y, PIPE_W, h);
-    ctx.fillStyle = 'rgba(255,255,255,.28)'; rr(x + 8, y, 6, h, 3); ctx.fill();
+    ctx.fillStyle = pipeGradient(x, x + PIPE_W); ctx.fillRect(x, y, PIPE_W, h);
+    ctx.fillStyle = 'rgba(255,255,255,.3)'; rr(x + 8, y, 6, h, 3); ctx.fill();
+    // ringer på røret
+    ctx.fillStyle = 'rgba(0,0,0,.09)';
+    for (let ry = y + 30; ry < y + h - 10; ry += 46) ctx.fillRect(x, ry, PIPE_W, 4);
   };
   const cap = y => {
-    ctx.fillStyle = 'rgba(0,0,0,.15)'; rr(x - 5, y + 3, PIPE_W + 10, PIPE_CAP_H, 7); ctx.fill();
-    const g = ctx.createLinearGradient(x - 5, 0, x + PIPE_W + 5, 0);
-    g.addColorStop(0, T.pipeDark); g.addColorStop(0.18, T.pipeLight); g.addColorStop(0.55, T.pipe); g.addColorStop(1, T.pipeDark);
-    ctx.fillStyle = g; rr(x - 5, y, PIPE_W + 10, PIPE_CAP_H, 7); ctx.fill();
-    if (accent) {
-      ctx.fillStyle = accent; rr(x - 5, y, PIPE_W + 10, PIPE_CAP_H, 7); ctx.fill();
-      ctx.save(); rr(x - 5, y, PIPE_W + 10, PIPE_CAP_H, 7); ctx.clip();
-      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(x + PIPE_W - 14, y, 20, PIPE_CAP_H);
-      ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x - 5, y, 22, PIPE_CAP_H); ctx.restore();
-    }
-    ctx.fillStyle = 'rgba(255,255,255,.3)'; rr(x + 3, y + 4, 10, PIPE_CAP_H - 8, 4); ctx.fill();
-    ctx.strokeStyle = T.pipeEdge; ctx.lineWidth = 1.5; rr(x - 5, y, PIPE_W + 10, PIPE_CAP_H, 7); ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; rr(x - 5, y + 3, PIPE_W + 10, PIPE_CAP_H, PIPE_CAP_R); ctx.fill();
+    ctx.fillStyle = accent || pipeGradient(x - 5, x + PIPE_W + 5); rr(x - 5, y, PIPE_W + 10, PIPE_CAP_H, PIPE_CAP_R); ctx.fill();
+    ctx.save(); rr(x - 5, y, PIPE_W + 10, PIPE_CAP_H, PIPE_CAP_R); ctx.clip();
+    if (accent) { ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(x + PIPE_W - 14, y, 20, PIPE_CAP_H); ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x - 5, y, 22, PIPE_CAP_H); }
+    ctx.fillStyle = 'rgba(255,255,255,.32)'; rr(x + 3, y + 4, 10, PIPE_CAP_H - 8, 4); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(x - 5, y + PIPE_CAP_H - 5, PIPE_W + 10, 5);
+    ctx.restore();
+    ctx.strokeStyle = T.pipeEdge; ctx.lineWidth = 1.5; rr(x - 5, y, PIPE_W + 10, PIPE_CAP_H, PIPE_CAP_R); ctx.stroke();
   };
   body(-10, p.top - PIPE_CAP_H + 12); cap(p.top - PIPE_CAP_H);
   const by = p.top + p.gap;
@@ -437,8 +600,7 @@ function drawPipe(p, groundY) {
 }
 
 function drawPower(q) {
-  const P = POWERS[q.kind];
-  const pulse = 1 + Math.sin(q.t * 5) * 0.06;
+  const P = POWERS[q.kind], pulse = 1 + Math.sin(q.t * 5) * 0.06;
   const g = ctx.createRadialGradient(q.x, q.y, 4, q.x, q.y, POWER_R * 2.2);
   g.addColorStop(0, P.glow); g.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = g; ctx.fillRect(q.x - 30, q.y - 30, 60, 60);
@@ -449,47 +611,73 @@ function drawPower(q) {
   ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
   if (q.kind === 'shield') { ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(6, -3.5); ctx.lineTo(5, 3); ctx.lineTo(0, 7); ctx.lineTo(-5, 3); ctx.lineTo(-6, -3.5); ctx.closePath(); ctx.stroke(); }
   else if (q.kind === 'slow') { ctx.beginPath(); ctx.arc(0, 0, 6.5, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -3.5); ctx.lineTo(0, 0.5); ctx.lineTo(3, 2.5); ctx.stroke(); }
-  else { text('×2', 0, 0.5, 11, { color: '#FFFFFF', shadow: false }); }
+  else text('×2', 0, 0.5, 11, { color: '#FFFFFF', shadow: false });
   ctx.restore();
 }
 
-function drawBird() {
-  ctx.save(); ctx.translate(bird.x, bird.y); ctx.rotate(bird.rot);
-  // skygge
-  ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.beginPath(); ctx.ellipse(1, 4, 15, 12, 0, 0, 7); ctx.fill();
+function birdShape(ghost) {
   // kropp
   const bg = ctx.createRadialGradient(-5, -6, 2, 0, 0, 18);
-  bg.addColorStop(0, '#6FC4FF'); bg.addColorStop(1, '#2F8FDD');
-  ctx.fillStyle = bg; ctx.beginPath(); ctx.ellipse(0, 0, 15, 12, 0, 0, 7); ctx.fill();
+  bg.addColorStop(0, '#74C8FF'); bg.addColorStop(0.7, '#3FA9F5'); bg.addColorStop(1, '#2A85CF');
+  ctx.fillStyle = ghost ? '#3FA9F5' : bg; ctx.beginPath(); ctx.ellipse(0, 0, 15, 12, 0, 0, 7); ctx.fill();
+  if (ghost) return;
+  // halefjær
+  ctx.fillStyle = '#2B7FC4';
+  ctx.beginPath(); ctx.moveTo(-12, -2); ctx.lineTo(-22, -7); ctx.lineTo(-19, -1); ctx.lineTo(-23, 4); ctx.lineTo(-12, 4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#3FA9F5'; ctx.beginPath(); ctx.moveTo(-13, -1); ctx.lineTo(-19, -4); ctx.lineTo(-17, 1); ctx.closePath(); ctx.fill();
+  // fjærtopp
+  ctx.strokeStyle = '#2B7FC4'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-2, -11); ctx.quadraticCurveTo(-4, -17, -9, -16); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -11.5); ctx.quadraticCurveTo(0, -18, -4, -19); ctx.stroke();
   // mage
   ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.ellipse(-3, 4.5, 8.5, 5.5, 0, 0, 7); ctx.fill();
-  // vinge (flakse-animasjon)
-  const t = Math.min(bird.flapT, 18) / 18;
-  const wingA = (state === State.PLAY ? Math.sin(t * Math.PI) * -1.1 : Math.sin(time * 9) * 0.35) + 0.35;
+  // vinge – fjærsegmenter
+  const t = Math.min(bird.flapT, 0.3) / 0.3;
+  const wingA = (state === State.PLAY || state === State.DEAD ? Math.sin(t * Math.PI) * -1.15 : Math.sin(time * 9) * 0.35) + 0.35;
   ctx.save(); ctx.translate(-5, -1); ctx.rotate(wingA);
-  ctx.fillStyle = '#2B7FC4'; ctx.beginPath(); ctx.ellipse(-4, 2, 9, 5, 0.25, 0, 7); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.beginPath(); ctx.ellipse(-5, 0.5, 6, 2.2, 0.25, 0, 7); ctx.fill();
+  ctx.fillStyle = '#2B7FC4'; ctx.beginPath(); ctx.ellipse(-4, 2, 9.5, 5, 0.25, 0, 7); ctx.fill();
+  ctx.fillStyle = '#246BA8';
+  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(-9 - i * 1.5, 4.5 + i * 0.8, 4, 2.2, 0.35, 0, 7); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.beginPath(); ctx.ellipse(-4, -0.5, 6, 2.2, 0.25, 0, 7); ctx.fill();
   ctx.restore();
-  // øye
-  ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(6, -4, 5.2, 0, 7); ctx.fill();
-  ctx.fillStyle = '#1B1C26'; ctx.beginPath(); ctx.arc(7.5, -4, 2.6, 0, 7); ctx.fill();
-  ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(8.4, -5, 0.9, 0, 7); ctx.fill();
-  // nebb
-  ctx.fillStyle = '#FF8A3D'; ctx.beginPath(); ctx.moveTo(10, 1); ctx.quadraticCurveTo(20, -1, 21, 2.5); ctx.quadraticCurveTo(20, 6, 10, 5.5); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#E86F22'; ctx.beginPath(); ctx.moveTo(11, 3.6); ctx.lineTo(20, 3.2); ctx.lineTo(19, 4.6); ctx.lineTo(11, 5.4); ctx.closePath(); ctx.fill();
+  // kinn
+  ctx.fillStyle = 'rgba(255,120,150,.35)'; ctx.beginPath(); ctx.ellipse(6, 3, 3.5, 2.2, 0, 0, 7); ctx.fill();
+  // øye med bryn
+  ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(6, -4, 5.4, 0, 7); ctx.fill();
+  ctx.fillStyle = '#1B1C26'; ctx.beginPath(); ctx.arc(7.5, -4, 2.7, 0, 7); ctx.fill();
+  ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(8.5, -5.2, 1, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#2A85CF'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(2, -10); ctx.quadraticCurveTo(7, -12, 11, -9); ctx.stroke();
+  // nebb (åpner litt når fuglen flakser)
+  const open = state === State.PLAY ? (1 - t) * 1.6 : 0;
+  ctx.fillStyle = '#FF8A3D'; ctx.beginPath(); ctx.moveTo(10, 0); ctx.quadraticCurveTo(20, -2 - open, 21.5, 1.5 - open); ctx.quadraticCurveTo(18, 3, 10, 3.2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#E86F22'; ctx.beginPath(); ctx.moveTo(10, 3.4); ctx.quadraticCurveTo(18, 3.6 + open, 20.5, 4.4 + open); ctx.quadraticCurveTo(17, 6.5 + open, 10, 5.6); ctx.closePath(); ctx.fill();
+}
+function drawBird() {
+  // fartsspor
+  for (const g of trail) {
+    ctx.save(); ctx.globalAlpha = g.life / 0.22 * 0.22; ctx.translate(g.x, g.y); ctx.rotate(g.rot); birdShape(true); ctx.restore();
+  }
+  ctx.save(); ctx.translate(bird.x, bird.y);
+  ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.beginPath(); ctx.ellipse(1, 4, 15 * bird.sx, 12 * bird.sy, bird.rot, 0, 7); ctx.fill();
+  ctx.rotate(bird.rot); ctx.scale(bird.sx, bird.sy);
+  birdShape(false);
   ctx.restore();
-  // skjold-ring (roterer ikke med fuglen)
   if (active.shield) {
-    const r = BIRD_R + 9 + Math.sin(time * 6) * 1.2;
-    ctx.strokeStyle = 'rgba(63,169,245,.9)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(bird.x, bird.y, r, 0, 7); ctx.stroke();
-    ctx.fillStyle = 'rgba(63,169,245,.14)'; ctx.fill();
+    const r = BIRD_R + 10 + Math.sin(time * 6) * 1.2;
+    ctx.fillStyle = 'rgba(63,169,245,.14)'; ctx.beginPath(); ctx.arc(bird.x, bird.y, r, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(63,169,245,.9)'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bird.x, bird.y, r, time * 3, time * 3 + 1.2); ctx.stroke();
   }
 }
 
 function drawParticles() {
-  for (const q of particles) { ctx.globalAlpha = Math.max(0, q.life / q.max); ctx.fillStyle = q.c; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, 7); ctx.fill(); }
-  for (const f of floats) text(f.txt, f.x, f.y, 13, { color: f.color, alpha: Math.min(1, f.life / 20) });
+  for (const q of particles) { ctx.globalAlpha = clamp(q.life / q.max, 0, 1); ctx.fillStyle = q.c; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, 7); ctx.fill(); }
   ctx.globalAlpha = 1;
+  for (const f of floats) text(f.txt, f.x, f.y, 13, { color: f.color, alpha: clamp(f.life / 0.3, 0, 1) });
+}
+function drawDust() {
+  ctx.fillStyle = T.stars ? 'rgba(255,247,214,.35)' : 'rgba(255,255,255,.55)';
+  for (const m of dust) { ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 7); ctx.fill(); }
 }
 
 function button(key, x, y, w, h, label, fn, opts = {}) {
@@ -517,27 +705,23 @@ function drawMedal(x, y, m) {
   const g = ctx.createRadialGradient(x - 6, y - 6, 2, x, y, 20); g.addColorStop(0, '#FFFFFF'); g.addColorStop(0.35, c); g.addColorStop(1, d);
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 20, 0, 7); ctx.fill();
   ctx.strokeStyle = d; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 14, 0, 7); ctx.stroke();
-  // stjerne
   ctx.fillStyle = d; ctx.beginPath();
   for (let i = 0; i < 10; i++) { const r = i % 2 ? 4 : 9, a = -Math.PI / 2 + i * Math.PI / 5; ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); }
   ctx.closePath(); ctx.fill();
   if (!reduceMotion) { const sp = (time * 1.4) % 1; if (sp < 0.25) { ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.arc(x - 12 + sp * 96, y - 12, 2.5, 0, 7); ctx.fill(); } }
 }
-
 function drawActiveHud(y) {
   const items = [];
   if (active.shield) items.push(['shield', 1]);
   if (active.slow > 0) items.push(['slow', active.slow / POWERS.slow.dur]);
   if (active.double > 0) items.push(['double', active.double / POWERS.double.dur]);
-  if (!items.length) return;
-  const w = 118, h = 20, gapY = 6;
-  let yy = y;
+  const w = 118, h = 20; let yy = y;
   for (const [k, frac] of items) {
     const P = POWERS[k], x = (W - w) / 2;
     ctx.fillStyle = 'rgba(0,0,0,.28)'; rr(x, yy, w, h, h / 2); ctx.fill();
-    ctx.fillStyle = P.color; ctx.save(); rr(x, yy, w, h, h / 2); ctx.clip(); ctx.fillRect(x, yy, w * (k === 'shield' ? 1 : frac), h); ctx.restore();
+    ctx.save(); rr(x, yy, w, h, h / 2); ctx.clip(); ctx.fillStyle = P.color; ctx.fillRect(x, yy, w * frac, h); ctx.restore();
     text(P.label, x + w / 2, yy + h / 2 + 0.5, 11, { shadow: false, weight: 600 });
-    yy += h + gapY;
+    yy += h + 6;
   }
 }
 
@@ -547,7 +731,10 @@ function render() {
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
   if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
 
-  drawBackground(groundY);
+  drawSky(groundY);
+  drawLayers(groundY);
+  drawDust();
+  for (const p of pipes) drawPipeShadow(p, groundY);
   for (const p of pipes) drawPipe(p, groundY);
   for (const q of powers) drawPower(q);
   drawGround(groundY);
@@ -562,14 +749,14 @@ function render() {
     text('Pixelfugl', W / 2, ty, 40, { color: '#FFD23F' });
     text('Trykk for å flakse', W / 2, groundY * 0.58, 15, { weight: 600 });
     if (best > 0) text(`Beste (${D.label.toLowerCase()}): ${best}`, W / 2, groundY * 0.58 + 24, 12, { weight: 600, color: '#FFD23F' });
-    // vanskelighetsgrad
     const bw = 76, bh = 30, gapX = 8, total = bw * 3 + gapX * 2, x0 = (W - total) / 2, y0 = groundY * 0.58 + 52;
     text('Vanskelighet', W / 2, y0 - 12, 11, { weight: 600, alpha: 0.85 });
     let i = 0;
-    for (const k in DIFFS) { const on = k === diffName; button('d_' + k, x0 + i * (bw + gapX), y0, bw, bh, DIFFS[k].label, () => setDiff(k), { fill: DIFFS[k].color, active: on, size: 13 }); i++; }
-    // nedre knapper
-    button('sound', 18, groundY + 30, 100, 32, Sound.muted ? 'Lyd av' : 'Lyd på', () => Sound.toggle(), { active: !Sound.muted });
-    button('theme', W - 118, groundY + 30, 100, 32, themeName === 'day' ? 'Dag' : 'Natt', toggleTheme, { fill: themeName === 'day' ? '#FFD23F' : '#B9C6FF' });
+    for (const k in DIFFS) { const on = k === diffName; button('d_' + k, x0 + i * (bw + gapX), y0, bw, bh, DIFFS[k].label, () => setDiff(k), { fill: DIFFS[k].color, active: on }); i++; }
+    const w3 = 80, g3 = 8, x3 = (W - (w3 * 3 + g3 * 2)) / 2, y3 = groundY + 32;
+    button('sound', x3, y3, w3, 30, Audio.sfxMuted ? 'Lyd av' : 'Lyd på', () => Audio.toggleSfx(), { active: !Audio.sfxMuted, size: 12 });
+    button('music', x3 + w3 + g3, y3, w3, 30, Audio.musMuted ? 'Musikk av' : 'Musikk', () => Audio.toggleMusic(), { active: !Audio.musMuted, fill: '#FF9BC0', size: 12 });
+    button('theme', x3 + (w3 + g3) * 2, y3, w3, 30, themeName === 'day' ? 'Dag' : 'Natt', toggleTheme, { fill: themeName === 'day' ? '#FFD23F' : '#B9C6FF', size: 12 });
   }
 
   if (state === State.READY) {
@@ -582,7 +769,8 @@ function render() {
   }
 
   if (state === State.PLAY || state === State.DEAD) {
-    text(String(score), W / 2, topY + 16, 40);
+    const pop = 1 + scorePop * 0.35;
+    ctx.save(); ctx.translate(W / 2, topY + 16); ctx.scale(pop, pop); text(String(score), 0, 0, 40); ctx.restore();
     drawActiveHud(topY + 46);
   }
 
@@ -599,21 +787,22 @@ function render() {
     text(String(shown), pxx + pw - 26, py + 54, 28, { align: 'right', color: '#2B2400', shadow: false });
     text('Beste', pxx + pw - 26, py + 84, 12, { align: 'right', color: '#8E8760', shadow: false, weight: 600 });
     text(String(best), pxx + pw - 26, py + 108, 28, { align: 'right', color: '#2B2400', shadow: false });
-    if (newBest && shown === score) {
-      ctx.fillStyle = '#FF6B57'; rr(pxx + pw - 118, py + 74, 34, 18, 9); ctx.fill();
-      text('Ny!', pxx + pw - 101, py + 83.5, 11, { shadow: false, weight: 600 });
-    }
+    if (newBest && shown === score) { ctx.fillStyle = '#FF6B57'; rr(pxx + pw - 118, py + 74, 34, 18, 9); ctx.fill(); text('Ny!', pxx + pw - 101, py + 83.5, 11, { shadow: false, weight: 600 }); }
     text(D.label, pxx + 48, py + 22, 11, { color: D.color, shadow: false, weight: 600 });
     if (overT > 0.9) text('Trykk for å prøve igjen', W / 2, py + ph + 30, 14, { weight: 600, alpha: 0.6 + 0.4 * Math.sin(time * 5) });
   }
 
+  // vignett
+  const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.8);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, T.vignette);
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  if (state === State.PLAY && active.slow > 0) {
+    const sg = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
+    sg.addColorStop(0, 'rgba(176,107,255,0)'); sg.addColorStop(1, 'rgba(176,107,255,.3)');
+    ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H);
+  }
   if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash * 0.8})`; ctx.fillRect(-20, -20, W + 40, H + 40); }
   if (transitionT > 0) { ctx.fillStyle = `rgba(0,0,0,${transitionT * 0.45})`; ctx.fillRect(0, 0, W, H); }
-  if (state === State.PLAY && active.slow > 0) {
-    const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
-    vg.addColorStop(0, 'rgba(176,107,255,0)'); vg.addColorStop(1, 'rgba(176,107,255,.28)');
-    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
-  }
   ctx.restore();
 }
 
@@ -623,27 +812,27 @@ function resize() {
   const vw = window.innerWidth, vh = window.innerHeight;
   scale = vw / LOGICAL_W; W = LOGICAL_W; H = Math.round(vh / scale);
   const probe = document.createElement('div');
-  probe.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);visibility:hidden';
-  document.body.appendChild(probe);
-  const pr = probe.getBoundingClientRect();
-  safeTop = Math.round(pr.top / scale); safeBottom = Math.round((vh - pr.bottom) / scale);
-  probe.remove();
+  probe.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);visibility:hidden';
+  document.body.appendChild(probe); safeTop = Math.round(probe.getBoundingClientRect().top / scale); probe.remove();
   canvas.width = Math.round(vw * dpr); canvas.height = Math.round(vh * dpr);
   canvas.style.width = vw + 'px'; canvas.style.height = vh + 'px';
-  stars = Array.from({ length: 50 }, () => ({ x: Math.random() * W, y: Math.random() * (H - GROUND_H - 140), r: Math.random() < 0.3 ? 1.6 : 1, p: Math.random() * 10 }));
-  if (bird && state !== State.PLAY) bird.y = (H - GROUND_H) * 0.42;
+  const groundY = H - GROUND_H;
+  stars = Array.from({ length: 50 }, () => ({ x: Math.random() * W, y: Math.random() * (groundY - 200), r: Math.random() < 0.3 ? 1.6 : 1, p: Math.random() * 10 }));
+  dust = Array.from({ length: 18 }, () => ({ x: Math.random() * W, y: Math.random() * (groundY - 40), r: 0.8 + Math.random() * 1.2, vx: 4 + Math.random() * 10, f: 0.5 + Math.random(), p: Math.random() * 6 }));
+  if (bird && state !== State.PLAY) bird.y = groundY * 0.42;
 }
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 120));
 
-/* ---------- Løkke ---------- */
+/* ---------- Løkke: fast fysikk-steg, render hver frame ---------- */
 let lastTime = 0, acc = 0;
 function loop(t) {
   if (!lastTime) lastTime = t;
   let dt = (t - lastTime) / 1000; lastTime = t;
   if (dt > 0.1) dt = 0.1;
   acc += dt;
-  while (acc >= STEP) { update(); acc -= STEP; }
+  let n = 0;
+  while (acc >= STEP && n++ < 12) { update(STEP); acc -= STEP; }
   render();
   requestAnimationFrame(loop);
 }
