@@ -1,0 +1,22 @@
+{
+  "name": "Pixelfugl",
+  "short_name": "Pixelfugl",
+  "description": "Et retro flakse-spill med moderne effekter. Trykk for å flakse.",
+  "lang": "nb",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "portrait",
+  "background_color": "#5BC8F0",
+  "theme_color": "#5BC8F0",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "icons/screenshot-portrait.png", "sizes": "540x1170", "type": "image/png", "form_factor": "narrow", "label": "Pixelfugl i spill" }
+  ]
+}
