@@ -4,6 +4,9 @@
 **Omfang:** `index.html` (hele spillet), `sw.js`, `manifest.webmanifest`, `make_icons.py`, ikoner
 **Metode:** Kodegjennomgang linje for linje + kjøring i Chromium (Galaxy-format, 412 × 915, DPR 2–2,6) med skjermbilder fra meny, spill, krasj og game over, i dag- og nattema.
 
+> **Status:** Fase 1 er gjennomført (se seksjon 10). Kunstnerisk retning for fase 2
+> er valgt: **bjørkestammer** som hinder.
+
 ---
 
 ## 1. Sammendrag
@@ -109,8 +112,9 @@ Bra utgangspunkt, men:
 
 ### 3.10 Ikoner (Lav)
 `make_icons.py` tar imot `maskable`, men bruker den aldri. `icon-maskable-512.png` er
-**byte-for-byte identisk** med `icon-512.png`, så Android kan klippe bort deler av fuglen i
-runde/firkantede ikonmasker. **Tiltak:** Skaler motivet ned til trygg sone (ca. 80 %) for maskable.
+**byte-for-byte identisk** med `icon-512.png`. Ved nærmere sjekk ligger fuglen akkurat innenfor
+den sikre sonen (sirkel med diameter 80 %), men uten margin, og vingen nesten treffer kanten i
+runde ikonmasker. **Tiltak:** Skaler motivet litt ned for maskable, slik at det får luft.
 
 ---
 
@@ -366,7 +370,7 @@ mot hverandre.
 
 Forslaget er delt i faser slik at hver fase kan leveres, testes og vurderes for seg.
 
-### Fase 1: Rett feil og grunnmur (fra «hjemmelaget» til «solid»)
+### Fase 1: Rett feil og grunnmur (fra «hjemmelaget» til «solid») ✅ Gjennomført
 1. Render-interpolering mellom fysikk-steg (4.1).
 2. Fjern/erstatt fartssporet (5.1), fjern hvit blits, myk risting (5.2).
 3. Fiks snøtopper (3.1) og månen (3.2).
