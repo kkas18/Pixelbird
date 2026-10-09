@@ -1117,11 +1117,14 @@ function drawTrunkShadow(p, groundY) {
 function drawTrunk(p, groundY) {
   const ry = END_H / 2 - 0.5, by = p.top + p.gap;
   ctx.save(); ctx.translate(p.x, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const sq = p.sq, behind = sq && ip(sq.pout, sq.out) < 0.95;   // ekornet bak stammen (gjemmer seg eller titter fram)
+  if (behind) drawSquirrel(p, groundY);
   trunkBody(p, 'top', -10, p.top - ry, p.marksTop, p.top - ry, -1, p.seed);
   trunkBody(p, 'bot', by + ry, groundY + 2, p.marksBot, by + ry, 1, p.seed + 1);
   trunkDecor(p, p.top - ry, by + ry, groundY);
   trunkEnd(p, p.top - ry, false);
   trunkEnd(p, by + ry, true);
+  if (sq && !behind) drawSquirrel(p, groundY);
   ctx.restore();
   if (p.glow > 0) {   // varm glød i åpningen når man får poeng
     const cx = p.x + PIPE_W / 2, cy = p.top + p.gap / 2, gg = ctx.createRadialGradient(cx, cy, 2, cx, cy, p.gap * 0.6);
@@ -1209,6 +1212,79 @@ function trunkDecor(p, upBot, loTop, groundY) {
   if (d.sprigBot) { const y = loTop + d.sprigBotD; if (y < groundY - 20) sprig(d.sprigBot < 0 ? 0 : w, y, d.sprigBot, autumn); }
   if (d.sprigTop) { const y = upBot - d.sprigTopD; if (y > safeTop) sprig(d.sprigTop < 0 ? 0 : w, y, d.sprigTop, autumn); }
   if (d.owl) { const y = upBot - d.owlD; if (y > safeTop + 16) owl(w * 0.5, y, p.seed); }
+}
+// ekornet: tegnes i stammens koordinater (x = 0 er venstre kant). Grunnformen står i profil med hodet
+// mot +x og magen mot +y; på kanten roteres det så magen ligger mot barken og hodet peker dit det skal.
+const SQ_FUR = { summer: ['#C8632E', '#A94F24', '#FBEBD5'], winter: ['#9C7A66', '#7E5F4E', '#F4EEE6'] };
+function drawSquirrel(p, groundY) {
+  const q = p.sq, ry = END_H / 2 - 0.5, s = ip(q.ps, q.s), out = ip(q.pout, q.out);
+  const fur = SQ_FUR[seasonName === 'winter' ? 'winter' : 'summer'].map(tc);
+  ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  if (q.state === 'sit') {   // sitter oppå snittflaten og gnager på en kongle
+    const nib = reduceMotion ? 0 : loopKeys([[0, 0], [0.12, 1, 'out'], [0.24, 0, 'in'], [0.36, 1, 'out'], [0.48, 0, 'in'], [1.6, 0], [1.75, 0.6, 'out'], [2.1, 0, 'inOut'], [3.2, 0]], q.t + (q.seed % 13) * 0.1);
+    const flick = reduceMotion ? 0 : loopKeys([[0, 0], [2.4, 0], [2.52, 1, 'out'], [2.7, 0, 'back'], [4.1, 0]], q.t + (q.seed % 7) * 0.3);
+    ctx.translate(PIPE_W / 2 + q.side * 6, p.top + p.gap + ry + 1.5); ctx.scale(-q.side, 1);   // vender innover mot midten
+    squirrelSit(fur, nib, flick);
+  } else {
+    const edge = q.side < 0 ? 0 : PIPE_W, k = out, x = edge + q.side * (-7 + 10 * k);   // ute: kroppen griper rundt kanten
+    const y = q.part === 'bot' ? p.top + p.gap + ry + s : p.top - ry - s;
+    const up = q.part === 'bot' ? q.face < 0 : q.face > 0;
+    ctx.translate(x, y);
+    // magen mot stammen: venstre kant = magen mot +x, høyre kant = magen mot -x
+    if (up) { ctx.rotate(-Math.PI / 2); if (q.side > 0) ctx.scale(1, -1); }
+    else { ctx.rotate(Math.PI / 2); if (q.side < 0) ctx.scale(1, -1); }
+    const run = q.phase === 'run' && q.state !== 'hide' && q.state !== 'peek';
+    const g = run ? Math.sin(q.gait * Math.PI * 2) : 0;
+    const flick = reduceMotion || run ? 0 : loopKeys([[0, 0], [1.1, 0], [1.2, 1, 'out'], [1.38, 0, 'back'], [2.3, 0]], q.t + (q.seed % 5) * 0.2);
+    squirrelClimb(fur, g, flick, q.state === 'peek');
+  }
+  ctx.restore();
+}
+function squirrelTail(fur, x0, y0, c1x, c1y, c2x, c2y, x1, y1, w) {   // busket hale: en tykk, myk bue med lysere kant
+  ctx.strokeStyle = T.ink; ctx.lineWidth = w + 2; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.bezierCurveTo(c1x, c1y, c2x, c2y, x1, y1); ctx.stroke();
+  ctx.strokeStyle = fur[1]; ctx.lineWidth = w; ctx.stroke();
+  ctx.strokeStyle = fur[0]; ctx.lineWidth = w * 0.55; ctx.stroke();
+}
+function squirrelHead(fur, x, y, peek) {
+  ctx.fillStyle = fur[0]; ctx.strokeStyle = T.ink; ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.moveTo(x + 1.2, y - 2.2); ctx.quadraticCurveTo(x + 1.6, y - 5.6, x + 2.6, y - 5.4); ctx.quadraticCurveTo(x + 3.6, y - 4.6, x + 3.6, y - 2.4); ctx.closePath(); ctx.fill(); ctx.stroke();   // rundt øre med dusk
+  ctx.strokeStyle = fur[1]; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 2.5, y - 5.4); ctx.lineTo(x + 2.2, y - 6.5); ctx.moveTo(x + 2.7, y - 5.4); ctx.lineTo(x + 3.1, y - 6.3); ctx.stroke();
+  ctx.fillStyle = fur[0]; ctx.strokeStyle = T.ink; ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.ellipse(x, y, 3.4, 2.9, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x + 3, y + 0.6, 1.9, 1.5, 0.2, 0, 7); ctx.fill(); ctx.stroke();   // snute
+  ctx.fillStyle = fur[2]; ctx.beginPath(); ctx.ellipse(x + 1.4, y + 1.6, 1.8, 0.9, 0.2, 0, 7); ctx.fill();   // lys kjake
+  ctx.fillStyle = '#2B211D'; circle(ctx, x + 1.6, y - 0.6, peek ? 1.05 : 0.9); circle(ctx, x + 4.7, y + 0.4, 0.55);   // øye og nese
+  ctx.fillStyle = '#FFFFFF'; circle(ctx, x + 1.9, y - 0.9, 0.35);
+}
+// klatrende ekorn (grunnform: hodet mot +x, magen mot +y); g = galopp (-1..1), flick = haleflikk
+function squirrelClimb(fur, g, flick, peek) {
+  const st = 1 + g * 0.1;
+  squirrelTail(fur, -5, -0.5, -10, -1, -15, -4 - flick * 3, -16, -9 - flick * 3, 5);   // halen henger bak langs stammen og bøyer seg litt ut
+  ctx.strokeStyle = T.ink; ctx.lineWidth = 2.6;   // bein som griper barken
+  ctx.beginPath(); ctx.moveTo(-3, 2); ctx.lineTo(-3 - g * 2.2, 5.2); ctx.moveTo(4, 2); ctx.lineTo(4 + g * 2.2, 5); ctx.stroke();
+  ctx.strokeStyle = fur[1]; ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.fillStyle = fur[0]; ctx.strokeStyle = T.ink; ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.ellipse(0, 0, 6.2 * st, 3.6 / st, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = fur[1]; ctx.beginPath(); ctx.ellipse(-3.2, 0.2, 2.8, 2.6, 0, 0, 7); ctx.fill();   // lår
+  ctx.fillStyle = fur[2]; ctx.beginPath(); ctx.ellipse(0.8, 2.3, 4, 1.1, 0, 0, 7); ctx.fill();      // lys mage
+  squirrelHead(fur, 7.4 * st, -0.8, peek);
+}
+// sittende ekorn (grunnform: står på y = 0, vender mot +x) med kongle i forpotene
+function squirrelSit(fur, nib, flick) {
+  squirrelTail(fur, -3, -2, -10, -6, -9 + flick, -18 - flick * 2, -3, -21 - flick * 2, 5);
+  ctx.fillStyle = fur[1]; ctx.strokeStyle = T.ink; ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.ellipse(-0.5, -2.6, 3.6, 2.6, 0, 0, 7); ctx.fill(); ctx.stroke();   // lår
+  ctx.fillStyle = fur[0]; ctx.beginPath(); ctx.ellipse(0.6, -7, 3.8, 5.6, 0.12, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = fur[2]; ctx.beginPath(); ctx.ellipse(2.4, -6.4, 1.6, 4, 0.12, 0, 7); ctx.fill();   // lys bringe
+  ctx.fillStyle = fur[1]; ctx.beginPath(); ctx.ellipse(3, 0, 2.4, 0.9, 0, 0, 7); ctx.fill();          // bakpote
+  const hy = -13.2 + nib * 0.7;
+  squirrelHead(fur, 2.2, hy, false);
+  // kongle i potene, rett under snuten; den vrir seg litt når ekornet gnager
+  ctx.save(); ctx.translate(5.4, hy + 4.2); ctx.rotate(0.5 + nib * 0.25);
+  ctx.fillStyle = tc('#8A5A33'); ctx.strokeStyle = T.ink; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.ellipse(0, 0, 1.9, 2.8, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = tc('#5E3B22'); ctx.lineWidth = 0.6; ctx.beginPath(); for (const yy of [-1.2, 0, 1.2]) { ctx.moveTo(-1.5, yy); ctx.lineTo(1.5, yy + 0.6); } ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = fur[0]; ctx.strokeStyle = T.ink; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.ellipse(4.2, hy + 5.6, 1.4, 1, 0.3, 0, 7); ctx.fill(); ctx.stroke();   // forpote
 }
 function fungus(x, y, side) {   // kjuker (hyllesopp) på siden av stammen
   ctx.strokeStyle = hexA(T.ink, 0.8); ctx.lineWidth = 1.1;
