@@ -41,6 +41,23 @@ ${recolor.toString()}`;
 function recolor(d, w, h, season, role, play, night) {
   const green = season === 'summer' ? [92, 0.62, 0.86] : season === 'spring' ? [70, 0.55, 1] : null, winter = season === 'winter';
   const haze = night ? [64, 70, 104] : [222, 226, 232];
+  // vinter: lysstyrken jevnet ut i ruter på 4 px (rimfrosten legger seg på flater som vender opp, ikke som støy på
+  // hver kant) og på 16 px (et lys er mye lysere enn det som er rundt det, et lyst løvfelt er det ikke)
+  let ls = null, lc = null, sw = 0, sh = 0, cw = 0;
+  if (winter && role !== 'bark') {
+    sw = Math.max(2, Math.ceil(w / 4)); sh = Math.max(2, Math.ceil(h / 4)); cw = Math.ceil(sw / 4);
+    ls = new Float32Array(sw * sh); lc = new Float32Array(cw * Math.ceil(sh / 4));
+    const n = new Float32Array(sw * sh), nc = new Float32Array(lc.length);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4, k = (y >> 2) * sw + (x >> 2); ls[k] += (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]) / 255; n[k]++; }
+    for (let k = 0; k < ls.length; k++) { ls[k] /= n[k] || 1; const kc = ((k / sw | 0) >> 2) * cw + ((k % sw) >> 2); lc[kc] += ls[k]; nc[kc]++; }
+    for (let k = 0; k < lc.length; k++) lc[k] /= nc[k] || 1;
+  }
+  // utjevnet lysstyrke mellom rutene (bilineært), så rimfrosten får myke kanter og ingen firkanter
+  const lsAt = (fx, fy) => {
+    const x0 = Math.min(sw - 2, Math.max(0, Math.floor(fx))), y0 = Math.min(sh - 2, Math.max(0, Math.floor(fy)));
+    const tx = Math.min(1, Math.max(0, fx - x0)), ty = Math.min(1, Math.max(0, fy - y0)), k = y0 * sw + x0;
+    return (ls[k] * (1 - tx) + ls[k + 1] * tx) * (1 - ty) + (ls[k + sw] * (1 - tx) + ls[k + sw + 1] * tx) * ty;
+  };
   for (let y = 0; y < h; y++) {
     const yf = y / h, soil = role === 'scene' && yf > 0.87, land = role !== 'scene' || yf > 0.42;
     for (let x = 0; x < w; x++) {
@@ -63,11 +80,22 @@ function recolor(d, w, h, season, role, play, night) {
         const lum = (0.3 * r + 0.59 * g + 0.11 * b) / 255;
         if (role === 'bark') { r = r * 0.86 + lum * 255 * 0.1; g = g * 0.9 + lum * 255 * 0.08; b = Math.min(255, b * 0.96 + lum * 255 * 0.12); }
         else {
-          const j = i + 8 * w < d.length ? i + 8 * w : i, below = (0.3 * d[j] + 0.59 * d[j + 1] + 0.11 * d[j + 2]) / 255;
-          const up = Math.min(1, Math.max(0, (lum - below) * 8));
-          const snow = land ? Math.min(1, up * 1.1 + Math.min(1, Math.max(0, (lum - 0.45) * 2.2)) * 0.8) * 0.85 : 0;
+          const mx = Math.max(r, g, b), mn = Math.min(r, g, b), v = mx / 255, s = mx ? (mx - mn) / mx : 0;
+          let hu = mx === mn ? 0 : mx === r ? 60 * (((g - b) / (mx - mn)) % 6) : mx === g ? 60 * ((b - r) / (mx - mn) + 2) : 60 * ((r - g) / (mx - mn) + 4);
+          if (hu < 0) hu += 360;
+          const cx = x >> 2, cy = y >> 2, fx = x / 4 - 0.5, fy = y / 4 - 0.5;
+          const up = Math.min(1, Math.max(0, (lsAt(fx, fy) - lsAt(fx, fy + 1) - 0.015) * 9));
+          const water = hu > 185 && hu < 255 && s > 0.16;   // vann (og himmel i speilingen) får ikke rim
+          let snow = land && !water ? Math.min(1, up + Math.min(1, Math.max(0, (lum - 0.5) * 2)) * 0.55) * 0.8 : 0;
+          // varme lys om kvelden (vinduer, lykter) og falurødt beholder fargen; resten blir kaldt og blekt
+          const around = lc[(cy >> 2) * cw + (cx >> 2)];
+          const lamp = night && land && s > 0.3 && hu > 18 && hu < 66 ? Math.min(1, Math.max(0, (v - 0.72) * 5)) * Math.min(1, Math.max(0, (lum - around - 0.12) * 6)) : 0;
+          const red = s > 0.42 && (hu < 16 || hu > 342) ? 0.55 : 0, keep = Math.max(lamp, red);
+          snow *= 1 - keep;
           const cr = ((lum * 0.75 + r / 255 * 0.25) * 0.88 + 0.04), cg = ((lum * 0.75 + g / 255 * 0.25) * 0.95 + 0.04), cb = ((lum * 0.75 + b / 255 * 0.25) * 1.1 + 0.04);
-          r = (cr * (1 - snow) + 0.94 * snow) * 255; g = (cg * (1 - snow) + 0.96 * snow) * 255; b = (cb * (1 - snow) + 1.0 * snow) * 255;
+          r = (cr * (1 - snow) + 0.94 * snow) * 255 * (1 - keep) + r * keep;
+          g = (cg * (1 - snow) + 0.96 * snow) * 255 * (1 - keep) + g * keep;
+          b = (cb * (1 - snow) + 1.0 * snow) * 255 * (1 - keep) + b * keep;
         }
       }
       if (play) {   // bak spillet: lavere metning og kontrast, og et tynt dislag
@@ -142,13 +170,16 @@ function drawPaintedBackdrop(groundY) {
   // depth planes. Menus remain composed around the original artwork.
   const distance = depthScroll(), offsets = depthOffsets(distance);
   drawDepthPlane(layers.sky, tileW, groundY, offsets.sky, camera * 0.35);
+  if (traveling) drawPaintedSkyLife();
   drawDepthPlane(layers.mountains, tileW, groundY, offsets.mountains, camera * 0.6);
   drawDepthMist(groundY * 0.56, groundY * 0.13, 0.10);
   const woodland = traveling ? paintedWoodlandLayer(T.night) : layers.woodland;
   drawDepthPlane(woodland, tileW, groundY, offsets.woodland, camera * 0.85);
+  if (traveling) drawPaintedMarks(false, groundY);
   drawDepthMist(groundY * 0.75, groundY * 0.10, 0.06);
   // Soil is the gameplay plane: its edge stays at the collision floor.
   drawDepthTiles(layers.soil, tileW, GROUND_H, distance, groundY);
+  if (traveling) drawPaintedMarks(true, groundY);
   if (T.sunLow) {
     const tint = ctx.createLinearGradient(0, 0, 0, groundY);
     tint.addColorStop(0, 'rgba(168,89,100,.26)'); tint.addColorStop(1, 'rgba(232,159,105,.3)');
@@ -199,27 +230,181 @@ function paintedSkyBody() {
   L.pad = 0; skyBodyCache.set(key, L); return L;
 }
 
+// bjørka i lyset fra tiden på døgnet: kjølig og mørkere om kvelden, varm i solnedgangen (samme toner som
+// stammene i det tegnede landskapet). Tonet én gang per bilde og tid; forhåndslages mens fuglen venter.
+const BIRCH_LIGHT = { sunset: ['#F2A07A', 0.18], night: ['#2A2C5A', 0.46] };
+const birchToneCache = new Map();
+function birchFor(tod) {
+  const image = seasonImage('birch'), tone = BIRCH_LIGHT[tod];
+  if (!image || !tone) return image;
+  let e = birchToneCache.get(tod);
+  if (!e || e.src !== image) {
+    const c = document.createElement('canvas'); c.width = image.width; c.height = image.height;
+    const g = c.getContext('2d'); g.drawImage(image, 0, 0);
+    g.globalCompositeOperation = 'source-atop'; g.globalAlpha = tone[1]; g.fillStyle = tone[0]; g.fillRect(0, 0, c.width, c.height);
+    birchToneCache.set(tod, e = { src: image, c });
+  }
+  return e.c;
+}
+const birchImage = () => birchFor(T.night ? 'night' : T.sunLow ? 'sunset' : 'day');
+// lag det som hører til en tid på døgnet ferdig på forhånd (mens fuglen venter på «Klar?»), så byttet midt i
+// runden ikke hakker
+function prewarmPainted(name) {
+  if (!hasPaintedForest()) return;
+  birchFor(name === 'night' ? 'night' : name === 'sunset' ? 'sunset' : 'day');
+  // lagene i panoramaet og skogslaget for denne tiden (ellers lages de i bildet der kvelden kommer)
+  const pano = seasonImage(name === 'night' ? 'panoramaNight' : 'panoramaDay');
+  if (pano) paintedDepthLayers(pano);
+  if (ART.woodland) paintedWoodlandLayer(name === 'night');
+  const entry = sceneCache[name];
+  if (!entry || entry.scene.painted) return;
+  const pT = T, pS = scene; T = entry.T; scene = entry.scene;
+  try { paintedProps(); } finally { T = pT; scene = pS; }
+}
+
+/* ---------- Det tegnede inn i maleriet ----------
+   Landemerkene, ballongen og hytta er tegnet i koden. På maleriet får de samme behandling som bildene bak
+   spillet: myke kanter i stedet for tusj, samme demping (lavere metning og kontrast, et tynt dislag) og malt
+   korn, og en målestokk som passer til trærne i maleriet. Fjorden er skjult bak skogen mens man flyr, så
+   landemerkene står på enga foran skogen og følger den (postkassa står ved stien, i spilleplanet).
+   s = forstørrelse, lift = hvor høyt opp i enga foten står */
+const PAINTED_LM = {
+  stavkirke: { s: 1.45, lift: 6 }, seter: { s: 1.6, lift: 4 }, fyr: { s: 1.5, lift: 6 },
+  elg: { s: 1.55, lift: 3 }, sau: { s: 1.5, lift: 3 }, postkasse: { s: 1.35, path: true }
+};   // (tjernet står ikke på maleriet: der er det vann fra før, og et tjern sett fra siden blir en flat skive)
+const paintedSpeed = kind => PAINTED_LM[kind].path ? 1 : DEPTH_SPEED.woodland;
+// grade: metning og kontrast som foran skogen (mindre dempet enn bildene bak spillet, for det står nærmere);
+// light: malt lys fra sola oppe til høyre og skygge nede til venstre (kjølig månelys om kvelden)
+// strokes: korte penselstrøk i lyst og mørkt over flatene, så de ikke står glatte som i en vektortegning
+function paintify(L, { soft = 0.6, haze = 0.05, sat = 0.86, contrast = 0.9, light = 1, strokes = true, seed = 11 } = {}) {
+  const c = L.c, R = dpr * scale, w = c.width, h = c.height, g = c.getContext('2d', { willReadFrequently: true });
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+  if (soft && canFilter) {   // en uskarp kopi over originalen: kantene blir penselstrøk, ikke tusj
+    const b = document.createElement('canvas'); b.width = w; b.height = h;
+    const bg = b.getContext('2d'); bg.filter = `blur(${(0.5 * R).toFixed(2)}px)`; bg.drawImage(c, 0, 0);
+    g.globalAlpha = soft; g.drawImage(b, 0, 0); g.globalAlpha = 1;
+  }
+  const img = g.getImageData(0, 0, w, h), d = img.data, hz = T.night ? [64, 70, 104] : [222, 226, 232];
+  for (let i = 0; i < d.length; i += 4) {
+    if (!d[i + 3]) continue;
+    let r = d[i], gg = d[i + 1], b = d[i + 2];
+    const l = 0.3 * r + 0.59 * gg + 0.11 * b;
+    r = l + (r - l) * sat; gg = l + (gg - l) * sat; b = l + (b - l) * sat;
+    r = 140 + (r - 140) * contrast; gg = 140 + (gg - 140) * contrast; b = 140 + (b - 140) * contrast;
+    d[i] = r * (1 - haze) + hz[0] * haze; d[i + 1] = gg * (1 - haze) + hz[1] * haze; d[i + 2] = b * (1 - haze) + hz[2] * haze;
+  }
+  g.putImageData(img, 0, 0);
+  g.globalCompositeOperation = 'source-atop';
+  if (light) {
+    const lg = g.createLinearGradient(w, 0, 0, h), k = v => (v * light).toFixed(3);
+    lg.addColorStop(0, T.night ? `rgba(178,192,255,${k(0.16)})` : T.sunLow ? `rgba(255,190,140,${k(0.24)})` : `rgba(255,240,200,${k(0.22)})`);
+    lg.addColorStop(0.55, 'rgba(0,0,0,0)'); lg.addColorStop(1, T.night ? `rgba(14,16,40,${k(0.26)})` : `rgba(40,26,40,${k(0.2)})`);
+    g.fillStyle = lg; g.fillRect(0, 0, w, h);
+  }
+  if (strokes) {
+    const r = rng(seed), n = Math.round(w * h / (16 * R * R));
+    g.lineCap = 'round';
+    for (let i = 0; i < n; i++) {
+      const x = r() * w, y = r() * h, len = (1.4 + r() * 2.4) * R, a = r() * Math.PI, lightStroke = r() < 0.5;
+      g.strokeStyle = lightStroke ? 'rgba(255,248,230,.05)' : 'rgba(30,20,30,.06)'; g.lineWidth = (0.8 + r() * 0.9) * R;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); g.stroke();
+    }
+  }
+  g.restore();
+  g.save(); g.globalCompositeOperation = 'source-atop'; paperOn(g, 1.2); g.restore();
+  return L;
+}
+// for scenen (tiden på døgnet) som tegnes nå; lages én gang og legges på scenen
+function paintedProps() {
+  if (scene.painted) return scene.painted;
+  const pT = T, sizes = {};
+  for (const k in PAINTED_LM) sizes[k] = PAINTED_LM[k].s;
+  T = { ...T, ink: mixHex(T.ink, T.night ? '#6A6E92' : '#9A8670', 0.25) };   // mykere strek
+  let marks, home;
+  try {
+    marks = buildLandmarks(false, true, sizes);
+    // hytta og fuglebrettet (spilleplanet: nesten full styrke, men samme strek, lys og korn)
+    const pad = 12, oc = ctx;
+    home = makeSprite(HOME_W + pad * 2, HOME_H + pad * 2, g => { ctx = g; try { paintHome(pad, pad); } finally { ctx = oc; } });
+    home.pad = pad;
+  } finally { T = pT; }
+  for (const k in PAINTED_LM) paintify(marks[k], PAINTED_LM[k].path ? { haze: 0, sat: 0.95, contrast: 0.96 } : {});
+  paintify(home, { haze: 0, sat: 0.95, contrast: 0.95, light: 1.6, seed: 60 });
+  // varmt lys fra vinduene om kvelden: en myk glorie (ferdig tegnet, legges over hytta)
+  const glow = makeSprite(72, 72, g => {
+    const gr = g.createRadialGradient(36, 36, 2, 36, 36, 36);
+    gr.addColorStop(0, 'rgba(255,214,140,.7)'); gr.addColorStop(0.35, 'rgba(255,190,110,.3)'); gr.addColorStop(1, 'rgba(255,170,90,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 72, 72);
+  });
+  // lysskjæret fra vinduene på bakken foran hytta
+  const spill = makeSprite(200, 24, g => {
+    const gr = g.createRadialGradient(100, 12, 4, 100, 12, 100);
+    gr.addColorStop(0, 'rgba(255,200,120,.3)'); gr.addColorStop(1, 'rgba(255,180,100,0)');
+    g.save(); g.translate(0, 12); g.scale(1, 0.12); g.translate(0, -12); g.fillStyle = gr; g.fillRect(0, -88, 200, 200); g.restore();
+  });
+  const B = scene.balloon, bc = document.createElement('canvas'); bc.width = B.c.width; bc.height = B.c.height; bc.getContext('2d').drawImage(B.c, 0, 0);
+  const balloon = paintify({ c: bc, w: B.w, h: B.h }, { haze: 0.14, sat: 0.8, contrast: 0.85 });
+  return (scene.painted = { marks, balloon, home, glow, spill });
+}
+// landemerkene på enga (path = false) eller ved stien (path = true); bare i spill, for i menyen og på «Klar?»
+// står maleriet stille
+function drawPaintedMarks(path, groundY) {
+  if (state !== State.PLAY && state !== State.DEAD && state !== State.OVER) return;
+  let P = null;
+  const R = dpr * scale;
+  for (const m of landmarks) {
+    const o = PAINTED_LM[m.kind];
+    if (!o || !!o.path !== path) continue;
+    const x = lmX(m, viewScroll);
+    if (x < -80 || x > W + 80) continue;
+    P = P || paintedProps();
+    const S = P.marks[m.kind], y = path ? groundY + 3 : groundY - o.lift;   // engas nedre kant står fast ved bakken (planet strekkes, foten flytter seg ikke)
+    ctx.drawImage(S.c, Math.round((x - S.w / 2) * R) / R, Math.round((y - S.h + 2 * o.s) * R) / R, S.w, S.h);
+    if (m.kind === 'sau' || (m.kind === 'fyr' && T.windowLit)) {   // levende deler, i samme målestokk
+      ctx.save(); ctx.translate(x, y); ctx.scale(o.s, o.s);
+      if (m.kind === 'sau') sheepHead(0, 0, m.seed); else lighthouseBeam(0, -26);
+      ctx.restore();
+    }
+  }
+}
+// ballongen og fugleflokken på den malte himmelen (bare på reisen; i menyen står logoen der)
+function drawPaintedSkyLife() {
+  if (state === State.MENU) return;
+  const bp = balloonPos();
+  if (bp) { const B = paintedProps().balloon; ctx.drawImage(B.c, bp.x, bp.y + camShift(0.02), B.w, B.h); }
+  const fp = flockPos();
+  if (!fp) return;
+  const x0 = fp.x, y0 = fp.y + camShift(0.05);
+  ctx.strokeStyle = 'rgba(58,52,64,.5)'; ctx.lineWidth = 1.1; ctx.lineCap = 'round';
+  [[0, 0], [12, -6], [22, 4]].forEach(([dx, dy], i) => {
+    const ph2 = (time * 0.8 + i * 0.23) % 1.7, flapping = ph2 < 0.65 && !reduceMotion;
+    const f = flapping ? Math.sin(ph2 * 30) * 2.4 : 0.5, x = x0 + dx, y = y0 + dy + (flapping ? 0 : (ph2 - 0.65) * 1.6);
+    ctx.beginPath(); ctx.moveTo(x - 4, y - f); ctx.quadraticCurveTo(x - 2, y - 1, x, y); ctx.quadraticCurveTo(x + 2, y - 1, x + 4, y - f); ctx.stroke();
+  });
+}
+
 function paintBarkSprite(g, y0, y1) {
   if (!hasPaintedForest() || !ART.birch || y1 <= y0) return false;
-  const image = seasonImage('birch');
+  const image = birchImage();
   // The interior bark slice stays within the exact physical trunk width. Caps
   // are rendered separately, so rings/moss are never stretched with the body.
   g.drawImage(image, image.width * 0.375, 0, image.width * 0.245, image.height * 0.78, 0, y0, PIPE_W, y1 - y0);
-  // Continuous light across the cylinder, not a flat rectangular colour.
+  // Continuous light across the cylinder, not a flat rectangular colour (om kvelden: kjølig månelys)
+  const hi = T.night ? '196,208,255' : '255,245,215';
   const light = g.createLinearGradient(0, 0, PIPE_W, 0);
   light.addColorStop(0, 'rgba(15,20,36,.52)');
   light.addColorStop(0.23, 'rgba(24,27,40,.22)');
-  light.addColorStop(0.60, 'rgba(255,244,206,.07)');
-  light.addColorStop(0.82, 'rgba(255,245,215,.28)');
+  light.addColorStop(0.60, `rgba(${hi},.07)`);
+  light.addColorStop(0.82, `rgba(${hi},${T.night ? '.16' : '.28'})`);
   light.addColorStop(1, 'rgba(24,23,32,.30)');
   g.fillStyle = light; g.fillRect(0, y0, PIPE_W, y1 - y0);
-  g.fillStyle = 'rgba(255,242,202,.34)'; g.fillRect(PIPE_W - 3, y0, 0.7, y1 - y0);
+  g.fillStyle = `rgba(${hi},${T.night ? '.22' : '.34'})`; g.fillRect(PIPE_W - 3, y0, 0.7, y1 - y0);
   return true;
 }
 
 function paintBirchCap(y, upper) {
   if (!hasPaintedForest() || !ART.birch) return false;
-  const image = seasonImage('birch'), height = 23;
+  const image = birchImage(), height = 23;
   ctx.save(); ctx.translate(PIPE_W / 2, y);
   if (upper) ctx.scale(1, -1);
   ctx.drawImage(image, image.width * 0.30, image.height * 0.80, image.width * 0.40, image.height * 0.15,

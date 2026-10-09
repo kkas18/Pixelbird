@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v10.0): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v10.1): en liten blåmeis med lusekofte-skjerf flyr
 hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Malt eventyrbokstil med fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 månesigd. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
@@ -21,7 +21,7 @@ Blåmeisen, lusekofte-skjerfet, bjørkeskogen, dyrene og reisen hjem er beholdt.
 Grensesnittet har én samlet visuell retning: varm elfenben, dempet rustrød,
 serifoverskrifter og papirkorn. Høstens dag- og kveldsmalerier, bjørkebarken og
 løvdekoren følger den godkjente designreferansen. Materialene er håndarbeid, tre og papir
-(se [revisjon 5](docs/REVISJON-5.md)):
+(se [revisjon 5](docs/REVISJON-5.md) og [revisjon 6](docs/REVISJON-6.md)):
 
 - **Logoen** er «Pixelfugl» brodert i korssting, som et merke på maleriet. Hver piksel er ett sting, og
   i-prikken er et blått sting. Introen syr den ved oppstart.
@@ -34,6 +34,9 @@ løvdekoren følger den godkjente designreferansen. Materialene er håndarbeid, 
   penselstrøk, så de passer til maleriet.
 - **Lesbarhet:** bak selve spillet dempes maleriet (lavere metning og kontrast, et tynt dislag), så fuglen
   og stammene leses tydelig. Menyen viser maleriet i full styrke.
+- **Det tegnede inn i maleriet:** landemerkene, ballongen og hytta er tegnet i koden, men får maleriets
+  behandling: myke kanter i stedet for tusj, dempede farger, malt lys fra sola, korte penselstrøk og korn.
+- **Stammene følger lyset:** bjørkebarken blir kjølig og månelys om kvelden og varm i solnedgangen.
 
 Strukturen er:
 
@@ -85,6 +88,7 @@ stopper parallakse og kameraforskyvning.
 | `docs/REVISJON-3.md` | Tredje revisjon: poeng for design, grafikk, animasjoner og spillfølelse (fase H) |
 | `docs/REVISJON-4.md` | Fjerde revisjon: poeng etter v5.0 med oppstarten fra telefonvideo, og introen (fase I) |
 | `docs/REVISJON-5.md` | Femte revisjon: poeng for designet fra ChatGPT (v9), og det harmoniserte maleriet (fase J) |
+| `docs/REVISJON-6.md` | Sjette revisjon: poeng etter v10, og landemerkene, lyset, vinteren og hjemkomsten i maleriet (fase K) |
 | `.nojekyll` | Sørger for at GitHub Pages serverer alle filer som de er |
 | `make_icons.py` | Regenererer ikonene (blåmeisen foran en bjørkestamme; valgfritt, krever Pillow) |
 | `make_audio.py` | Bygger `audio/` fra originalopptakene: klipper, renser og koder (valgfritt, krever ffmpeg og numpy) |
@@ -142,8 +146,8 @@ første trykk; i nettleseren er introen stille.
 
 ## Kontroller
 
-- **Trykk** hvor som helst på skjermen (eller mellomrom / pil opp) for å flakse. Under introen
-  hopper et trykk over den.
+- **Trykk** hvor som helst på skjermen (eller mellomrom / pil opp) for å flakse. I menyen starter et
+  trykk på maleriet spillet (ikke når et panel er åpent). Under introen hopper et trykk over den.
 - **Pause**: knappen øverst til høyre, eller Esc / P. Spillet pauses også automatisk
   når appen legges i bakgrunnen, og lyden stoppes. «Fortsett» gir en kort 3-2-1-nedtelling.
 - **Hjemme:** når fuglen har landet på fuglebrettet ved hytta, hviler den til du trykker. Da flyr den videre.
@@ -177,6 +181,9 @@ Hver runde er en reise fra fjellet ned til hytta. Underveis passerer fuglen ti s
 - **Ved hvert sted** står et veiskilt mellom stammene, og navnet vises kort under poengene. Der stedet
   har et landemerke, dukker det opp. De tilfeldige landemerkene hører alltid til steder fuglen allerede
   har passert, så rekkefølgen stemmer.
+- **På maleriet** står landemerkene på enga foran skogen og følger den (fjorden er skjult bak skogen
+  mens man flyr, så fyret står på sitt eget skjær). Postkassa står ved stien. Tjernet vises ikke der,
+  siden maleriet har vann fra før. Reisen begynner med tom horisont.
 - **Hjemkomst ved 60 poeng:** stammene tar slutt, hytta med fuglebrettet glir inn, og verden bremser
   jevnt til brettet står rett under fuglen. Fuglen lander, pikker i frøene og hviler så lenge du vil.
   Et trykk sender den videre; stammene kommer tilbake, og poengene teller videre.
@@ -222,7 +229,10 @@ Maleriene er høst. De andre årstidene fargelegges i koden, piksel for piksel, 
 mens introen går:
 
 - Om sommeren og våren flyttes høstløvet mot grønt. Jorda og de røde bærene holdes utenfor.
-- Om vinteren blir alt kaldt og blekt, og flatene som vender opp får rimfrost.
+- Om vinteren blir alt kaldt og blekt, og flatene som vender opp (tak, steiner, trekroner) får rimfrost.
+  Rimfrosten regnes ut fra lysstyrken jevnet ut over noen piksler, så den legger seg mykt og ikke som støy
+  på hver kant. Vannet får ikke rim. De varme lysene om kvelden (vinduer, lykter), den røde hytta og
+  rognebærene beholder fargen.
 - Bjørka beholder barken, og får bare et kaldt skjær om vinteren.
 
 Uten Web Worker gjøres det samme på hovedtråden. Kan ikke maleriene lastes, tegnes landskapet i koden, i den
@@ -258,8 +268,8 @@ og symboler som piler, hjerter og stjerner er tegnet som figurer.
 
 ## Landskapet
 
-Maleriene er hovedlandskapet. Kan de ikke lastes, tegnes landskapet i koden, laget for at øyet ikke skal se
-gjentakelse:
+Maleriene er hovedlandskapet, med landemerkene, ballongen og fugleflokken tegnet inn (se «Reisen hjem»). Kan
+de ikke lastes, tegnes landskapet i koden, laget for at øyet ikke skal se gjentakelse:
 
 - **Bakken** er satt sammen av 14 bakkestykker i tilfeldig rekkefølge, og samme stykke kommer
   aldri igjen før minst fire andre har passert. Stykkene har hvert sitt innhold: tuer, en
@@ -372,6 +382,9 @@ stedet for å filtrere hvert av dem.
 Maleriene hentes, dekodes og fargelegges i en egen tråd, som sender ferdige bilder (ImageBitmap) tilbake.
 Hovedtråden stopper derfor ikke mens introen beveger seg. Meny, spill og game over tegnes like raskt som i
 v9 (median av vekselvise målinger).
+
+Det som hører til en tid på døgnet (de malte landemerkene, hytta og den tonede bjørkebarken) lages ferdig
+mens fuglen venter på «Klar?», så byttet fra dag til kveld midt i runden ikke hakker.
 
 ## Fysikk
 

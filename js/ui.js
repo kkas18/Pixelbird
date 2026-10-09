@@ -141,14 +141,17 @@ function drawMenuScreen() {
   ctx.save(); ctx.globalAlpha *= intro ? clamp((intro.t - introOpen()[1] + 0.2) / 0.25, 0, 1) : 1;   // undertittelen kommer når logoen er på plass
   uiText(`${SEASONS[seasonName].label} i bjørkeskogen`, W / 2, headY + 38, 13, { color: T.night ? UI.paper : UI.ink, shadow: T.night });
   ctx.restore();
-  const bottom = safeTop + usable * 0.93, playY = safeTop + usable * 0.704;
+  // under «Spill»: hintet, rekorden og ikonene står i forhold til knappen, så de aldri havner oppå hverandre på en lav skjerm
+  // (på en lav skjerm løftes hele blokken, så ikonene får luft mot kanten)
+  const playY = Math.min(safeTop + usable * 0.704, H - safeBottom - 166), hintY = Math.max(safeTop + usable * 0.807, playY + 67);
+  const bestY = Math.max(safeTop + usable * 0.853, hintY + 27), bottom = Math.max(safeTop + usable * 0.93, bestY + 36);
   const selectY = playY - 49, cellW = (width - 8) / 4;
   const diffs = Object.entries(DIFFS);
   uiWoodBar(x, selectY, width, 35, diffs.map(([, value]) => value.label), diffs.findIndex(([key]) => key === diffName));
   diffs.forEach(([key, value], i) => uiControl('diff_' + key, x + 4 + i * cellW, selectY, cellW, 36, value.label, () => setDiff(key), diffName === key));
   uiButton('start', x + 28, playY, width - 56, 49, 'Spill', goReady, { size: 27 });
-  uiPaper('Trykk for å flakse', W / 2, safeTop + usable * 0.807, 12);
-  tag(D.zen ? 'Fly i ditt eget tempo' : best > 0 ? `Beste: ${best}` : 'Ingen rekord ennå', W / 2, safeTop + usable * 0.853, { size: 10.5, serif: true });
+  uiPaper('Trykk for å flakse', W / 2, hintY, 12);
+  tag(D.zen ? 'Fly i ditt eget tempo' : best > 0 ? `Beste: ${best}` : 'Ingen rekord ennå', W / 2, bestY, { size: 10.5, serif: true });
   uiIconButton('sound', W / 2 - 29, bottom, 19, ICONS.sound, () => Sound.toggleSfx(), !Sound.sfxMuted, 'Lydeffekter av/på');
   uiIconButton('settings', W / 2 + 29, bottom, 19, settingsIcon, () => { settingsOpen = true; }, true, 'Innstillinger');
   if (wardrobe) drawWardrobeScreen();
@@ -196,8 +199,10 @@ function drawWardrobeScreen() {
 }
 
 function drawReadyScreen() {
-  uiText('Klar for en flytur?', W / 2, safeTop + 70, 23, { serif: true, color: T.night ? UI.paper : UI.ink });
-  uiText(`${D.label} · fra fjellet til hytta`, W / 2, safeTop + 99, 12, { color: T.night ? UI.paper : UI.ink });
+  // overskriften står på et kort med sydd kant (ingen tekst rett på maleriet)
+  uiCard(W / 2 - 110, safeTop + 48, 220, 74);
+  uiText('Klar for en flytur?', W / 2, safeTop + 76, 22, { serif: true });
+  uiText(`${D.label} · fra fjellet til hytta`, W / 2, safeTop + 103, 12, { color: UI.muted });
   const y = Math.min(H - GROUND_H - 64, (H - GROUND_H) * 0.42 + 85);
   uiPaper('Trykk hvor som helst', W / 2, y, 13);
   uiIconButton('ready_menu', W - 30, safeTop + 25, 16, ICONS.left, goMenu, true, 'Tilbake til menyen');
