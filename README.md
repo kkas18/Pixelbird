@@ -15,7 +15,12 @@ også uten nett.
 
 | Fil | Formål |
 |-----|--------|
-| `index.html` | Hele spillet (Canvas 2D, ingen avhengigheter) |
+| `index.html` | Siden: lerret, stil og innlasting av skriptene |
+| `js/config.js` | Konstanter, lagring, vanskelighetsgrader, power-ups, tema, årstider og garderobe |
+| `js/sound.js` | Musikk, lydeffekter og naturlyder (Web Audio, alt syntetisert) |
+| `js/game.js` | Spilltilstand, input, fysikk, tid på døgnet og oppdatering |
+| `js/render.js` | Tegning: forhåndstegnede lag, stammer, fugl, partikler og brukergrensesnitt |
+| `js/main.js` | Oppstart: skjermstørrelse, spill-løkke og PWA |
 | `manifest.webmanifest` | PWA-manifest: navn, ikoner, portrett, standalone |
 | `sw.js` | Service worker – spillet fungerer offline etter første besøk |
 | `icons/` | App-ikoner (192, 512, maskable 512, Apple touch, favicon) + skjermbilde |
@@ -49,8 +54,10 @@ også i en undermappe.
 - **Pause**: knappen øverst til høyre, eller Esc / P. Spillet pauses også automatisk
   når appen legges i bakgrunnen, og lyden stoppes. «Fortsett» gir en kort 3-2-1-nedtelling.
 - Etter game over: **Spill igjen** eller **Meny** (for å bytte nivå, lyd eller tema).
-- Knappene på startskjermen slår **lydeffekter** og **musikk** av/på og bytter **dag/natt**.
-- Beste poengsum lagres lokalt på enheten.
+- Knappene på startskjermen slår **lydeffekter** og **musikk** av/på og velger om
+  runden starter på **dag** eller **natt**.
+- **Garderobe** på startskjermen: velg pynt til fuglen (se under).
+- Beste poengsum og samlede poeng lagres lokalt på enheten.
 
 Medaljer: 10 bronse, 20 sølv, 30 gull, 40 platina.
 
@@ -63,9 +70,47 @@ Velges på startskjermen. Beste poengsum lagres per nivå.
 | Lett | 152 | 118 | 150 | 14 |
 | Normal | 130 | 136 | 135 | 8 |
 | Hard | 112 | 160 | 120 | 4 |
+| Zen | 165 | 108 | 140 | – |
+
+**Zen** er for ren kos: fuglen kan ikke dø. Treffer den en stamme, spretter den mykt
+inn i åpningen; treffer den bakken, spretter den opp igjen. Ingen game over, ingen
+rekord og ingen skjold (det trengs ikke). Gå ut via pause → Meny.
 
 Gapet krymper litt med poengsummen, men aldri under 92 px. Gapene plasseres i en
 fast sone på 400 px over bakken, så vanskeligheten er lik på alle skjermhøyder.
+
+## Tid på døgnet og årstider
+
+Hvert 10. poeng glir tiden videre: **dag → solnedgang → kveld → soloppgang → dag …**
+(starter på det du har valgt i menyen). Hele verden tones mykt over i løpet av
+1,8 sekunder, og musikk og naturlyder følger med (kveldsvariant om natten).
+
+Årstiden følger datoen:
+
+| Årstid | Måneder | Kjennetegn |
+|--------|---------|------------|
+| Vår | mars–mai | rosa blomstrende bjørker, blomsterblader i lufta (ildfluer om kvelden) |
+| Sommer | juni–august | grønt, pollen i lufta (ildfluer om kvelden) |
+| Høst | september–november | oransje og gule trær, løv som faller |
+| Vinter | desember–februar | snø på trær, bakke, hustak og stammekanter; snøfall |
+
+For å teste en annen årstid: sett `localStorage.setItem('pf.season', 'winter')`
+(`spring`, `summer`, `autumn` eller `winter`) og last siden på nytt.
+
+## Garderobe
+
+Poeng fra alle vanlige runder samles (Zen teller ikke) og låser opp pynt:
+
+| Pynt | Krav |
+|------|------|
+| Bare skjerf | – |
+| Strikkelue | 25 poeng totalt |
+| Blomst i fjærtoppen | 60 poeng totalt |
+| Runde briller | 120 poeng totalt |
+| Nisselue | 200 poeng totalt |
+| Liten krone | gull (30 poeng) i én runde |
+
+Ny pynt vises på game over-skjermen («Ny pynt: …!»).
 
 ## Hinder: bjørkestammer
 

@@ -7,7 +7,8 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 
 /* ---------- Canvas ---------- */
 const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d', { alpha: false });
+const mainCtx = canvas.getContext('2d', { alpha: false });
+let ctx = mainCtx;   // tegnemålet; byttes midlertidig til et offscreen-lerret under krysstoning av tid på døgnet
 let dpr = 1, scale = 1, W = LOGICAL_W, H = 560, safeTop = 0;
 
 /* ---------- Tilstand ---------- */
@@ -27,6 +28,7 @@ let paused = false, resumeT = 0;      // pause + nedtelling før spillet fortset
 let grace = 0, guidePipe = null;     // usårbarhet og glidemål (røret) etter skjoldtreff
 let alpha = 1, viewScroll = 0;        // interpolasjonsfaktor mellom forrige og nåværende fysikk-steg + interpolert scroll
 let deferredPrompt = null;
+let wardrobe = false, unlocked = [], unlockSounded = false;   // garderoben er åpen i menyen; pynt som ble låst opp i siste runde
 const hud = {};
 
 /* ---------- Risting og fargetoning ----------
@@ -41,6 +43,30 @@ function addShake(amp, dx = 0, dy = 1) {
 }
 function addTint(v, rgb) { fx.tint = Math.max(fx.tint, v); fx.rgb = rgb; }
 
+/* ---------- Tid på døgnet ----------
+   Hver tid har sin egen ferdig tegnede scene (hurtigbufret). Ved bytte tones hele verden
+   myk over fra den gamle til den nye scenen i løpet av 1,8 s. */
+let sceneCache = {}, worldFade = null;
+function sceneFor(name) {
+  if (!sceneCache[name]) {
+    const prev = T; T = paletteFor(name);
+    sceneCache[name] = { T, scene: buildScene() };
+    T = prev;
+  }
+  return sceneCache[name];
+}
+function setTimeOfDay(name, fade = true) {
+  if (name === curTheme && scene) return;
+  const next = sceneFor(name), kindBefore = scene ? moteKind() : null;
+  worldFade = fade && scene && !reduceMotion ? { from: { T, scene }, k: 0, n: 0 } : null;
+  curTheme = name; T = next.T; scene = next.scene;
+  if (moteKind() !== kindBefore) initMotes();
+  Sound.setNight(T.night);
+  document.querySelector('meta[name=theme-color]').content = T.skyTop; document.documentElement.style.setProperty('--sky', T.skyTop);
+}
+// tiden runden står på nå: starter på valgt tid og går videre hvert 10. poeng
+const runTimeOfDay = () => CYCLE[(CYCLE.indexOf(themeName) + Math.floor(score / 10)) % CYCLE.length];
+
 // start i hvilehøyden, så fuglen aldri tegnes øverst i ett bilde før første fysikk-steg
 function resetBird() {
   bird = {
@@ -54,10 +80,12 @@ function resetRun() {
   active = { shield: false, slow: 0, double: 0 }; timeScale = 1; paused = false; resumeT = 0; grace = 0;
   combo = 0; overShown = 0; celebrated = false;
 }
-function goMenu() { state = State.MENU; resetRun(); transitionT = 1; Sound.music.setMode('menu'); }
+function goMenu() { state = State.MENU; resetRun(); wardrobe = false; transitionT = 1; Sound.music.setMode('menu'); setTimeOfDay(themeName); }
 function goReady() {
-  state = State.READY; resetRun(); newBest = false; groundBounced = false;
-  transitionT = 1; Sound.swoosh(); Sound.music.setMode('menu');
+  state = State.READY; resetRun(); newBest = false; groundBounced = false; unlocked = []; unlockSounded = false;
+  transitionT = 1; Sound.swoosh(); Sound.music.setMode('menu'); setTimeOfDay(themeName);
+  // tegn de neste tidene på døgnet ferdig mens fuglen venter («Klar?»), så byttet midt i runden ikke hakker
+  setTimeout(() => { const i = CYCLE.indexOf(themeName); for (let k = 1; k < CYCLE.length; k++) sceneFor(CYCLE[(i + k) % CYCLE.length]); }, 60);
 }
 function goPlay() { state = State.PLAY; spawnPipe(W + 60); Sound.music.setMode('play'); }
 
@@ -86,8 +114,8 @@ function spawnPipe(x) {
     seed, marksTop: barkMarks(seed), marksBot: barkMarks(seed + 1), decor: trunkDecorPlan(seed + 2) };
   pipes.push(p);
   if (score >= 3 && variant !== 'narrow' && Math.random() < 0.16 && !powers.some(q => q.x > W - 100)) {
-    const keys = Object.keys(POWERS);
-    const kind = active.shield ? (Math.random() < 0.5 ? 'slow' : 'double') : keys[(Math.random() * keys.length) | 0];
+    const keys = Object.keys(POWERS).filter(k => !(D.zen && k === 'shield'));   // Zen trenger ikke skjold
+    const kind = active.shield || D.zen ? (Math.random() < 0.5 ? 'slow' : 'double') : keys[(Math.random() * keys.length) | 0];
     powers.push({ x: x + PIPE_W / 2, y: p.top + p.gap / 2, pipe: p, kind, t: Math.random() * 10, taken: false });
   }
 }
@@ -116,7 +144,7 @@ function resumeGame() { if (paused && resumeT <= 0) { resumeT = 1.5; Sound.swoos
 /* ---------- Input ---------- */
 function flap() {
   Sound.unlock();
-  if (state === State.MENU) { goReady(); return; }
+  if (state === State.MENU) { if (!wardrobe) goReady(); return; }
   if (state === State.READY) goPlay();
   if (state === State.PLAY) {
     if (paused) return;
@@ -146,6 +174,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); if (paused) resumeGame(); else flap(); }
   else if (e.code === 'Escape' || e.code === 'KeyP') {
     if (state === State.PLAY) { if (paused) resumeGame(); else pauseGame(); }
+    else if (e.code === 'Escape' && state === State.MENU && wardrobe) wardrobe = false;
     else if (e.code === 'Escape' && (state === State.READY || (state === State.OVER && overT > 0.7))) goMenu();
   }
 });
@@ -158,10 +187,10 @@ window.addEventListener('blur', pauseGame);
 
 function setDiff(name) { diffName = name; D = DIFFS[name]; store.set('pf.diff', name); best = +store.get(bestKey()) || 0; }
 function toggleTheme() {
-  themeName = themeName === 'day' ? 'night' : 'day'; T = THEMES[themeName]; store.set('pf.theme', themeName);
-  document.querySelector('meta[name=theme-color]').content = T.skyTop; document.documentElement.style.setProperty('--sky', T.skyTop);
-  buildScene(); initAmbient(); Sound.setNight(T.night);
+  themeName = themeName === 'day' ? 'night' : 'day'; store.set('pf.theme', themeName);
+  setTimeOfDay(themeName);
 }
+function setWear(id) { wear = id; store.set('pf.wear', id); }
 
 /* ---------- Kollisjon: sirkel mot avrundet rektangel ---------- */
 function circleRRect(cx, cy, r, x, y, w, h, rad) {
@@ -245,8 +274,14 @@ function trunkDecorPlan(seed) {
     moss: (r() * 1e6) | 0
   };
 }
-// stemningsprikker: pollen om dagen (hele himmelen), ildfluer om natten (nær bakken)
-const moteY = groundY => T.night ? groundY - 25 - Math.random() * 145 : Math.random() * (groundY - 40);
+// stemningsprikker etter årstid: blomsterblader (vår), pollen (sommer), løv (høst), snø (vinter);
+// om kvelden blir pollen og blader til ildfluer nær bakken
+function moteKind() {
+  const m = SEASONS[seasonName].mote;
+  return T.night && (m === 'pollen' || m === 'petal') ? 'firefly' : m;
+}
+const falling = k => k === 'leaf' || k === 'snow' || k === 'petal';
+const moteY = groundY => moteKind() === 'firefly' ? groundY - 25 - Math.random() * 145 : Math.random() * (groundY - 40);
 
 /* ---------- Oppdatering (dt i sekunder) ---------- */
 // lagre tilstanden før steget, så render() kan interpolere mellom forrige og nåværende steg
@@ -274,6 +309,7 @@ function update(dt) {
   if (scrolling) scroll += D.speed * gdt;
 
   transitionT = Math.max(0, transitionT - dt * 2.4);
+  if (worldFade && (worldFade.k += dt / 1.8) >= 1) worldFade = null;   // krysstoning over 1,8 s
   fx.t += dt; fx.tint = Math.max(0, fx.tint - dt * 2.2);
   animateBird(dt);
 
@@ -339,13 +375,14 @@ function update(dt) {
         burst(bird.x + 14, bird.y - 4, 5, ['#FFD45C', '#FFF1C4'], 80, 0.55, 120, 2.4, { shape: 'star', spin: 6 });
         burst(bird.x + 10, bird.y - 8, 2, ['#FF9EB5'], 60, 0.6, 60, 2.2, { shape: 'heart' });
         if (gain === 2) floatText(bird.x + 4, bird.y - 22, '+2', '#FFD27A', 14, { stroke: true });
-        if (score > best) { best = score; newBest = true; store.set(bestKey(), best); }
+        if (!D.zen && score > best) { best = score; newBest = true; store.set(bestKey(), best); }
+        const tod = runTimeOfDay(); if (tod !== curTheme) setTimeOfDay(tod);   // tiden glir videre hvert 10. poeng
       }
       if (grace <= 0 && p.x < bird.x + BIRD_R + 6 && p.x + PIPE_W > bird.x - BIRD_R - 6 && hitsPipe(p, groundY)) {
-        if (active.shield) useShield(p); else { die(false, p); break; }
+        if (D.zen) zenBump(p); else if (active.shield) useShield(p); else { die(false, p); break; }
       }
     }
-    if (state === State.PLAY && bird.y + BIRD_R >= groundY) { bird.y = groundY - BIRD_R; die(true); }
+    if (state === State.PLAY && bird.y + BIRD_R >= groundY) { bird.y = groundY - BIRD_R; if (D.zen) zenBounce(groundY); else die(true); }
   }
 
   if (state === State.DEAD) {
@@ -369,6 +406,7 @@ function update(dt) {
     const shown = Math.min(score, Math.floor(Math.max(0, overT - 0.55) * 30));
     if (shown !== overShown) { overShown = shown; Sound.count(); }
     if (newBest && !celebrated && overShown === score) { celebrated = true; Sound.fanfare(); confetti(); }
+    if (unlocked.length && !unlockSounded && overT > 1) { unlockSounded = true; Sound.power(); }
     // fuglen setter seg: rotasjon og «gelé»-klem fjærer tilbake, og den sitter på føttene
     bird.angVel += (-bird.rot * 90 - bird.angVel * 10) * dt; bird.rot += bird.angVel * dt;
     bird.sv += ((1 - bird.sy) * 220 - bird.sv * 9) * dt; bird.sy += bird.sv * dt; bird.sx = 2 - bird.sy;
@@ -382,9 +420,14 @@ function update(dt) {
     if (q.life <= 0) particles.splice(i, 1);
   }
   for (let i = floats.length - 1; i >= 0; i--) { const f = floats[i]; f.x += f.vx * dt; f.y += f.vy * dt; f.life -= dt; if (f.life <= 0) floats.splice(i, 1); }
+  const mk = moteKind(), fall = falling(mk);
   for (const m of dust) {
-    m.x -= (D.speed * 0.2 * (scrolling ? 1 : 0) + m.vx) * dt; m.y += Math.sin(time * m.f + m.p) * 6 * dt;
-    if (m.x < -10) { m.x = m.px = W + 10; m.y = m.py = moteY(groundY); }   // ingen interpolering over skjermen ved omstart
+    m.x -= (D.speed * 0.2 * (scrolling ? 1 : 0) + m.vx) * dt;
+    if (fall) {   // løv, snø og blomsterblader daler og svaier
+      m.y += m.fall * dt; m.x += Math.sin(time * m.f + m.p) * 10 * dt; m.rot += m.vr * dt;
+      if (m.y > groundY + 4) { m.x = m.px = Math.random() * W; m.y = m.py = -8; }
+    } else m.y += Math.sin(time * m.f + m.p) * 6 * dt;
+    if (m.x < -10) { m.x = m.px = W + 10; m.y = m.py = fall ? Math.random() * groundY : moteY(groundY); }   // ingen interpolering over skjermen ved omstart
   }
 }
 
@@ -409,6 +452,7 @@ function die(onGround, p) {
   buzz([40, 20, 60]); addTint(1, '255,110,90');
   active = { shield: false, slow: 0, double: 0 }; grace = 0;
   overTitle = newBest ? 'Ny rekord!' : ['Å nei!', 'Oi da!', 'Uff da!'][(Math.random() * 3) | 0];
+  earnPoints();
   burst(bird.x + 6, bird.y - 6, 6, ['#FFD45C', '#FFF1C4'], 110, 0.6, 200, 2.6, { shape: 'star', spin: 8 });
   feathers(bird.x, bird.y, 3);
   if (onGround) {
@@ -438,6 +482,25 @@ function confetti() {
   }
 }
 // landing etter krasj: fuglen blir sittende oppreist og svimmel (ikke opp-ned)
+// poengene fra runden legges til totalen; ny pynt som låses opp vises på game over
+function earnPoints() {
+  const before = COSMETICS.filter(isUnlocked).map(c => c.id);
+  totalPoints += score; store.set('pf.total', totalPoints);
+  if (score >= 30 && !hasGold) { hasGold = true; store.set('pf.gold', '1'); }
+  unlocked = COSMETICS.filter(c => isUnlocked(c) && !before.includes(c.id));
+}
+// Zen: et treff gir et mykt sprett inn i gapet (som skjoldet, men uten å bruke det opp), og bakken spretter fuglen opp igjen
+function zenBump(p) {
+  grace = SHIELD_GRACE; guidePipe = p; p.scored = true;
+  Sound.shieldPop(); buzz(10);
+  burst(bird.x + 8, bird.y, 5, ['#FFFFFF', '#BFE6D9'], 60, 0.5, -20, 3.5, { shape: 'puff', drag: 3 });
+  floatText(bird.x + 8, bird.y - 22, 'Oi!', '#BFE6D9', 14, { stroke: true });
+}
+function zenBounce(groundY) {
+  bird.y = groundY - BIRD_R - 1; bird.vy = D.flap * 0.85; bird.sy = 0.7; bird.sx = 1.3;
+  Sound.thud(); buzz(10);
+  burst(bird.x, groundY - 2, 5, [T.soil, '#FFFFFF'], 50, 0.5, -20, 3.5, { shape: 'puff', drag: 3 });
+}
 function land() {
   state = State.OVER; overT = 0;
   bird.vy = 0; bird.vx = 0; bird.sy = 0.7; bird.sx = 1.3; bird.sv = 0;

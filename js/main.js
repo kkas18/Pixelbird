@@ -14,7 +14,10 @@ function resize() {
   canvas.width = Math.round(vw * dpr); canvas.height = Math.round(vh * dpr);
   canvas.style.width = vw + 'px'; canvas.style.height = vh + 'px';
   const groundY = H - GROUND_H;
-  buildScene(); initAmbient();
+  // ny størrelse: alle ferdig tegnede scener må lages på nytt
+  sceneCache = {}; worldFade = null;
+  const sc = sceneFor(curTheme); T = sc.T; scene = sc.scene;
+  initAmbient();
   if (bird && state !== State.PLAY) bird.y = bird.py = groundY * 0.42;
 }
 window.addEventListener('resize', resize);
