@@ -7,7 +7,8 @@ natt, game over og garderobe, og målinger i koden: antall gradienter, sirkler o
 fargepalett og flisbredder.
 
 > **Status:** Fase A (signatur og identitet) er gjennomført i v3.6, fase B (variasjon uten
-> gjentakelse) i v3.7 og fase G (dybde og kamera, lagt til etter ønske) i v3.8. Se seksjon 8–10.
+> gjentakelse) i v3.7, fase G (dybde og kamera, lagt til etter ønske) i v3.8 og fase C (animasjon
+> med intensjon) i v3.9. Se seksjon 8–11.
 
 > Den første revisjonen ([`REVISJON.md`](REVISJON.md)) handlet om å gjøre spillet *ryddig, mykt og
 > koselig*. Det er gjort. Denne revisjonen spør om noe annet: **ser spillet ut som noe et menneske har
@@ -448,3 +449,44 @@ tar den.
 | Grafikk: særpreg og originalitet | 7,5 | **8** |
 | Grafikk: håndverk og ryddighet | 8 | **8,5** |
 | **Menneskelig preg** | **6,5** | **7** |
+
+---
+
+## 11. Status: fase C gjennomført (v3.9)
+
+| Tiltak | Hva som ble gjort |
+|---|---|
+| C1 Nøkkelbilder | `keyframes()` med pauser (samme verdi på to nøkler), easing per overgang (`inOut`, `out`, `in`, `back` med overskyting og `antic` med forberedelse) og `loopKeys()` for sykluser. |
+| C2 Fuglen i hvile | Sinus-svevet er erstattet av svev med vingeslag: hvert slag gir løft, og fuglen synker litt imellom, med uregelmessig takt (0,24–0,36 s). Småhandlinger kommer én om gangen med 2–5 s pause imellom: se til siden, pirke i fjærene, dobbeltblunk, riste seg, og se opp når ballongen eller fugleflokken passerer. Om natten sover den med rolige slag (0,75–1,25 s). |
+| C3 Bakgrunn og brukergrensesnitt | Skyer uten vugging, ballong i trinn med pauser, fugleflokk som flakser og glir, stjerner som blinker én og én, ildfluer i serier. Logo som faller på plass, egg som rister i støt, hånd som trykker og power-ups i ro med hjerteslag. Sinus-vugging er redusert fra cirka 17 steder til 5, og de som er igjen er fysiske fenomener (båt på vann, såpeboble, vind i skjerf og løv). |
+| C4 Vekt i flaksingen | Vingeslaget går raskt ned (0,07 s) og saktere opp (0,23 s) med overskyting, likt i hvile og i spill. |
+
+Alt følger «redusert bevegelse»: ingen småhandlinger, logo og egg står stille, og ildfluene lyser jevnt.
+
+**Bilder:** [`revisjon-2/fase-c/handlinger.jpg`](revisjon-2/fase-c/handlinger.jpg) viser fuglens småhandlinger.
+
+**Verifisering:**
+
+- 24 nye automatiske tester for fase C, blant annet:
+  - nøkkelbilder
+  - løft etter vingeslag
+  - uregelmessig takt
+  - småhandlinger og at fuglen ser opp
+  - ballongens pauser
+  - stjerner og ildfluer
+  - vingeslagets form
+  - power-ups i ro
+  - natt og redusert bevegelse
+  - hele flyten i alle årstider
+- Alle tidligere testpakker består på funksjon. Tegnetiden i meny og spill er lik `main`.
+
+**Oppdaterte poeng:**
+
+| Område | Etter fase G | Etter fase C |
+|---|:-:|:-:|
+| Animasjon | 6 | **8** |
+| UI og UX | 7,5 | **8** |
+| **Menneskelig preg** | **7** | **7,5** |
+
+Det som gjenstår fra planen: fase D (UI i verden og færre klisjeer), fase E (lyd med ekte opptak) og
+fase F (en liten fortelling).

@@ -19,9 +19,32 @@ let combo = 0, overShown = 0, overTitle = 'Å nei!', celebrated = false;
 let press = { key: null, t: -9 };                // sist trykte knapp (klem-animasjon)
 const easeOutCubic = k => 1 - Math.pow(1 - k, 3);
 const easeOutBack = k => 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);
+
+/* ---------- Animasjon med intensjon: nøkkelbilder ----------
+   I stedet for jevn sinus-vugging: bevegelser med pauser (hold), myk start og stopp, overskyting og
+   forberedelse. keys = [[tid, verdi, ease], ...]; ease gjelder overgangen INN til den nøkkelen.
+   Samme verdi på to nøkler etter hverandre = en pause. */
+const EASE = {
+  lin: k => k,
+  inOut: k => k * k * (3 - 2 * k),
+  out: k => 1 - Math.pow(1 - k, 3),
+  in: k => k * k * k,
+  back: easeOutBack,                                   // skyter litt over og faller tilbake
+  antic: k => k * k * (2.6 * k - 1.6)                  // går litt bakover før den drar (forberedelse)
+};
+function keyframes(keys, t) {
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 0; i < keys.length - 1; i++) {
+    const [t0, v0] = keys[i], [t1, v1, e] = keys[i + 1];
+    if (t < t1) return v0 + (v1 - v0) * EASE[e || 'inOut']((t - t0) / (t1 - t0));
+  }
+  return keys[keys.length - 1][1];
+}
+// gjentatt syklus: t går rundt med lengden til siste nøkkel
+const loopKeys = (keys, t) => keyframes(keys, ((t % keys[keys.length - 1][0]) + keys[keys.length - 1][0]) % keys[keys.length - 1][0]);
 let scroll = 0, prevScroll = 0;      // total avstand rullet (px) – driver alle parallakse-lag
 let bird, pipes = [], particles = [], powers = [], floats = [], dust = [], stars = [], clouds = [];
-let overT = 0, transitionT = 0, newBest = false, groundBounced = false;
+let overT = 0, transitionT = 0, newBest = false, groundBounced = false, menuT = 0;   // menuT: tid siden menyen åpnet
 let active = { shield: false, slow: 0, double: 0 };
 let timeScale = 1, slowWas = false;
 let paused = false, resumeT = 0;      // pause + nedtelling før spillet fortsetter
@@ -87,8 +110,10 @@ const runTimeOfDay = () => CYCLE[(CYCLE.indexOf(themeName) + Math.floor(score / 
 function resetBird() {
   bird = {
     x: BIRD_X, y: (H - GROUND_H) * 0.42, vx: 0, vy: 0, rot: 0, angVel: 0, flapT: 9, sx: 1, sy: 1, sv: 0,
-    blink: 0, blinkT: 1.5 + Math.random() * 2, happy: 0, look: 0, lookTo: 0, lookT: 1,   // ansikt
-    crest: 0, crestV: 0, scarf: null, zT: 0.6                                            // sekundærbevegelse
+    blink: 0, blinkT: 1.5 + Math.random() * 2, happy: 0, look: 0, lookTo: 0,            // ansikt
+    crest: 0, crestV: 0, scarf: null, zT: 0.6,                                           // sekundærbevegelse
+    hv: 0, hoverT: 0.2, act: null, actT: 1.6 + Math.random() * 1.5, lastAct: '',           // hvile: svev og småhandlinger
+    preen: 0, lookUp: 0, shakeS: 1
   };
 }
 function resetRun() {
@@ -96,7 +121,7 @@ function resetRun() {
   active = { shield: false, slow: 0, double: 0 }; timeScale = 1; paused = false; resumeT = 0; grace = 0;
   combo = 0; overShown = 0; celebrated = false;
 }
-function goMenu() { state = State.MENU; resetRun(); wardrobe = false; transitionT = 1; Sound.music.setMode('menu'); setTimeOfDay(themeName); }
+function goMenu() { state = State.MENU; menuT = 0; resetRun(); wardrobe = false; transitionT = 1; Sound.music.setMode('menu'); setTimeOfDay(themeName); }
 function goReady() {
   state = State.READY; resetRun(); newBest = false; groundBounced = false; unlocked = []; unlockSounded = false;
   transitionT = 1; Sound.swoosh(); Sound.music.setMode('menu'); setTimeOfDay(themeName);
@@ -232,13 +257,11 @@ function animateBird(dt) {
   if ((bird.blinkT -= dt) <= 0) { bird.blink = 1; bird.blinkT = 2 + Math.random() * 3.5; }
   bird.blink = Math.max(0, bird.blink - dt * 7);
   bird.happy = Math.max(0, bird.happy - dt);
-  // ser seg rundt i hvile, ser framover i spill
-  if (state === State.MENU || state === State.READY) {
-    if ((bird.lookT -= dt) <= 0) { bird.lookTo = (Math.random() * 2 - 1) * 0.9; bird.lookT = 1 + Math.random() * 2.2; }
-  } else bird.lookTo = 0.5;
-  bird.look = lerp(bird.look, bird.lookTo, 1 - Math.exp(-8 * dt));
+  // blikket: i hvile styres det av småhandlingene (se idleStep), i spill ser fuglen framover
+  if (state !== State.MENU && state !== State.READY) { bird.lookTo = 0.5; bird.act = null; bird.preen = 0; bird.lookUp = 0; bird.shakeS = 1; }
+  bird.look = lerp(bird.look, bird.lookTo, 1 - Math.exp(-14 * dt));
   // fjærtoppen henger etter bevegelsen (dempet fjær)
-  const vy = state === State.PLAY || state === State.DEAD ? bird.vy : Math.cos(time * 3.2) * 20;
+  const vy = state === State.PLAY || state === State.DEAD ? bird.vy : bird.hv;
   bird.crestV += ((clamp(vy / 500, -1, 1) * 0.5 - bird.crest) * 160 - bird.crestV * 10) * dt; bird.crest += bird.crestV * dt;
   // søvnige «z» i menyen om natten
   if (state === State.MENU && T.night && (bird.zT -= dt) <= 0) {
@@ -332,6 +355,73 @@ function landmarkStep() {
   landmarks = landmarks.filter(m => lmX(m, scroll) > -90);
 }
 
+/* ---------- Fuglen i hvile ----------
+   Den svever med små vingeslag: hvert slag gir et lite løft, og den synker litt imellom (bevegelsen
+   henger sammen med vingene). Innimellom gjør den én liten handling, med pauser imellom. */
+const IDLE_ACTS = {
+  look:   { dur: () => 1.3 + Math.random() * 1 },     // ser til siden, holder blikket, ser tilbake
+  preen:  { dur: () => 1.5 },                         // pirker i fjærene under vingen
+  blink2: { dur: () => 0.5 },                         // dobbeltblunk
+  shake:  { dur: () => 0.55 },                        // rister seg (med forberedelse)
+  lookUp: { dur: () => 2.2 }                          // ser opp på noe som passerer
+};
+// ballongen og fugleflokken (felles for tegning og for at fuglen kan se opp på dem)
+function balloonPos() {
+  if (H - GROUND_H - safeTop <= 400) return null;
+  const x = wrap(W * 0.25 - viewScroll * 0.02 - time * 4, W + 120) - 60;
+  const y = safeTop + 58 + (reduceMotion ? 0 : loopKeys([[0, 0], [3.5, -6], [8, -6], [11.5, 0], [15, 0]], time));   // stiger og synker i rolige trinn
+  return { x, y };
+}
+function flockPos() {
+  if (T.night) return null;
+  const ph = (time % 26) / 26;
+  return ph < 0.55 ? { x: W + 30 - ph / 0.55 * (W + 90), y: safeTop + 150 } : null;
+}
+function startAct(name) {
+  bird.act = { name, t: 0, dur: IDLE_ACTS[name].dur(), side: Math.random() < 0.5 ? -1 : 1 };
+  bird.lastAct = name;
+  if (name === 'blink2') bird.blink = 1;
+}
+function idleStep(dt, idleY) {
+  const asleep = state === State.MENU && T.night;
+  // svev: lett tyngde og en fjær mot hvilehøyden; vingeslagene gir løftet
+  bird.hv += (150 * (1 - bird.preen) + (idleY - bird.y) * 7) * dt;   // vektløs mens den pirker i fjærene
+  bird.hv -= bird.hv * 1.6 * dt;
+  if ((bird.hoverT -= dt) <= 0 && !(bird.act && bird.act.name === 'preen')) {
+    bird.hv -= asleep ? 34 : 50 + Math.random() * 8;
+    bird.flapT = 0;
+    bird.hoverT = asleep ? 0.75 + Math.random() * 0.5 : 0.24 + Math.random() * 0.12;
+  }
+  bird.y = clamp(bird.y + bird.hv * dt, idleY - 16, idleY + 16);
+  bird.flapT += dt;
+  // småhandlinger (ikke når den sover eller ved redusert bevegelse)
+  if (!asleep && !reduceMotion) {
+    const b = balloonPos(), f = flockPos(), above = [b, f].some(o => o && Math.abs(o.x - bird.x) < 40 && o.y < bird.y - 40);
+    if (above && (!bird.act || bird.act.name === 'look') && bird.lastAct !== 'lookUp') startAct('lookUp');
+    if (!bird.act && (bird.actT -= dt) <= 0) {
+      const pick = ['look', 'look', 'preen', 'blink2', 'shake'].filter(n => n !== bird.lastAct);
+      startAct(pick[(Math.random() * pick.length) | 0]);
+    }
+  }
+  const a = bird.act;
+  let lookTo = 0.4, preen = 0, lookUp = 0, sh = 1;
+  if (a) {
+    a.t += dt; const t = a.t;
+    if (a.name === 'look') lookTo = keyframes([[0, 0.4], [0.14, a.side * 0.95, 'out'], [a.dur - 0.22, a.side * 0.95], [a.dur, 0.4, 'inOut']], t);
+    else if (a.name === 'preen') preen = keyframes([[0, 0], [0.25, 1, 'antic'], [0.4, 0.8, 'inOut'], [0.55, 1, 'inOut'], [0.7, 0.82, 'inOut'], [0.85, 1, 'inOut'], [1.2, 1], [1.5, 0, 'inOut']], t);
+    else if (a.name === 'blink2') { if (t > 0.2 && !a.second) { a.second = true; bird.blink = 1; } }
+    else if (a.name === 'shake') sh = keyframes([[0, 1], [0.1, 0.9, 'out'], [0.17, 1.12, 'out'], [0.24, 0.92, 'inOut'], [0.31, 1.06, 'inOut'], [0.39, 0.97, 'inOut'], [0.55, 1, 'out']], t);
+    else if (a.name === 'lookUp') { lookUp = keyframes([[0, 0], [0.2, 1, 'out'], [a.dur - 0.3, 1], [a.dur, 0, 'inOut']], t); lookTo = 0.6; }
+    if (a.name === 'shake' && t > 0.17 && !a.puffed) { a.puffed = true; feathers(bird.x, bird.y, 2); }
+    if (t >= a.dur) { bird.act = null; bird.actT = 2.2 + Math.random() * 2.8; }
+  }
+  bird.lookTo = lookTo; bird.preen = preen; bird.lookUp = lookUp; bird.shakeS = sh;
+  // kroppen heller litt etter farten, fram når den pirker i fjærene, bakover når den ser opp
+  const rotTo = clamp(bird.hv / 500, -0.1, 0.1) + preen * 0.32 - lookUp * 0.2;
+  bird.rot = lerp(bird.rot, rotTo, 1 - Math.exp(-10 * dt));
+  bird.sx = lerp(bird.sx, sh, 1 - Math.exp(-25 * dt)); bird.sy = lerp(bird.sy, 2 - sh, 1 - Math.exp(-25 * dt));
+}
+
 /* ---------- Oppdatering (dt i sekunder) ---------- */
 // lagre tilstanden før steget, så render() kan interpolere mellom forrige og nåværende steg
 function snapshot() {
@@ -357,7 +447,7 @@ function update(dt) {
   const scrolling = state !== State.DEAD && state !== State.OVER;
   if (scrolling) { scroll += D.speed * gdt; landmarkStep(); }
 
-  transitionT = Math.max(0, transitionT - dt * 2.4);
+  transitionT = Math.max(0, transitionT - dt * 2.4); menuT += dt;
   if (worldFade && (worldFade.k += dt / 1.8) >= 1) worldFade = null;   // krysstoning over 1,8 s
   fx.t += dt; fx.tint = Math.max(0, fx.tint - dt * 2.2);
   animateBird(dt);
@@ -365,10 +455,7 @@ function update(dt) {
 
   const groundY = H - GROUND_H, idleY = groundY * 0.42;
 
-  if (state === State.MENU || state === State.READY) {
-    bird.y = idleY + Math.sin(time * 3.2) * 6; bird.rot = Math.sin(time * 3.2 + 1) * 0.08; bird.flapT += dt;
-    bird.sx = lerp(bird.sx, 1, dt * 10); bird.sy = lerp(bird.sy, 1, dt * 10);
-  }
+  if (state === State.MENU || state === State.READY) idleStep(dt, idleY);
 
   if (state === State.PLAY) {
     // tyngdekraft + luftmotstand + terminalfart
@@ -408,7 +495,7 @@ function update(dt) {
 
     for (const q of powers) {
       q.x -= D.speed * gdt; q.t += dt;
-      q.y = q.pipe.top + q.pipe.gap / 2 + Math.sin(q.t * 4) * 4;
+      q.y = q.pipe.top + q.pipe.gap / 2;   // står i ro midt i gapet: lettere å sikte på
       if (!q.taken && Math.hypot(q.x - bird.x, q.y - bird.y) < POWER_R + BIRD_R - 2) collect(q);
     }
     powers = powers.filter(q => !q.taken && q.x > -40);

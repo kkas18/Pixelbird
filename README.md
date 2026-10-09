@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v3.8): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v3.9): en liten blåmeis med lusekofte-skjerf flyr
 gjennom en norsk bjørkeskog. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 søvnig måne. Dag/natt-tema, generert musikk, syntetisert lyd og vibrasjon.
@@ -256,6 +256,29 @@ mange lyder overlapper.
 
 ## Animasjoner
 
+Bevegelsene har pauser og intensjon i stedet for jevn vugging. De bygger på nøkkelbilder med
+pauser, myk start og stopp, overskyting og forberedelse.
+
+- **Fuglen i hvile** svever med små vingeslag. Hvert slag gir et lite løft, og den synker litt
+  imellom, i uregelmessig takt. Innimellom gjør den én liten handling:
+  - ser til siden og holder blikket
+  - pirker i fjærene med lukkede øyne
+  - blunker to ganger
+  - rister seg (med forberedelse)
+  - ser opp når ballongen eller fugleflokken passerer over den
+
+  Om natten sover den og flakser rolig.
+- **Vingeslaget** går raskt ned og saktere opp igjen, med en liten overskyting.
+- **Bakgrunnen:**
+  - Skyene driver jevnt.
+  - Ballongen stiger og synker i rolige trinn med pauser.
+  - Fugleflokken flakser i støt og glir imellom.
+  - Bare noen få stjerner blinker om gangen, og ildfluene blinker i små serier med mørke pauser.
+- **Brukergrensesnittet:**
+  - Logoen faller på plass når menyen åpnes og står så stille.
+  - Egget på game over rister i korte støt.
+  - Hånden på «Klar?» trykker.
+  - Power-ups står i ro og slår som et hjerte.
 - Overgang mellom skjermer: en sirkel som åpner seg rundt fuglen.
 - Knapper klemmes litt når du trykker.
 - Poengtallet spretter som en fjær; game over-panelet og tittelen spretter inn,
