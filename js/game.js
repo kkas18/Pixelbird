@@ -132,7 +132,7 @@ function burst(x, y, n, colors, spd, life, grav = 700, size = 3, { shape = 'dot'
 function floatText(x, y, txt, color, size = 13, { life = 0.85, vx = 0, vy = -42, stroke = false } = {}) {
   floats.push({ x, y, txt, color, size, life, max: life, vx, vy, stroke });
 }
-const feathers = (x, y, n) => burst(x, y, n, ['#7CC7F0', '#B4E2F8', '#FFF5E2'], 70, 1.3, 60, 2.2, { shape: 'feather', drag: 2.2, vdrag: 2.4, spin: 3 });
+const feathers = (x, y, n) => burst(x, y, n, ['#4A93DA', '#F6CF45', '#FFFDF6'], 70, 1.3, 60, 2.2, { shape: 'feather', drag: 2.2, vdrag: 2.4, spin: 3 });
 
 /* ---------- Pause ---------- */
 function pauseGame() {

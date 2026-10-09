@@ -10,9 +10,11 @@
    ============================================================ */
 const UI_INK = '#5B4636';               // kontur og tekst i brukergrensesnittet (lik i begge tema)
 const BODY_R = 12.5;                    // fuglens tegnede kropp (treffsirkelen er litt mindre = tilgivende)
+// blåmeis: blå hette, vinger og hale, hvitt ansikt med mørk øyestripe og halsring, gul buk og gulgrønn rygg
 const BIRD = {
-  body: '#7CC7F0', light: '#B4E2F8', dark: '#4FA6DB', belly: '#FFF5E2', ink: '#2E4467',
-  beak: '#FFAE57', beakDark: '#E8842E', cheek: 'rgba(255,128,150,.55)', scarf: '#E5574A', scarfDark: '#B93E34'
+  cap: '#3A8AD6', capLight: '#6FB2EC', wing: '#4A93DA', wingDark: '#2F6FB4', back: '#A9BE5A', belly: '#FFD23E',
+  face: '#FFFDF6', mask: '#22304F', ink: '#22304F', eye: '#10141F', beak: '#4A505E', beakDark: '#2E323C', feet: '#7487A8',
+  scarf: '#D9473A', scarfDark: '#A7352B', lus: '#FFF8EC', shade: 'rgba(52,44,96,.13)'
 };
 
 const wrap = (v, m) => ((v % m) + m) % m;
@@ -28,7 +30,10 @@ function rr(x, y, w, h, r, g = ctx) {
 function circle(g, x, y, r) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
 // union av sirkler med ren ytterkontur: konturen tegnes som litt større sirkler under fyllet
 function blob(g, pts, fill, ink, lw = 1.2, inkAlpha = 1) {
-  if (ink) { g.globalAlpha = inkAlpha; g.fillStyle = ink; for (const [x, y, r] of pts) circle(g, x, y, r + lw); g.globalAlpha = 1; }
+  if (ink) {   // konturen forskyves mot skyggesiden: tykk nede til venstre, tynn oppe til høyre
+    const ox = SHADE_X * lw * 0.5, oy = SHADE_Y * lw * 0.5;
+    g.globalAlpha = inkAlpha; g.fillStyle = ink; for (const [x, y, r] of pts) circle(g, x + ox, y + oy, r + lw); g.globalAlpha = 1;
+  }
   g.fillStyle = fill; for (const [x, y, r] of pts) circle(g, x, y, r);
 }
 function starPath(x, y, r, rot = 0) {
@@ -50,18 +55,164 @@ function text(txt, x, y, size, opts = {}) {
   ctx.fillStyle = color; ctx.fillText(txt, x, y); ctx.globalAlpha = 1;
 }
 
+/* ---------- Håndlaget preg: ujevn strek, korssting og papirkorn ----------
+   Lyset kommer fra sola oppe til høyre, så konturene er tykkest nede til venstre (skyggesiden).
+   All ujevnhet er frøstyrt: samme ting får samme strek hvert bilde, så ingenting flimrer. */
+const SHADE_X = -0.6, SHADE_Y = 0.8;    // enhetsvektor mot skyggesiden
+// glatt, frøstyrt støy rundt en lukket kurve (t i radianer) eller langs en linje; verdier ca. −1 … 1
+function wobble(seed) {
+  const r = rng(seed), p = [r() * 6.28, r() * 6.28, r() * 6.28];
+  return t => Math.sin(t * 2 + p[0]) * 0.5 + Math.sin(t * 3 + p[1]) * 0.32 + Math.sin(t * 5 + p[2]) * 0.18;
+}
+// punkter rundt et avrundet rektangel, med utoverrettet normal (for konturer og søm)
+function rrPoints(x, y, w, h, r, step = 3) {
+  r = Math.min(r, w / 2, h / 2);
+  const pts = [], H2 = Math.PI / 2;
+  // hjørnesentre med startvinkel, i retning med klokka fra øverst til høyre
+  const corners = [[x + w - r, y + r, -H2], [x + w - r, y + h - r, 0], [x + r, y + h - r, H2], [x + r, y + r, Math.PI]];
+  corners.forEach(([cx, cy, a0], k) => {
+    const n = Math.max(2, Math.ceil(r * H2 / step));
+    for (let i = 0; i <= n; i++) { const a = a0 + i / n * H2, nx = Math.cos(a), ny = Math.sin(a); pts.push({ x: cx + nx * r, y: cy + ny * r, nx, ny }); }
+    // rett kant fram til neste hjørne (normalen peker utover)
+    const nx = Math.cos(a0 + H2), ny = Math.sin(a0 + H2), [qx, qy, qa] = corners[(k + 1) % 4];
+    const ax = cx + nx * r, ay = cy + ny * r, bx = qx + Math.cos(qa) * r, by = qy + Math.sin(qa) * r;
+    const m = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / (step * 2)));
+    for (let i = 1; i < m; i++) pts.push({ x: ax + (bx - ax) * i / m, y: ay + (by - ay) * i / m, nx, ny });
+  });
+  return pts;
+}
+// håndtegnet kontur: fyll mellom formen og en ujevn ytterkant, tykkest mot skyggesiden.
+// Tegnes FØR fyllet; fyllet dekker innsiden. rot = hvor mye formen er rotert (lyset står stille).
+function inkEdge(g, pts, lw, seed, amp = 0.35, rot = 0) {
+  const n = wobble(seed), sx = SHADE_X * Math.cos(rot) + SHADE_Y * Math.sin(rot), sy = -SHADE_X * Math.sin(rot) + SHADE_Y * Math.cos(rot);
+  g.beginPath();
+  pts.forEach((p, i) => {
+    const k = lw * (1 + 0.45 * (p.nx * sx + p.ny * sy)) + amp * n(i / pts.length * 6.283);
+    g.lineTo(p.x + p.nx * k, p.y + p.ny * k);
+  });
+  g.closePath(); g.fill();
+}
+const circlePoints = (x, y, r, n = 40) => Array.from({ length: n }, (_, i) => { const a = i / n * Math.PI * 2, nx = Math.cos(a), ny = Math.sin(a); return { x: x + nx * r, y: y + ny * r, nx, ny }; });
+function inkCircle(g, x, y, r, lw, seed, amp, rot) { inkEdge(g, circlePoints(x, y, r), lw, seed, amp, rot); }
+function inkRR(g, x, y, w, h, r, lw, seed, amp) { inkEdge(g, rrPoints(x, y, w, h, r), lw, seed, amp); }
+
+// ett korssting i en rute (s = rutestørrelse): understing «/» og overstinget «\» i en lysere tråd
+function stitch(g, x, y, s, under, over, jit = 0) {
+  const i = s * 0.16;
+  g.lineWidth = s * 0.34; g.lineCap = 'round';
+  g.strokeStyle = under; g.beginPath(); g.moveTo(x + i + jit, y + s - i); g.lineTo(x + s - i, y + i - jit); g.stroke();
+  g.strokeStyle = over; g.beginPath(); g.moveTo(x + i, y + i + jit); g.lineTo(x + s - i - jit, y + s - i); g.stroke();
+}
+// et rutemønster (strenger med «X» og «.») som korssting på stoff, med mørk ytterkant rundt hele motivet
+function stitchGrid(g, rows, x0, y0, s, colors, seed, outline = null) {
+  const r = rng(seed), cells = [];
+  rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== '.') cells.push([x0 + i * s, y0 + j * s, ch]); }));
+  if (outline) {   // ytterkant: litt større ruter under alt, forskjøvet mot skyggesiden
+    const o = outline.w;
+    g.fillStyle = outline.color;
+    for (const [x, y] of cells) g.fillRect(x - o + SHADE_X * o * 0.5, y - o + SHADE_Y * o * 0.5, s + o * 2, s + o * 2);
+  }
+  for (const [x, y, ch] of cells) {
+    const c = colors[ch] || colors.X;
+    g.fillStyle = c[0]; g.fillRect(x, y, s, s);               // stoffet skimter mellom trådene
+    stitch(g, x, y, s, c[1], c[2], (r() - 0.5) * s * 0.12);   // litt ujevne sting, som for hånd
+  }
+}
+
+function buildLogo(s) {
+  const rows = logoRows('Pixelfugl'), pad = 4;
+  return makeSprite(rows[0].length * s + pad * 2, rows.length * s + pad * 2 + 2, g => {
+    g.fillStyle = hexA(UI_INK, 0.3);   // myk skygge under broderiet
+    rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== '.') g.fillRect(pad + i * s - 1, pad + j * s + 2.6, s + 2, s + 2); }));
+    stitchGrid(g, rows, pad, pad, s, {
+      X: ['#DC952B', '#F4B53F', '#FFDA7E'],
+      B: ['#2C68AC', '#3A8AD6', '#86C4F2']
+    }, 909, { w: 1.7, color: UI_INK });
+  });
+}
+// håndlaget pikselskrift for logoen: hver rute er ett korssting (9 rader: 2 over x-høyden, 5 x-høyde, 2 under).
+// B = blått sting (i-prikken er en liten blåmeis-hilsen)
+const LOGO_GLYPHS = {
+  P: ['XXXX.', 'X...X', 'X...X', 'XXXX.', 'X....', 'X....', 'X....', '.....', '.....'],
+  i: ['B', '.', 'X', 'X', 'X', 'X', 'X', '.', '.'],
+  x: ['.....', '.....', 'X...X', '.X.X.', '..X..', '.X.X.', 'X...X', '.....', '.....'],
+  e: ['.....', '.....', '.XXX.', 'X...X', 'XXXXX', 'X....', '.XXXX', '.....', '.....'],
+  l: ['X.', 'X.', 'X.', 'X.', 'X.', 'X.', '.X', '..', '..'],
+  f: ['..XX', '.X..', 'XXX.', '.X..', '.X..', '.X..', '.X..', '....', '....'],
+  u: ['.....', '.....', 'X...X', 'X...X', 'X...X', 'X..XX', '.XX.X', '.....', '.....'],
+  g: ['.....', '.....', '.XXXX', 'X...X', 'X...X', '.XXXX', '....X', 'X...X', '.XXX.']
+};
+// sett sammen et ord til ett rutenett med én tom kolonne mellom bokstavene
+function logoRows(word) {
+  const rows = Array(9).fill('');
+  [...word].forEach((ch, k) => { const gl = LOGO_GLYPHS[ch]; for (let j = 0; j < 9; j++) rows[j] += (k ? '.' : '') + gl[j]; });
+  return rows;
+}
+// selburose (åttebladsrose) – det klassiske norske strikkemotivet, brukt på medaljene
+const SELBUROSE = [
+  '...X.....X...', '...XX...XX...', '...XXX.XXX...', 'XXX.XXXXX.XXX', '.XXX.XXX.XXX.', '..XXX.X.XXX..', '...XXX.XXX...',
+  '..XXX.X.XXX..', '.XXX.XXX.XXX.', 'XXX.XXXXX.XXX', '...XXX.XXX...', '...XX...XX...', '...X.....X...'
+];
+
+// papirkorn: fint støymønster i skjermpiksler, med noen lange fibre; bakes inn i de stillestående lagene
+let grainTile = null;
+function grain() {
+  if (grainTile) return grainTile;
+  const n = 256, c = document.createElement('canvas'); c.width = c.height = n;
+  const g = c.getContext('2d'), r = rng(4242);
+  // myk marmorering: grov støy skalert opp med utjevning (papirets ujevne fibre)
+  const m = 64, sm = document.createElement('canvas'); sm.width = sm.height = m;
+  const sg = sm.getContext('2d'), img = sg.createImageData(m, m);
+  for (let i = 0; i < m * m; i++) {
+    const v = r(), light = v > 0.5, a = Math.abs(v - 0.5) * 2 * 26;
+    img.data[i * 4] = light ? 255 : 120; img.data[i * 4 + 1] = light ? 252 : 92; img.data[i * 4 + 2] = light ? 240 : 70; img.data[i * 4 + 3] = a;
+  }
+  sg.putImageData(img, 0, 0);
+  g.imageSmoothingEnabled = true; g.drawImage(sm, 0, 0, n, n);
+  // fint korn: spredte, svake prikker (mest lyse)
+  for (let i = 0; i < 1400; i++) {
+    const x = r() * n, y = r() * n, lt = r() < 0.7;
+    g.fillStyle = lt ? 'rgba(255,253,244,.35)' : 'rgba(110,84,62,.16)'; g.fillRect(x, y, 1, 1);
+  }
+  g.lineCap = 'round';
+  for (let i = 0; i < 46; i++) {   // fibre
+    const x = r() * n, y = r() * n, a = r() * 6.28, l = 5 + r() * 12;
+    g.strokeStyle = r() < 0.5 ? 'rgba(110,84,62,.07)' : 'rgba(255,252,240,.18)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a + 0.6) * l * 0.5, y + Math.sin(a + 0.6) * l * 0.5, x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+  }
+  return (grainTile = c);
+}
+// papirkorn over et område på hovedlerretet (klipp først); mønsteret ligger i skjermpiksler
+let grainPat = null;
+function paperOn(g, alpha) {
+  if (!grainPat || grainPat.g !== g) grainPat = { g, p: g.createPattern(grain(), 'repeat') };
+  const m = g.getTransform();
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha *= alpha; g.fillStyle = grainPat.p;
+  g.fillRect(0, 0, g.canvas.width, g.canvas.height); g.restore();
+  g.setTransform(m);
+}
+// legg papirkorn over det som allerede er tegnet på lerretet (bare der det finnes farge)
+function paper(g, alpha) {
+  const c = g.canvas;
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalCompositeOperation = 'source-atop'; g.globalAlpha = alpha;
+  g.fillStyle = g.createPattern(grain(), 'repeat'); g.fillRect(0, 0, c.width, c.height);
+  g.restore();
+}
+
 /* ---------- Offscreen-lag ---------- */
 let scene = null;
 // flislag: bredden rundes til hele skjermpiksler, så flisene møtes uten søm
-function makeLayer(wWanted, h, draw) {
+function makeLayer(wWanted, h, draw, grainA = 0) {
   const R = dpr * scale, cw = Math.max(1, Math.round(wWanted * R)), ch = Math.max(1, Math.ceil(h * R));
   const c = document.createElement('canvas'); c.width = cw; c.height = ch;
   const g = c.getContext('2d'); g.setTransform(R, 0, 0, R, 0, 0); g.lineJoin = 'round'; g.lineCap = 'round';
   const L = { c, w: cw / R, h: ch / R };
   draw(g, L.w, L.h, L);
+  if (grainA) paper(g, grainA);
   return L;
 }
-const makeSprite = (w, h, draw) => makeLayer(w, h, draw);
+const makeSprite = (w, h, draw, grainA) => makeLayer(w, h, draw, grainA);
 // fyll fra en sømløs kamlinje y = top(x) ned til bunnen av laget
 function ridgePath(g, w, h, top, step = 2) {
   g.beginPath(); g.moveTo(0, h);
@@ -112,7 +263,7 @@ function buildScene() {
     g.fillStyle = hexA(T.fjordLight, 0.9); g.fillRect(0, base + 2, w, 1.5);
     g.fillStyle = hexA(T.fjordLight, 0.7);
     for (let i = 0; i < 22; i++) { const x = r() * w, y = base + 7 + r() * (h - base - 12), l = 4 + r() * 8; tiled(w, x, l, xx => g.fillRect(xx, y, l, 1.1)); }
-  });
+  }, 0.5);
 
   // 2) åser med røde hytter og torvtak (topp = groundY - 96); pipene huskes for røyken
   scene.hills = makeLayer(360, 96, (g, w, h, L) => {
@@ -128,7 +279,7 @@ function buildScene() {
       g.fillStyle = T.roof; g.fillRect(x - 0.7, y - 6 * s, 1.4, 6 * s);
       blob(g, [[x, y - 9 * s, 5 * s], [x - 3 * s, y - 6.5 * s, 3.6 * s], [x + 3 * s, y - 6.5 * s, 3.6 * s]], T.forest, hexA(T.ink, 0.5), 0.9);
     }
-  });
+  }, 0.5);
 
   // 3) bjørkeskog med skogbunn (topp = groundY - 84)
   scene.forest = makeLayer(300, 84, (g, w, h) => {
@@ -139,7 +290,7 @@ function buildScene() {
     for (const t of trees) tiled(w, t.x, 16, x => birchTree(g, x, floor(t.x) + (t.back ? -4 : 3), t.s, t.warm, t.back));
     ridgePath(g, w, h, floor); g.fillStyle = T.hillNear; g.fill();
     strokeRidge(g, w, floor, hexA(T.ink, 0.28), 1.2);
-  });
+  }, 0.5);
 
   // 4) busker og blomster (topp = groundY - 40)
   scene.bushes = makeLayer(240, 40, (g, w, h) => {
@@ -147,13 +298,13 @@ function buildScene() {
     for (let i = 0; i < 5; i++) { const x = (i + 0.2 + r() * 0.6) * w / 5, s = 0.75 + r() * 0.5; tiled(w, x, 22, xx => bush(g, xx, h + 2, s)); }
     const petals = ['#FFFFFF', '#FFC6D6', '#FFE27A', '#D9C6F7'];
     if (seasonName !== 'winter') for (let i = 0; i < 16; i++) { const x = r() * w, y = h - 3 - r() * 7, c = petals[(r() * 4) | 0]; tiled(w, x, 4, xx => flower(g, xx, y, 1.5, c)); }
-  });
+  }, 0.45);
 
   // 5) bakken: gress med kamskjell-kant, tuster og blomster, jord med steiner (topp = groundY - 10)
   scene.ground = makeLayer(144, GROUND_H + 10, (g, w, h) => {
     const r = rng(71), top = 10;
-    const sg = g.createLinearGradient(0, top, 0, h); sg.addColorStop(0, T.soil); sg.addColorStop(1, T.soilDark);
-    g.fillStyle = sg; g.fillRect(0, top + 6, w, h - top - 6);
+    g.fillStyle = T.soil; g.fillRect(0, top + 6, w, h - top - 6);   // flate jordlag i stedet for gradient
+    g.fillStyle = hexA(T.soilDark, 0.45); g.fillRect(0, top + 52, w, h - top - 52);
     g.fillStyle = hexA(T.soilDark, 0.6);   // et mørkere jordlag
     g.beginPath(); g.moveTo(0, top + 44);
     for (let x = 0; x <= w + 0.01; x += 3) g.lineTo(x, top + 44 + Math.sin(x / w * TAU * 2) * 3);
@@ -183,7 +334,7 @@ function buildScene() {
       });
     }
     if (seasonName !== 'winter') for (let i = 0; i < 5; i++) { const x = r() * w, c = ['#FFFFFF', '#FFE27A', '#FFC6D6'][i % 3]; tiled(w, x, 4, xx => flower(g, xx, top - 1 - r() * 2, 1.7, c)); }
-  });
+  }, 0.6);
 
   // himmel med solglød, og vignett: tegnes én gang i full skjermstørrelse (ugjennomsiktig blit er billigere enn gradienter hvert bilde)
   const groundY = H - GROUND_H, { sx, sy } = sunPos();
@@ -191,10 +342,10 @@ function buildScene() {
     const gr = g.createLinearGradient(0, 0, 0, groundY);
     gr.addColorStop(0, T.skyTop); gr.addColorStop(0.55, T.skyMid); gr.addColorStop(1, T.skyBot);
     g.fillStyle = gr; g.fillRect(0, 0, W + 2, groundY + 2);
-    const sg = g.createRadialGradient(sx, sy, 8, sx, sy, 78);
-    sg.addColorStop(0, T.sunGlow); sg.addColorStop(1, hexA(T.skyMid, 0));
-    g.fillStyle = sg; g.fillRect(sx - 80, sy - 80, 160, 160);
-  });
+    g.fillStyle = T.sunGlow;   // solglød som flate, malte glorier (ingen gradient)
+    for (const [r, a] of [[68, 0.13], [50, 0.2], [35, 0.32]]) { g.globalAlpha = a; inkCircle(g, sx, sy, r - 2, 2, r, 1.2); }
+    g.globalAlpha = 1;
+  }, 0.7);
   scene.vignette = makeSprite(W, H, g => {
     const vg = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.8);
     vg.addColorStop(0, hexA('#000000', 0)); vg.addColorStop(1, T.vignette);
@@ -218,21 +369,14 @@ function buildScene() {
     g.globalAlpha = 0.35; fill(T.cloud, 0, 2.2); g.globalAlpha = 1;   // myk dun-kant
     fill(T.cloudShade, 4);                                             // skyggesiden under
     fill(T.cloud);                                                     // hovedfyll
-    g.save(); g.beginPath();
-    for (const [x, y, k] of puffs) { g.moveTo(x + k, y); g.arc(x, y, k, 0, TAU); }
-    g.clip();
-    const vg = g.createLinearGradient(0, base - 42, 0, base + 8);
-    vg.addColorStop(0, 'rgba(255,255,255,.55)'); vg.addColorStop(0.55, hexA(T.cloud, 0)); vg.addColorStop(1, hexA(T.cloudShade, 0.65));
-    g.fillStyle = vg; g.fillRect(0, 0, w, h);
-    // mykt lys på de største toppene: radialgradient som blekner ut (ingen skarpe prikker)
-    const hiA = T.night ? 0.2 : 0.55;
-    for (const [x, y, k] of puffs) if (y < base - 12 && k > 10) {
-      const hx = x - k * 0.25, hy = y - k * 0.3, hg = g.createRadialGradient(hx, hy, 0, hx, hy, k * 0.8);
-      hg.addColorStop(0, `rgba(255,255,255,${hiA})`); hg.addColorStop(1, 'rgba(255,255,255,0)');
-      g.fillStyle = hg; circle(g, hx, hy, k * 0.8);
-    }
+    // kantlys: skyformen minus en litt forskjøvet kopi gir en flat, lys kant oppe mot sola (cel-stil, ingen gradient)
+    const t = document.createElement('canvas'); t.width = g.canvas.width; t.height = g.canvas.height;
+    const tg = t.getContext('2d'); tg.setTransform(g.getTransform());
+    tg.fillStyle = '#FFFFFF'; for (const [x, y, k] of puffs) if (y < base - 6) circle(tg, x, y, k);
+    tg.globalCompositeOperation = 'destination-out'; for (const [x, y, k] of puffs) circle(tg, x - 2.2, y + 3.2, k);
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-atop'; g.globalAlpha = T.night ? 0.3 : 0.75; g.drawImage(t, 0, 0);
     g.restore();
-  }));
+  }, 0.4));
   scene.balloon = makeSprite(30, 48, g => {
     g.strokeStyle = T.ink; g.lineWidth = 0.8;
     g.beginPath(); g.moveTo(8, 25); g.lineTo(11.5, 37); g.moveTo(22, 25); g.lineTo(18.5, 37); g.stroke();
@@ -248,10 +392,8 @@ function buildScene() {
     gr.addColorStop(0, 'rgba(255,240,150,.95)'); gr.addColorStop(0.4, 'rgba(255,230,120,.35)'); gr.addColorStop(1, 'rgba(255,230,120,0)');
     g.fillStyle = gr; g.fillRect(0, 0, 24, 24);
   });
-  // sylinderskygge for bjørkestammene (gjenbrukes; stammene tegnes med translate)
-  const tg = ctx.createLinearGradient(0, 0, PIPE_W, 0);
-  tg.addColorStop(0, T.trunkShade); tg.addColorStop(0.2, T.trunk); tg.addColorStop(0.62, T.trunk); tg.addColorStop(1, T.trunkShade);
-  scene.trunkGrad = tg;
+  // logoen: «Pixelfugl» brodert i korssting (håndlaget pikselskrift i stedet for en ferdig font)
+  scene.logo = buildLogo(5);
   return scene;
 }
 
@@ -267,9 +409,7 @@ function cabin(g, x, y, L) {
   g.beginPath(); g.moveTo(-w / 2 - 2, -h - 0.6); g.lineTo(0, -h - 8.6); g.lineTo(w / 2 + 2, -h - 0.6); g.stroke();
   g.fillStyle = T.roof; g.fillRect(-6.5, -7, 3.6, 7);   // dør
   if (T.windowLit) {   // varmt lys i vinduet om kvelden
-    const gl = g.createRadialGradient(3.5, -6, 0, 3.5, -6, 13);
-    gl.addColorStop(0, 'rgba(255,214,130,.55)'); gl.addColorStop(1, 'rgba(255,214,130,0)');
-    g.fillStyle = gl; g.fillRect(-10, -19, 27, 26);
+    g.fillStyle = 'rgba(255,214,130,.22)'; circle(g, 3.6, -5.8, 9); circle(g, 3.6, -5.8, 5.5);   // flat lysglorie
   }
   g.fillStyle = T.window; g.fillRect(1, -8, 5.2, 4.4);
   g.strokeStyle = T.cabinDark; g.lineWidth = 0.7; g.strokeRect(1, -8, 5.2, 4.4);
@@ -430,8 +570,8 @@ function drawTrunkShadow(p, groundY) {
 function drawTrunk(p, groundY) {
   const ry = END_H / 2 - 0.5, by = p.top + p.gap;
   ctx.save(); ctx.translate(p.x, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  trunkBody(-10, p.top - ry, p.marksTop, p.top - ry, -1);
-  trunkBody(by + ry, groundY + 2, p.marksBot, by + ry, 1);
+  trunkBody(-10, p.top - ry, p.marksTop, p.top - ry, -1, p.seed);
+  trunkBody(by + ry, groundY + 2, p.marksBot, by + ry, 1, p.seed + 1);
   trunkDecor(p, p.top - ry, by + ry, groundY);
   trunkEnd(p, p.top - ry, false);
   trunkEnd(p, by + ry, true);
@@ -443,10 +583,13 @@ function drawTrunk(p, groundY) {
   }
 }
 // stammekropp: sylinderskygge + svarte barkmerker, målt fra enden (så merkene følger stammen når den beveger seg)
-function trunkBody(y0, y1, marks, ref, dir) {
+function trunkBody(y0, y1, marks, ref, dir, seed) {
   if (y1 <= y0) return;
-  const w = PIPE_W;
-  ctx.fillStyle = scene.trunkGrad; ctx.fillRect(0, y0, w, y1 - y0);
+  const w = PIPE_W, h = y1 - y0;
+  // cel-skygge: lys fra høyre, så skyggesiden er til venstre (tre flate tonetrinn og en smal refleks i høyre kant)
+  ctx.fillStyle = T.trunk; ctx.fillRect(0, y0, w, h);
+  ctx.fillStyle = T.trunkShade; ctx.fillRect(0, y0, w * 0.2, h);
+  ctx.fillStyle = mixHex(T.trunk, T.trunkShade, 0.5); ctx.fillRect(w * 0.2, y0, w * 0.1, h); ctx.fillRect(w - 3.5, y0, 3.5, h);
   ctx.strokeStyle = T.bark;
   for (const m of marks) {
     const y = ref + dir * m.d;
@@ -457,8 +600,13 @@ function trunkBody(y0, y1, marks, ref, dir) {
       ctx.lineWidth = m.th; ctx.beginPath(); ctx.moveTo(m.x, y); ctx.quadraticCurveTo(m.x + m.len / 2, y + 0.9, m.x + m.len, y); ctx.stroke();
     }
   }
-  ctx.strokeStyle = hexA(T.ink, 0.6); ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(0, y1); ctx.moveTo(w, y0); ctx.lineTo(w, y1); ctx.stroke();
+  // ujevne sidekanter, målt fra enden så de følger stammen; tykkere på skyggesiden
+  ctx.strokeStyle = hexA(T.ink, 0.6);
+  for (const [x, lw, off] of [[0, 2.1, 0], [w, 1.3, 9]]) {
+    const n = wobble(seed * 7 + off); ctx.lineWidth = lw; ctx.beginPath();
+    for (let y = y0; ; y += 7) { const yy = Math.min(y, y1); ctx.lineTo(x + n((yy - ref) * dir / 26) * 0.6, yy); if (yy >= y1) break; }
+    ctx.stroke();
+  }
 }
 // snittflate med årringer og en mosekant (høstløv på bevegelige stammer, lyng på smale)
 function trunkEnd(p, y, upper) {
@@ -545,9 +693,7 @@ function bubble(x, y, r, t) {
 }
 function drawPower(q) {
   const P = POWERS[q.kind], pulse = 1 + Math.sin(q.t * 5) * 0.05;
-  const g = ctx.createRadialGradient(q.x, q.y, 3, q.x, q.y, POWER_R * 2.2);
-  g.addColorStop(0, P.glow); g.addColorStop(1, hexA('#FFFFFF', 0));
-  ctx.fillStyle = g; ctx.fillRect(q.x - 30, q.y - 30, 60, 60);
+  ctx.fillStyle = P.glow; ctx.globalAlpha = 0.45; circle(ctx, q.x, q.y, POWER_R * 1.9); ctx.globalAlpha = 0.6; circle(ctx, q.x, q.y, POWER_R * 1.45); ctx.globalAlpha = 1;
   if (q.kind === 'shield') { bubble(q.x, q.y, POWER_R * pulse, q.t); return; }
   ctx.save(); ctx.translate(q.x, q.y); ctx.scale(pulse, pulse);
   ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.2;
@@ -585,77 +731,128 @@ function birdExpr() {
   return 'normal';
 }
 function eye(x, y, s, expr, look) {
-  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-  ctx.strokeStyle = BIRD.ink; ctx.fillStyle = BIRD.ink; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
-  if (expr === 'happy') { ctx.beginPath(); ctx.arc(0, 1.2, 2.4, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); }
-  else if (expr === 'sleep') { ctx.beginPath(); ctx.arc(0, -0.8, 2.4, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke(); }
-  else if (expr === 'dizzy') {
-    ctx.lineWidth = 1.1; ctx.beginPath();
-    for (let a = 0; a < 3 * Math.PI; a += 0.3) { const k = a * 0.3; ctx.lineTo(Math.cos(a + time * 7) * k, Math.sin(a + time * 7) * k); }
-    ctx.stroke();
-  } else {
-    const closed = Math.sin(Math.PI * bird.blink), big = expr === 'wide' ? 1.2 : 1;
-    ctx.beginPath(); ctx.ellipse(look, 0, 2.3 * big, 2.9 * big * Math.max(0.12, 1 - closed), 0, 0, 7); ctx.fill();
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.lineCap = 'round';
+  // øynene sitter i den mørke øyestripen: en lys kant under gjør dem lesbare
+  const arc = (y0, a0, a1, wave) => {
+    ctx.beginPath();
+    if (wave) for (let a = 0; a < 3 * Math.PI; a += 0.3) { const k = a * 0.3; ctx.lineTo(Math.cos(a + time * 7) * k, Math.sin(a + time * 7) * k); }
+    else ctx.arc(0, y0, 2.4, a0, a1);
+    ctx.strokeStyle = 'rgba(255,253,246,.9)'; ctx.lineWidth = 2.8; ctx.stroke();
+    ctx.strokeStyle = BIRD.eye; ctx.lineWidth = 1.4; ctx.stroke();
+  };
+  if (expr === 'happy') arc(1.2, Math.PI * 1.15, Math.PI * 1.85);
+  else if (expr === 'sleep') arc(-0.8, Math.PI * 0.15, Math.PI * 0.85);
+  else if (expr === 'dizzy') arc(0, 0, 0, true);
+  else {
+    const closed = Math.sin(Math.PI * bird.blink), big = expr === 'wide' ? 1.2 : 1, ry = 2.9 * big * Math.max(0.12, 1 - closed);
+    ctx.fillStyle = 'rgba(255,253,246,.85)'; ctx.beginPath(); ctx.ellipse(look, 0.35, 2.3 * big + 0.7, ry + 0.7, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = BIRD.eye; ctx.beginPath(); ctx.ellipse(look, 0, 2.3 * big, ry, 0, 0, 7); ctx.fill();
     if (closed < 0.6) {
       ctx.fillStyle = '#FFFFFF'; circle(ctx, look + 0.8, -1.1 * big, 0.95 * big); circle(ctx, look - 0.7, 1 * big, 0.45);
     }
   }
   ctx.restore();
 }
-function birdShape(expr, look = wear) {   // look = pynt (garderobe)
+// blåmeisen i lokale koordinater (nebbet peker mot +x). rot = fuglens rotasjon, så skyggen alltid ligger nede til venstre
+function birdShape(expr, look = wear, rot = 0) {   // look = pynt (garderobe)
   const B = BIRD, R = BODY_R, flying = state === State.PLAY || state === State.DEAD;
   ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = B.ink;
-  // halefjær
-  ctx.fillStyle = B.dark; ctx.lineWidth = 1.3;
+  // halefjær (blå)
+  ctx.fillStyle = B.wing; ctx.lineWidth = 1.3;
   for (const [a, l] of [[-0.45, 8], [0.05, 7]]) {
     ctx.save(); ctx.translate(-R + 2.5, 1); ctx.rotate(Math.PI + a - bird.crest * 0.4);
-    ctx.beginPath(); ctx.ellipse(l * 0.5, 0, l * 0.6, 2.6, 0, 0, 7); ctx.fill(); ctx.stroke(); ctx.restore();
+    ctx.beginPath(); ctx.ellipse(l * 0.5, 0, l * 0.6, 2.6, 0, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = B.wingDark; ctx.beginPath(); ctx.ellipse(l * 0.85, 0, l * 0.22, 1.6, 0, 0, 7); ctx.fill();
+    ctx.restore(); ctx.fillStyle = B.wing;
   }
-  // føtter (henger ned i hvile, står når fuglen sitter; gjemt i flukt)
+  // føtter (blågrå; henger ned i hvile, står når fuglen sitter; gjemt i flukt)
   if (!flying) {
-    ctx.strokeStyle = B.beakDark; ctx.lineWidth = 1.6;
+    ctx.strokeStyle = B.feet; ctx.lineWidth = 1.6;
     for (const fx of [-2.6, 2.8]) { ctx.beginPath(); ctx.moveTo(fx, R - 2); ctx.lineTo(fx, R + 2.6); ctx.moveTo(fx - 1.8, R + 3); ctx.lineTo(fx + 1.8, R + 3); ctx.stroke(); }
     ctx.strokeStyle = B.ink;
   }
-  // kropp med myk lyssetting og kremhvit mage
-  const g = ctx.createRadialGradient(-4, -6, 2, 0, 0, R + 2);
-  g.addColorStop(0, B.light); g.addColorStop(0.55, B.body); g.addColorStop(1, B.dark);
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.fill();
-  ctx.save(); ctx.clip(); ctx.fillStyle = B.belly; ctx.beginPath(); ctx.ellipse(3, 7.5, 9.5, 7, -0.2, 0, 7); ctx.fill(); ctx.restore();
-  ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.stroke();
-  // fjærtopp (henger litt etter bevegelsen) – skjules under luer og krone
+  // kontur med ujevn strek, tykkest på skyggesiden
+  ctx.fillStyle = B.ink; inkCircle(ctx, 0, 0, R, 1.45, 17, 0.28, rot);
+  // fjærdrakten: flate felt, klippet til kroppen
+  ctx.save(); ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.clip();
+  ctx.fillStyle = B.belly; ctx.fillRect(-R, -R, R * 2, R * 2);
+  ctx.fillStyle = B.back; ctx.beginPath(); ctx.ellipse(-8, -1.5, 8.5, 13, 0.25, 0, 7); ctx.fill();
+  ctx.fillStyle = B.face; ctx.beginPath(); ctx.ellipse(4.2, -1.6, 8.8, 6.2, 0.05, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(1.2, -12.2, 12.9, 7.7, 0.08, 0, 7); ctx.fill();   // hvit ring rundt hetta
+  ctx.fillStyle = B.cap; ctx.beginPath(); ctx.ellipse(1.2, -12.9, 11.4, 6.5, 0.08, 0, 7); ctx.fill();
+  ctx.fillStyle = B.capLight; ctx.beginPath(); ctx.ellipse(4.2, -9.4, 4.2, 1.4, 0.15, 0, 7); ctx.fill();
+  // øyestripe fra nebbet gjennom øynene og bak til nakken, og halsringen rundt det hvite kinnet
+  ctx.strokeStyle = B.mask;
+  ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(5.6, -1.4); ctx.quadraticCurveTo(3.2, -3.6, -1.5, -4.6); ctx.quadraticCurveTo(-6.5, -5.4, -12, -4.6); ctx.stroke();
+  ctx.lineWidth = 2.1; ctx.beginPath(); ctx.moveTo(8, -1.5); ctx.quadraticCurveTo(9.6, -3.8, 13, -4.4); ctx.stroke();
+  ctx.lineWidth = 1.9; ctx.beginPath(); ctx.moveTo(-11.5, -4.4); ctx.quadraticCurveTo(-8.5, 3.5, -1, 4.3); ctx.quadraticCurveTo(5, 4.6, 8.5, 3); ctx.stroke();
+  ctx.fillStyle = B.mask; ctx.beginPath(); ctx.ellipse(7.6, 3.4, 2.6, 1.7, -0.2, 0, 7); ctx.fill();   // liten «hake»
+  // cel-skygge: to flate tonetrinn ut fra en fast lysretning (oppe til høyre), uansett hvordan fuglen roterer
+  const c = Math.cos(rot), s = Math.sin(rot), lx = -(SHADE_X * c + SHADE_Y * s), ly = -(-SHADE_X * s + SHADE_Y * c);
+  ctx.fillStyle = B.shade; ctx.beginPath(); ctx.rect(-R - 2, -R - 2, R * 2 + 4, R * 2 + 4); ctx.arc(lx * 2.2, ly * 2.2, R, 0, 7); ctx.fill('evenodd');
+  ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.beginPath(); ctx.rect(-R - 2, -R - 2, R * 2 + 4, R * 2 + 4); ctx.arc(-lx * 1.5, -ly * 1.5, R, 0, 7); ctx.fill('evenodd');
+  ctx.restore();
+  // liten fjærtust i hetta (henger litt etter bevegelsen) – skjules under luer og krone
   if (!HIDES_CREST.has(look)) {
-    ctx.save(); ctx.translate(-1, -R + 1.5); ctx.rotate(-0.25 + bird.crest);
-    ctx.strokeStyle = B.dark; ctx.lineWidth = 2.4;
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-1, -6, -5, -6.5); ctx.moveTo(1.6, 0); ctx.quadraticCurveTo(2.6, -6.5, -0.4, -8.6); ctx.stroke();
+    ctx.save(); ctx.translate(0.5, -R + 1.2); ctx.rotate(-0.3 + bird.crest);
+    ctx.strokeStyle = B.ink; ctx.lineWidth = 3.6;
+    const tuft = () => { ctx.beginPath(); ctx.moveTo(-1.6, 0.6); ctx.quadraticCurveTo(-2.4, -3.2, -4.6, -4); ctx.moveTo(0.8, 0.4); ctx.quadraticCurveTo(1.2, -3.6, -0.8, -5.2); };
+    tuft(); ctx.stroke(); ctx.strokeStyle = B.cap; ctx.lineWidth = 1.8; tuft(); ctx.stroke();
     ctx.restore();
   }
-  // strikket skjerf rundt halsen (rødt med hvite striper)
+  // strikket lusekofte-skjerf rundt halsen
+  const band = scarfBand();
   ctx.save();
-  const band = () => { ctx.beginPath(); ctx.moveTo(-10.5, 3.6); ctx.quadraticCurveTo(0, 10, 11.6, 4); };
-  band(); ctx.strokeStyle = B.ink; ctx.lineWidth = 6.2; ctx.stroke();
-  band(); ctx.strokeStyle = B.scarf; ctx.lineWidth = 4.2; ctx.stroke();
-  ctx.lineCap = 'butt'; band(); ctx.setLineDash([1.3, 2.6]); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.stroke(); ctx.setLineDash([]);
+  polyline(band); ctx.strokeStyle = B.ink; ctx.lineWidth = 6.2; ctx.stroke();
+  polyline(band); ctx.strokeStyle = B.scarf; ctx.lineWidth = 4.2; ctx.stroke();
+  lusekofte(band, 3.1);
   ctx.fillStyle = B.scarf; ctx.strokeStyle = B.ink; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(KNOT.x, KNOT.y, 2.6, 0, 7); ctx.fill(); ctx.stroke();
   ctx.restore();
-  // vinge
+  // vinge (blå med hvitt vingebånd)
   const t = Math.min(bird.flapT, 0.3) / 0.3;
   const wingA = flying ? -Math.sin(t * Math.PI) * 1.1 + 0.25
     : state === State.OVER ? 0.35 : Math.sin(time * (expr === 'sleep' ? 3 : 10)) * 0.4 + 0.1;
   ctx.save(); ctx.translate(-4, 2); ctx.rotate(wingA);
-  ctx.fillStyle = B.dark; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(-3, 0, 7, 4.4, 0.2, 0, 7); ctx.fill(); ctx.stroke();
-  ctx.strokeStyle = hexA(B.ink, 0.45); ctx.lineWidth = 0.9;
-  ctx.beginPath(); ctx.moveTo(-6.5, 0.5); ctx.lineTo(-2, 1.2); ctx.moveTo(-6, 2.6); ctx.lineTo(-2.5, 2.8); ctx.stroke();
+  ctx.fillStyle = B.wing; ctx.strokeStyle = B.ink; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(-3, 0, 7, 4.4, 0.2, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.clip();   // svingfjærene (mørkere) under et hvitt vingebånd langs midten
+  ctx.fillStyle = B.wingDark; ctx.beginPath(); ctx.moveTo(-11, 1.6); ctx.quadraticCurveTo(-4, 0.4, 4, 1.4); ctx.lineTo(4, 6); ctx.lineTo(-11, 6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = B.face;   // vingebåndet: hvite fjærspisser på rad
+  for (const [x, y] of [[-8.6, 1.3], [-5.4, 0.6], [-2.2, 0.5], [1, 0.9]]) { ctx.beginPath(); ctx.ellipse(x, y, 1.5, 0.95, 0.1, 0, 7); ctx.fill(); }
+  ctx.strokeStyle = hexA(B.ink, 0.5); ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(-8, 3.6); ctx.lineTo(-5, 3.2); ctx.moveTo(-4, 4.2); ctx.lineTo(-1, 3.6); ctx.stroke();
   ctx.restore();
-  // ansikt i 3/4-vinkel: to øyne, kinn og et lite nebb
+  ctx.restore();
+  // ansikt i 3/4-vinkel: to øyne i øyestripen og et lite, mørkt nebb
   eye(3, -3.4, 0.92, expr, bird.look); eye(9.6, -3.6, 0.8, expr, bird.look);
-  ctx.fillStyle = B.cheek;
-  ctx.beginPath(); ctx.ellipse(2.2, 1.8, 2.4, 1.4, 0, 0, 7); ctx.fill(); ctx.beginPath(); ctx.ellipse(11, 1.3, 1.9, 1.2, 0, 0, 7); ctx.fill();
   const open = state === State.PLAY ? (1 - t) * 1.4 : expr === 'dizzy' ? 0.7 : 0;
-  ctx.strokeStyle = B.ink; ctx.lineWidth = 1;
-  ctx.fillStyle = B.beak; ctx.beginPath(); ctx.moveTo(5.2, -0.8); ctx.quadraticCurveTo(8.2, -1.6, 10.6, 0.3 - open * 0.3); ctx.quadraticCurveTo(8, 1.2, 5.2, 0.9); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = B.beakDark; ctx.beginPath(); ctx.moveTo(5.6, 1.1); ctx.quadraticCurveTo(8, 1.5 + open, 9.6, 1.2 + open); ctx.quadraticCurveTo(7.5, 2.8 + open, 5.6, 1.9); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = B.ink; ctx.lineWidth = 0.9;
+  ctx.fillStyle = B.beak; ctx.beginPath(); ctx.moveTo(5.4, -0.9); ctx.quadraticCurveTo(7.8, -1.5, 9.8, 0.1 - open * 0.3); ctx.quadraticCurveTo(7.6, 1, 5.4, 0.8); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = B.beakDark; ctx.beginPath(); ctx.moveTo(5.7, 1); ctx.quadraticCurveTo(7.6, 1.3 + open, 9, 1.1 + open); ctx.quadraticCurveTo(7.2, 2.5 + open, 5.7, 1.8); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(6.8, -0.6, 1.2, 0.35, -0.2, 0, 7); ctx.fill();
   if (look !== 'none') accessory(look);
+}
+// skjerfbåndet rundt halsen som punkter (andregradskurve), og en hjelpefunksjon for å følge punktene
+function scarfBand() {
+  const pts = [];
+  for (let i = 0; i <= 12; i++) { const t = i / 12, u = 1 - t; pts.push({ x: u * u * -10.5 + 2 * u * t * 0 + t * t * 11.6, y: u * u * 3.6 + 2 * u * t * 10 + t * t * 4 }); }
+  return pts;
+}
+function polyline(pts) { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); }
+// lusekofte: små hvite korssting («lus») i forskjøvne rader langs en strikket stripe
+function lusekofte(pts, every, off = 0) {
+  ctx.strokeStyle = BIRD.lus; ctx.lineWidth = 0.62; ctx.lineCap = 'round';
+  ctx.beginPath();
+  let acc = off, n = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], dl = Math.hypot(b.x - a.x, b.y - a.y);
+    if (!dl) continue;
+    const ux = (b.x - a.x) / dl, uy = (b.y - a.y) / dl;
+    for (; acc < dl; acc += every) {
+      const side = n++ % 2 ? 0.85 : -0.85, x = a.x + ux * acc - uy * side, y = a.y + uy * acc + ux * side, k = 0.62;
+      ctx.moveTo(x - k, y - k); ctx.lineTo(x + k, y + k); ctx.moveTo(x - k, y + k); ctx.lineTo(x + k, y - k);
+    }
+    acc -= dl;
+  }
+  ctx.stroke();
 }
 // hodeplagg som dekker fjærtoppen
 const HIDES_CREST = new Set(['beanie', 'santa', 'crown', 'toadstool', 'viking', 'tophat']);
@@ -737,11 +934,10 @@ function drawScarfTails(ox, oy, a) {
   ctx.lineJoin = 'round';
   for (const tail of bird.scarf) {
     const pts = [a, ...tail.pts.map(p => ({ x: p.x + ox, y: p.y + oy }))];
-    const line = () => { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); };
     ctx.lineCap = 'round';
-    line(); ctx.strokeStyle = BIRD.ink; ctx.lineWidth = 5.4; ctx.stroke();
-    line(); ctx.strokeStyle = BIRD.scarf; ctx.lineWidth = 3.4; ctx.stroke();
-    ctx.lineCap = 'butt'; line(); ctx.setLineDash([1.2, 2.4]); ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.stroke(); ctx.setLineDash([]);
+    polyline(pts); ctx.strokeStyle = BIRD.ink; ctx.lineWidth = 5.4; ctx.stroke();
+    polyline(pts); ctx.strokeStyle = BIRD.scarf; ctx.lineWidth = 3.4; ctx.stroke();
+    lusekofte(pts, 3, 1.5);
     const e = pts[pts.length - 1], f = pts[pts.length - 2], dl = Math.hypot(e.x - f.x, e.y - f.y) || 1, ux = (e.x - f.x) / dl, uy = (e.y - f.y) / dl;
     ctx.strokeStyle = BIRD.scarfDark; ctx.lineWidth = 0.9; ctx.lineCap = 'round'; ctx.beginPath();
     for (const k of [-1.3, 0, 1.3]) { ctx.moveTo(e.x - uy * k, e.y + ux * k); ctx.lineTo(e.x + ux * 2.4 - uy * k, e.y + uy * 2.4 + ux * k); }
@@ -763,7 +959,7 @@ function drawBird() {
   ctx.fillStyle = hexA(T.ink, 0.12); ctx.beginPath(); ctx.ellipse(bx + 1, by + 4, BODY_R * bird.sx, BODY_R * bird.sy * 0.95, 0, 0, 7); ctx.fill();
   dizzyStars(bx, by, false);
   drawScarfTails(bx - bird.x, by - bird.y, scarfAnchor(bx, by, br, bird.sx, bird.sy));
-  ctx.save(); ctx.translate(bx, by); ctx.rotate(br); ctx.scale(bird.sx, bird.sy); birdShape(expr); ctx.restore();
+  ctx.save(); ctx.translate(bx, by); ctx.rotate(br); ctx.scale(bird.sx, bird.sy); birdShape(expr, wear, br); ctx.restore();
   dizzyStars(bx, by, true);
   ctx.globalAlpha = 1;
   if (active.shield) {   // såpeboble rundt fuglen, vugger litt
@@ -797,6 +993,8 @@ function drawParticles() {
 }
 
 /* ---------- Brukergrensesnitt ---------- */
+// stabilt frø fra en tekst (samme knapp får samme strek hvert bilde)
+function seedOf(str) { let h = 7; for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; }
 function button(key, x, y, w, h, label, fn, opts = {}) {
   const { fill = '#FFD27A', color = '#4A3424', size = 13, active = true } = opts;
   hud[key] = { x, y, w, h, fn };
@@ -804,18 +1002,62 @@ function button(key, x, y, w, h, label, fn, opts = {}) {
   ctx.save();
   if (pk < 1 && !reduceMotion) { const s = 1 - 0.08 * Math.sin(Math.PI * pk); ctx.translate(x + w / 2, y + h / 2); ctx.scale(s, s); ctx.translate(-x - w / 2, -y - h / 2); }
   ctx.fillStyle = hexA(UI_INK, 0.25); rr(x, y + 3, w, h, h / 2); ctx.fill();
-  ctx.fillStyle = active ? fill : 'rgba(255,248,236,.6)'; rr(x, y, w, h, h / 2); ctx.fill();
-  if (active) { ctx.fillStyle = 'rgba(255,255,255,.35)'; rr(x + 5, y + 3, w - 10, h * 0.36, h / 2); ctx.fill(); }
-  ctx.strokeStyle = active ? UI_INK : hexA(UI_INK, 0.45); ctx.lineWidth = 1.6; rr(x, y, w, h, h / 2); ctx.stroke();
+  ctx.fillStyle = active ? UI_INK : hexA(UI_INK, 0.45); inkRR(ctx, x, y, w, h, h / 2, 1.6, seedOf(key), 0.32);
+  ctx.fillStyle = active ? fill : '#F4ECDF'; rr(x, y, w, h, h / 2); ctx.fill();
+  if (active) {   // flat, litt mørkere underkant (ett tonetrinn) i stedet for blank glans
+    ctx.save(); rr(x, y, w, h, h / 2); ctx.clip(); ctx.fillStyle = hexA(UI_INK, 0.1); rr(x - 2, y + h * 0.66, w + 4, h, h / 2); ctx.fill(); ctx.restore();
+  }
   text(label, x + w / 2, y + h / 2 + 0.5, size, { color: active ? color : hexA(UI_INK, 0.75), shadow: false, weight: 600 });
   ctx.restore();
 }
 // kremfarget panel med «strikkesøm» innenfor kanten
 function panel(x, y, w, h) {
   ctx.fillStyle = hexA(UI_INK, 0.25); rr(x, y + 6, w, h, 18); ctx.fill();
+  ctx.fillStyle = UI_INK; inkRR(ctx, x, y, w, h, 18, 2, Math.round(w * 7 + h), 0.45);
   ctx.fillStyle = '#FFF8EC'; rr(x, y, w, h, 18); ctx.fill();
-  ctx.strokeStyle = UI_INK; ctx.lineWidth = 2; ctx.stroke();
-  ctx.setLineDash([5, 4]); ctx.strokeStyle = '#E8D2AE'; ctx.lineWidth = 1.6; rr(x + 7, y + 7, w - 14, h - 14, 12); ctx.stroke(); ctx.setLineDash([]);
+  ctx.save(); ctx.clip(); paperOn(ctx, 0.55); ctx.restore();
+  runningStitch(rrPoints(x + 7, y + 7, w - 14, h - 14, 12, 1), '#E3C99F', Math.round(w + h * 3));
+  rosemal(x + w / 2, y + 7);   // rosemaling midt på den sydde kanten
+}
+// forsting for hånd: sting og mellomrom av litt ulik lengde, med en lys glans på hvert sting
+function runningStitch(pts, color, seed) {
+  const r = rng(seed); let on = true, left = 3 + r() * 2;
+  ctx.lineCap = 'round'; ctx.lineWidth = 1.6; ctx.strokeStyle = color; ctx.beginPath();
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    if (on) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+    left -= Math.hypot(b.x - a.x, b.y - a.y);
+    if (left <= 0) { on = !on; left = on ? 3.6 + r() * 2.2 : 2.6 + r() * 1.4; }
+  }
+  ctx.stroke();
+}
+// rosemaling: en liten rose med C-snirkler, blad og prikker til hver side (sitter midt på en kant)
+function rosemal(x, y, k = 1, patch = true) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(k, k); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const green = '#7E9A58', rust = '#C4553C', ochre = '#E2A845', liner = '#FFF4DC';
+  if (patch) { ctx.fillStyle = '#FFF8EC'; ctx.beginPath(); ctx.ellipse(0, 0, 30, 6, 0, 0, 7); ctx.fill(); }   // bryter kantlinja bak ornamentet
+  for (const sx of [-1, 1]) {   // speilvendt, men med litt ulike blad på hver side – som malt for hånd
+    ctx.save(); ctx.scale(sx, 1);
+    ctx.strokeStyle = green; ctx.lineWidth = 1.5; ctx.beginPath();
+    ctx.moveTo(4, 0.5); ctx.bezierCurveTo(10, -6, 18, -6.5, 24, -2.5); ctx.arc(22.2, 0.6, 3.4, -Math.PI * 0.32, Math.PI * 0.95);
+    ctx.moveTo(4, 1.5); ctx.bezierCurveTo(9, 5.5, 14, 6, 17, 4.5);
+    ctx.stroke();
+    const leaf = (lx, ly, a, l) => {
+      ctx.save(); ctx.translate(lx, ly); ctx.rotate(a);
+      ctx.fillStyle = green; ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(l * 0.5, -l * 0.42, l, 0); ctx.quadraticCurveTo(l * 0.5, l * 0.42, 0, 0); ctx.fill();
+      ctx.strokeStyle = liner; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(l * 0.2, 0); ctx.quadraticCurveTo(l * 0.5, -l * 0.12, l * 0.8, 0); ctx.stroke();
+      ctx.restore();
+    };
+    if (sx < 0) { leaf(9, -3.6, -0.75, 7); leaf(13, 4.6, 0.2, 5.5); } else { leaf(9.5, -3.8, -0.6, 6.5); leaf(12.5, 4.8, 0.35, 6); }
+    ctx.fillStyle = ochre; for (const [dx, dy, r] of [[17, -7.6, 0.95], [20.4, -8, 0.75], [19.5, 4.6, 0.8]]) circle(ctx, dx, dy, r);
+    ctx.restore();
+  }
+  ctx.fillStyle = rust; ctx.beginPath(); ctx.arc(0, 0.6, 5, 0, 7); ctx.fill();   // rosen
+  ctx.fillStyle = '#A84330'; ctx.beginPath(); ctx.arc(0.4, 1.6, 2.6, 0, 7); ctx.fill();
+  ctx.strokeStyle = liner; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.arc(0, 0.6, 3.6, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0.4, 1.8, 1.5, Math.PI * 1.15, Math.PI * 1.9); ctx.stroke();
+  ctx.restore();
 }
 function medalFor(s) {
   if (s >= 40) return ['#E3EEF8', '#9FB8CC', 'Platina'];
@@ -824,15 +1066,19 @@ function medalFor(s) {
   if (s >= 10) return ['#E8A06A', '#9C5B2A', 'Bronse'];
   return null;
 }
+// medaljen er et brodert merke: stoff med kant i plattsøm og en selburose i korssting
 function drawMedal(x, y, m) {
-  const [c, d] = m;
-  ctx.fillStyle = hexA(UI_INK, 0.18); circle(ctx, x, y + 2, 20);
-  const g = ctx.createRadialGradient(x - 6, y - 6, 2, x, y, 20); g.addColorStop(0, '#FFFFFF'); g.addColorStop(0.35, c); g.addColorStop(1, d);
-  ctx.fillStyle = g; circle(ctx, x, y, 20);
-  ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(x, y, 20, 0, 7); ctx.stroke();
-  ctx.strokeStyle = d; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 14, 0, 7); ctx.stroke();
-  ctx.fillStyle = d; starPath(x, y, 9, 0); ctx.fill();
-  if (!reduceMotion) { const sp = (time * 1.4) % 1; if (sp < 0.25) { ctx.fillStyle = 'rgba(255,255,255,.85)'; circle(ctx, x - 12 + sp * 96, y - 12, 2.5); } }
+  const [c, d] = m, R = 21, TAU = Math.PI * 2;
+  ctx.fillStyle = hexA(UI_INK, 0.18); circle(ctx, x, y + 2.5, R);
+  ctx.fillStyle = UI_INK; inkCircle(ctx, x, y, R, 1.5, 31, 0.3);
+  ctx.fillStyle = c; circle(ctx, x, y, R);
+  ctx.strokeStyle = hexA(d, 0.55); ctx.lineWidth = 0.7; ctx.lineCap = 'round'; ctx.beginPath();   // plattsøm: tette, korte sting
+  for (let i = 0; i < 64; i++) { const a = i / 64 * TAU + 0.03; ctx.moveTo(x + Math.cos(a) * (R - 4.6), y + Math.sin(a) * (R - 4.6)); ctx.lineTo(x + Math.cos(a + 0.05) * (R - 0.6), y + Math.sin(a + 0.05) * (R - 0.6)); }
+  ctx.stroke();
+  ctx.fillStyle = '#FFF7E6'; circle(ctx, x, y, R - 5);   // stoffet
+  ctx.strokeStyle = hexA(d, 0.7); ctx.lineWidth = 0.9; ctx.beginPath(); ctx.arc(x, y, R - 5, 0, TAU); ctx.stroke();
+  const s = 1.85, half = SELBUROSE.length * s / 2;
+  stitchGrid(ctx, SELBUROSE, x - half, y - half, s, { X: [hexA(d, 0.45), mixHex(d, '#3A2A20', 0.15), mixHex(d, c, 0.3)] }, 77);
 }
 // ingen medalje ennå: et lite egg som vugger (i stedet for en grå plassholder)
 function drawEgg(x, y) {
@@ -895,7 +1141,8 @@ function arrowButton(key, x, y, w, h, dir, fn) {
   hud[key] = { x, y, w, h, fn };
   const pk = press.key === key ? (time - press.t) / 0.22 : 1, s = pk < 1 && !reduceMotion ? 1 - 0.1 * Math.sin(Math.PI * pk) : 1;
   ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.scale(s, s);
-  ctx.fillStyle = '#FFF1D6'; rr(-w / 2, -h / 2, w, h, h / 2); ctx.fill(); ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.4; ctx.stroke();
+  ctx.fillStyle = UI_INK; inkRR(ctx, -w / 2, -h / 2, w, h, h / 2, 1.4, seedOf(key), 0.3);
+  ctx.fillStyle = '#FFF1D6'; rr(-w / 2, -h / 2, w, h, h / 2); ctx.fill();
   ctx.fillStyle = UI_INK; ctx.lineJoin = 'round'; ctx.beginPath();
   ctx.moveTo(dir * 5, 0); ctx.lineTo(-dir * 3, -5); ctx.lineTo(-dir * 3, 5); ctx.closePath(); ctx.fill();
   ctx.restore();
@@ -903,8 +1150,8 @@ function arrowButton(key, x, y, w, h, dir, fn) {
 function drawPauseButton(x, y, s) {
   hud.pause = { x, y, w: s, h: s, fn: pauseGame };
   ctx.fillStyle = hexA(UI_INK, 0.2); rr(x, y + 2, s, s, s / 2); ctx.fill();
-  ctx.fillStyle = 'rgba(255,248,236,.8)'; rr(x, y, s, s, s / 2); ctx.fill();
-  ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = UI_INK; inkRR(ctx, x, y, s, s, s / 2, 1.5, 61, 0.3);
+  ctx.fillStyle = '#FFF8EC'; rr(x, y, s, s, s / 2); ctx.fill();
   ctx.fillStyle = UI_INK; rr(x + s * 0.34, y + s * 0.3, s * 0.11, s * 0.4, 2); ctx.fill(); rr(x + s * 0.55, y + s * 0.3, s * 0.11, s * 0.4, 2); ctx.fill();
 }
 function drawPauseOverlay(groundY) {
@@ -915,6 +1162,7 @@ function drawPauseOverlay(groundY) {
     return;
   }
   text('Pause', W / 2, groundY * 0.36, 34, { color: '#FFD27A', stroke: true });
+  rosemal(W / 2, groundY * 0.36 + 25, 1.15, false);
   const bw = 120, bh = 38, y = groundY * 0.36 + 40;
   button('resume', (W - bw) / 2, y, bw, bh, 'Fortsett', resumeGame, { size: 15 });
   button('pmenu', (W - bw) / 2, y + bh + 14, bw, bh, 'Meny', goMenu, { fill: '#FFF8EC', size: 15 });
@@ -973,7 +1221,7 @@ function render() {
 
   if (state === State.MENU) {
     const ty = topY + 40 + Math.sin(time * 2.4) * 3;
-    text('Pixelfugl', W / 2, ty, 42, { color: '#FFD27A', stroke: true });
+    const LG = scene.logo; ctx.drawImage(LG.c, Math.round(W / 2 - LG.w / 2), ty - 24, LG.w, LG.h);
     text(`${SEASONS[seasonName].label} i bjørkeskogen`, W / 2, ty + 34, 13, { weight: 600, stroke: true, shadow: false });
     if (wardrobe) { drawWardrobe(groundY); return finishFrame(groundY); }
     text('Trykk for å flakse', W / 2, groundY * 0.58, 15, { weight: 600, stroke: true });
