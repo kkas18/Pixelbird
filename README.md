@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v5.0): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v6.0): en liten blåmeis med lusekofte-skjerf flyr
 hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 månesigd. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
@@ -10,44 +10,28 @@ andre Android-telefoner.
 
 All grafikk er generert i koden – ingen bildefiler trengs utover ikonene. Lyden
 er en blanding av syntese og noen få fritt lisensierte opptak (`audio/`, 273 kB
-i alt). Fonten (Fredoka) og opptakene ligger lokalt, så spillet ser og høres
+i alt). Fonten (Fredoka og DejaVu Serif Bold) og opptakene ligger lokalt, så spillet ser og høres
 likt ut også uten nett.
 
-## Stil: håndlaget og norsk
+## Stil: en roligere norsk eventyrbok
 
-Navnet «Pixelfugl» er tatt bokstavelig på norsk-håndarbeidsvis: **korssting er
-piksler i stoff**.
+Blåmeisen, lusekofte-skjerfet, bjørkeskogen, dyrene og reisen hjem er beholdt.
+Grensesnittet har én samlet visuell retning: varm elfenben, dempet rustrød,
+elegante serifoverskrifter og mindre papirkorn. Alle landskap, figurer og
+animasjoner tegnes fortsatt direkte i Canvas.
 
-- **Logoen** er en egen pikselskrift der hver piksel er ett korssting (i-prikken er
-  et blått sting). Den bruker ikke fonten.
-- **Medaljene** er broderte merker med en **selburose** (åttebladsrose) i korssting
-  og kant i plattsøm.
-- **Fuglen er en blåmeis**: blå hette, hvitt ansikt med mørk øyestripe og halsring,
-  gul buk, gulgrønn rygg og blå vinger med hvitt vingebånd.
-- **Skjerfet** er en lusekofte: rødt med hvite «lus» i korssting.
-- **Overskriftene** («Klar?», «Pause», «Garderobe», «Ny rekord!», «Å nei!» og de andre) er
-  brodert i den samme håndlagde skriften som logoen.
-- **Panelene er ting i verden:**
-  - Game over er et treskilt av furuplanker med spikre og malt rosemaling. Det henger i to tau
-    og svinger litt når det faller på plass.
-  - Garderoben er en knaggrekke der pynten henger på lapper med sydd kant.
-  - Pausemenyen ligger på et stykke bjørkenever.
-- **Knapper er treplanker** med avfasede kanter, årer og treplugger. Teksten er brent inn i det
-  umalte treet. Hovedvalget («Spill igjen», «Fortsett») er malt i tradisjonell rød linoljemaling,
-  som gamle kubbestoler og stabbursdører, og malingen er slitt der hendene tar.
-- **Vanskeligheten velges på en veiviser:** en stolpe med fire pilplanker, i samme stil som
-  veiskiltene på reisen. Den valgte er malt rød, og rekorden henger på en merkelapp under.
-- **Ikonknapper:** lyd, musikk, dag/natt og garderoben (lue) er runde trestykker (som snittflaten
-  på stammene) med tegnede ikoner, plassert nede til venstre. Pauseknappen og pilene i garderoben
-  er av samme slag.
-- **Tekst uten kontur:** hint, undertitler og stedsnavn står med blekk på små, revne papirlapper.
-  Power-ups og «Ny pynt» står på pappmerkelapper på hyssing, som på en gammel koffert.
-- **Poengtallet er brodert** i den samme korsstingskriften som logoen.
-- **Håndtegnet strek:** konturene er litt ujevne og tykkest på skyggesiden (lyset
-  kommer fra sola oppe til høyre). Ujevnheten er frøstyrt, så ingenting flimrer.
-- **Papirkorn** er bakt inn i himmel, landskap og paneler.
-- **Flate tonetrinn** (cel-skygge) i stedet for gradienter på fugl, stammer, skyer,
-  jord og sol.
+- **Start:** ett samlet nivåvalg og én tydelig «Spill»-knapp.
+- **Innstillinger:** lydeffekter, musikk, dag/kveld og garderoben er samlet.
+- **Spill:** lesbare poeng, en diskret pauseknapp og tydeligere bjørkestammer.
+- **Pause og resultater:** samme paneler, typografi og knapper som i menyen.
+- **Garderobe:** alle eksisterende plagg og opplåsingskrav er bevart.
+- **Tilgjengelige kontroller:** Canvas-knappene har samsvarende native
+  HTML-knapper med norske navn, valgt tilstand og synlig tastaturfokus.
+- **Offline:** Fredoka og den medfølgende DejaVu Serif Bold ligger lokalt.
+  Fontlisenser finnes i `fonts/`. Ingen eksterne font- eller bildekall.
+- **Lagring:** eksisterende rekorder, lydvalg, tema og pynt beholdes ved oppdatering.
+
+Se [redesign-notatet](docs/REDESIGN-v6.md) for detaljer og verifikasjon.
 
 ## Filer
 
@@ -58,6 +42,7 @@ piksler i stoff**.
 | `js/sound.js` | Musikk, lydeffekter og naturlyder (Web Audio: opptak med syntese som reserve) |
 | `js/game.js` | Spilltilstand, input, fysikk, tid på døgnet og oppdatering |
 | `js/render.js` | Tegning: forhåndstegnede lag, stammer, fugl, partikler og brukergrensesnitt |
+| `js/ui.js` | Menyer, innstillinger, garderobe, HUD, pause, resultater og tilgjengelige knapper |
 | `js/main.js` | Oppstart: skjermstørrelse, spill-løkke og PWA |
 | `manifest.webmanifest` | PWA-manifest: navn, ikoner, portrett, standalone |
 | `sw.js` | Service worker – spillet fungerer offline etter første besøk |
@@ -97,11 +82,11 @@ også i en undermappe.
   når appen legges i bakgrunnen, og lyden stoppes. «Fortsett» gir en kort 3-2-1-nedtelling.
 - **Hjemme:** når fuglen har landet på fuglebrettet ved hytta, hviler den til du trykker. Da flyr den videre.
 - Etter game over: **Spill igjen** eller **Meny** (for å bytte nivå, lyd eller tema).
-- **Vanskelighet:** trykk på en pilplanke på veiviseren til høyre på startskjermen.
-- De runde trestykkene nede til venstre på startskjermen slår **lydeffekter** (høyttaler) og
-  **musikk** (note) av/på og velger om runden starter på **dag** (sol) eller **natt** (måne).
-  Av vises med en skrå strek over ikonet.
-- **Garderobe:** trestykket med lue på startskjermen. Velg pynt til fuglen (se under).
+- **Vanskelighet:** Lett / Normal / Hard / Zen i det samlede nivåvalget.
+- **Lyd:** høyttaleren på startskjermen slår lydeffekter av/på.
+- **Innstillinger:** tannhjulet åpner valg for lydeffekter, musikk og kveldsstemning.
+- **Garderobe:** åpnes fra innstillinger. Alle plagg og opplåsinger er beholdt.
+- **Tastatur i menyer:** Tab velger knapp, Enter/mellomrom aktiverer den, Esc lukker et panel.
 - Beste poengsum og samlede poeng lagres lokalt på enheten.
 
 Medaljer (broderte merker med selburose): 10 bronse, 20 sølv, 30 gull, 40 platina.
@@ -136,7 +121,7 @@ Hver runde er en reise fra fjellet ned til hytta. Underveis passerer fuglen ti s
 
 ## Vanskelighetsgrader
 
-Velges på veiviseren på startskjermen. Beste poengsum lagres per nivå.
+Velges i nivåvelgeren på startskjermen. Beste poengsum lagres per nivå.
 
 | Nivå | Gap (px) | Fart (px/s) | Maks sprang mellom gap (px) | Varianter fra poeng |
 |------|----------|-------------|-----------------------------|---------------------|

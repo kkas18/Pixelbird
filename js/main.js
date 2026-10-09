@@ -7,10 +7,14 @@ function resize() {
   // maks 2x skjermpiksler: ~42 % færre piksler på 2,6x-telefoner, uten synlig forskjell i den myke tegnestilen
   dpr = Math.min(window.devicePixelRatio || 1, 2);
   const vw = window.innerWidth, vh = window.innerHeight;
-  scale = vw / LOGICAL_W; W = LOGICAL_W; H = Math.round(vh / scale);
+  // Keep the same portrait physics; short/landscape screens show more world
+  // horizontally, with enough vertical space for every menu and touch target.
+  scale = Math.min(vw / LOGICAL_W, vh / 440); W = Math.round(vw / scale); H = Math.round(vh / scale);
   const probe = document.createElement('div');
-  probe.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);visibility:hidden';
-  document.body.appendChild(probe); safeTop = Math.round(probe.getBoundingClientRect().top / scale); probe.remove();
+  probe.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden';
+  document.body.appendChild(probe);
+  safeTop = Math.round(probe.getBoundingClientRect().top / scale);
+  safeBottom = Math.round(parseFloat(getComputedStyle(probe).paddingBottom) / scale); probe.remove();
   canvas.width = Math.round(vw * dpr); canvas.height = Math.round(vh * dpr);
   canvas.style.width = vw + 'px'; canvas.style.height = vh + 'px';
   const groundY = H - GROUND_H;
@@ -18,7 +22,10 @@ function resize() {
   sceneCache = {}; worldFade = null;
   const sc = sceneFor(curTheme); T = sc.T; scene = sc.scene;
   initAmbient();
-  if (bird && state !== State.PLAY) bird.y = bird.py = groundY * 0.42;
+  if (bird && (state === State.MENU || state === State.READY)) {
+    bird.y = bird.py = groundY * 0.42;
+    bird.x = bird.px = state === State.MENU ? W / 2 : BIRD_X;
+  }
 }
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 120));
@@ -48,4 +55,4 @@ document.documentElement.style.setProperty('--sky', T.skyTop);
 document.querySelector('meta[name=theme-color]').content = T.skyTop;
 resize(); goMenu(); Sound.setNight(T.night);
 const start = () => requestAnimationFrame(loop);
-if (document.fonts && document.fonts.load) Promise.all([document.fonts.load("700 20px Fredoka"), document.fonts.load("600 14px Fredoka")]).finally(start); else start();
+if (document.fonts && document.fonts.load) Promise.all([document.fonts.load("700 20px Fredoka"), document.fonts.load("600 14px Fredoka"), document.fonts.load("700 38px Storybook")]).finally(start); else start();
