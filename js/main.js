@@ -55,4 +55,5 @@ document.documentElement.style.setProperty('--sky', T.skyTop);
 document.querySelector('meta[name=theme-color]').content = T.skyTop;
 resize(); goMenu(); Sound.setNight(T.night);
 const start = () => requestAnimationFrame(loop);
-if (document.fonts && document.fonts.load) Promise.all([document.fonts.load("700 20px Fredoka"), document.fonts.load("600 14px Fredoka"), document.fonts.load("700 38px Storybook")]).finally(start); else start();
+const fontReady = document.fonts && document.fonts.load ? Promise.all([document.fonts.load("700 20px Fredoka"), document.fonts.load("600 14px Fredoka"), document.fonts.load("700 44px Storybook")]) : Promise.resolve();
+Promise.all([fontReady, loadArtwork()]).finally(start);

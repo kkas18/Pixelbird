@@ -1188,6 +1188,7 @@ function trunkBody(p, part, y0, y1, marks, ref, dir, seed) {
   if (y1 > y0) paintTrunk(ctx, marks, ref, dir, y0, y1, seed);
 }
 function paintTrunk(g, marks, ref, dir, y0, y1, seed) {
+  if (paintBarkSprite(g, y0, y1)) return;
   const w = PIPE_W, h = y1 - y0;
   // cel-skygge: lys fra høyre, så skyggesiden er til venstre (tre flate tonetrinn og en smal refleks i høyre kant)
   g.fillStyle = T.trunk; g.fillRect(0, y0, w, h);
@@ -1239,6 +1240,7 @@ function paintTrunk(g, marks, ref, dir, y0, y1, seed) {
 }
 // snittflate med årringer og en mosekant (høstløv på bevegelige stammer, lyng på smale)
 function trunkEnd(p, y, upper) {
+  if (paintBirchCap(y, upper)) return;
   const w = PIPE_W, cx = w / 2, rx = w / 2 + 1, ry = END_H / 2 - 0.5, r = rng(p.decor.moss + (upper ? 1 : 2));
   const autumn = p.variant === 'moving', heather = p.variant === 'narrow';
   const lip = autumn ? ['#F2994A', '#F7C548', '#E46B3C'] : [T.moss];
@@ -1519,7 +1521,7 @@ const ip = (prev, cur) => prev === undefined ? cur : prev + (cur - prev) * alpha
 
 function birdExpr() {
   if (state === State.DEAD || state === State.OVER) return 'dizzy';
-  if (state === State.MENU && T.night) return 'sleep';
+  if (state === State.MENU && T.night && !hasPaintedForest()) return 'sleep';
   if (bird.happy > 0 || bird.preen > 0.5) return 'happy';   // lukker øynene fornøyd når den pirker i fjærene
   if (state === State.PLAY && bird.vy > 330) return 'wide';
   return 'normal';
@@ -2225,17 +2227,16 @@ function drawRoute(x0, x1, y, reached, homeNow) {
 const homeReached = () => !!home && (home.phase === 'rest' || home.phase === 'done');
 
 function drawWorld(groundY, pv, qv) {
-  drawSky(groundY);
-  drawScenery(groundY);
+  const painted = drawPaintedBackdrop(groundY);
+  if (!painted) { drawSky(groundY); drawScenery(groundY); }
   drawMotes();
   for (const p of pv) drawTrunkShadow(p, groundY);
   for (const p of pv) drawTrunk(p, groundY);
   for (const q of qv) drawPower(q);
-  drawGround(groundY);
-  drawLandmarks(groundY, 1);
+  if (!painted) { drawGround(groundY); drawLandmarks(groundY, 1); }
   drawJourney(groundY);
   drawBirdGroundShadow(groundY);
-  drawForeground();   // forgrunnen: nærmest kameraet, raskest
+  if (!painted) drawForeground();
 }
 // fuglens skygge på bakken: mindre og svakere jo høyere den flyr (et sterkt dybdesignal)
 function drawBirdGroundShadow(groundY) {
@@ -2283,7 +2284,12 @@ function render() {
   }
   ctx.drawImage(scene.vignette.c, 0, 0, scene.vignette.w, scene.vignette.h);
   drawParticles();
-  drawBird();
+  ctx.save();
+  if (state === State.MENU) {
+    const bx = ip(bird.px, bird.x), by = ip(bird.py, bird.y);
+    ctx.translate(bx, by); ctx.scale(1.25, 1.25); ctx.translate(-bx, -by);
+  }
+  drawBird(); ctx.restore();
   for (const k in hud) delete hud[k];
 
   if (state === State.MENU) drawMenuScreen();
