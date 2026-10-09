@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v4.3): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v4.4): en liten blåmeis med lusekofte-skjerf flyr
 hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 søvnig måne. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
@@ -243,6 +243,21 @@ pynt og hindrer aldri fuglen.
 - **Når fuglen kommer nær,** hopper ekornet ned og smetter rundt stammen, så bare halen stikker fram.
   Når fuglen har passert, titter hodet fram igjen.
 - **Redusert bevegelse:** ekornene står stille.
+
+**Flaggspett.** Omtrent hver tiende stamme har en flaggspett, men ikke om natten.
+
+- Den henger på kanten av stammen med den stive halen som støtte og hakker i korte trommevirvler,
+  så flis spruter. Trommingen høres som raske små treknakk.
+- Den flytter seg bare oppover, i små hopp, slik spetter gjør.
+- Når fuglen kommer nær, stivner den et øyeblikk og flyr av gårde i bølgeflukt.
+
+**Snegle.** Omtrent hver tiende stamme har en snegle, også om kvelden. Om vinteren sover sneglene.
+
+- Den kryper sakte oppover den nedre stammen (cirka 3 px/s) og legger igjen et blankt slimspor.
+- Når fuglen kommer, trekker den seg inn i huset. Etterpå kommer følehornene forsiktig ut igjen.
+
+Det er aldri mer enn ett dyr per stamme. Alle dyrene holder seg på barken, er aldri i gapet og hindrer
+aldri fuglen.
 
 ## Power-ups
 

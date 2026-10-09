@@ -157,7 +157,9 @@ function spawnPipe(x) {
   const seed = (Math.random() * 1e9) | 0;
   const p = { x, top, baseTop: top, gap, variant, amp, phase: Math.random() * Math.PI * 2, freq: 2.2 + Math.random() * 1.2, scored: false, glow: 0,
     seed, marksTop: barkMarks(seed), marksBot: barkMarks(seed + 1), decor: trunkDecorPlan(seed + 2) };
-  p.sq = maybeSquirrel(p);
+  p.sq = maybeSquirrel(p);                                // høyst ett dyr per stamme
+  p.wp = p.sq ? null : maybeWoodpecker(p);
+  p.sn = p.sq || p.wp ? null : maybeSnail(p);
   pipes.push(p);
   if (score >= 3 && variant !== 'narrow' && Math.random() < 0.16 && !powers.some(q => q.x > W - 100)) {
     const keys = Object.keys(POWERS).filter(k => !(D.zen && k === 'shield'));   // Zen trenger ikke skjold
@@ -186,7 +188,8 @@ function maybeSquirrel(p) {
   return q;
 }
 // hvor langt ekornet kan klatre på sin del av stammen (fra snittflaten og bort)
-const sqRoom = (p, q, groundY) => q.part === 'bot' ? groundY - (p.top + p.gap + END_H / 2) - 18 : p.top - END_H / 2 - safeTop - 24;
+// (regnet fra stammens ytterste stilling, så dyr på stammer som beveger seg aldri skyves langs barken)
+const sqRoom = (p, q, groundY) => q.part === 'bot' ? groundY - (p.baseTop + p.amp + p.gap + END_H / 2) - 18 : p.baseTop - p.amp - END_H / 2 - safeTop - 24;
 function squirrelStep(p, dt, groundY) {
   const q = p.sq; q.ps = q.s; q.pout = q.out; q.t += dt;
   const room = Math.max(SQ.minS + 4, sqRoom(p, q, groundY));
@@ -230,6 +233,86 @@ function squirrelStep(p, dt, groundY) {
     q.out = reduceMotion ? 0.45 : toward(q.out, 0.45, 3);
     if (q.t > 1.3) { go('climb'); q.phase = 'pause'; q.pt = 0.3; }
   }
+}
+
+/* ---------- Flaggspett ----------
+   Henger på kanten av stammen med den stive halen som støtte og hakker i korte trommevirvler,
+   med flis som spruter. Den flytter seg bare oppover, i små hopp (slik spetter gjør), og hakker
+   videre. Når fuglen nærmer seg, stivner den et øyeblikk og flyr av gårde i bølgeflukt. Ikke om natten. */
+const WP = { chance: 0.14, minS: 16 };
+function maybeWoodpecker(p) {
+  if (T.night || Math.random() >= WP.chance) return null;
+  const part = p.decor.owl || Math.random() < 0.55 ? 'bot' : 'top';
+  const busy = part === 'bot' ? p.decor.fungus || p.decor.sprigBot : p.decor.sprigTop;
+  const q = { part, side: busy ? -busy : (Math.random() < 0.5 ? -1 : 1), s: 30 + Math.random() * 60, state: 'peck', t: 0,
+    pt: Math.random() * 0.8, strikes: 0, head: 0, fx: 0, fy: 0, seed: (Math.random() * 1e6) | 0 };
+  q.ps = q.s; q.pfx = 0; q.pfy = 0; q.phead = 0;
+  return q;
+}
+// spetten flytter seg bare oppover: for nedre stamme betyr det mindre s, for øvre stamme større s
+function woodpeckerStep(p, dt, groundY) {
+  const q = p.wp; q.ps = q.s; q.pfx = q.fx; q.pfy = q.fy; q.phead = q.head; q.t += dt;
+  const room = Math.max(WP.minS + 4, sqRoom(p, q, groundY)), up = q.part === 'bot' ? -1 : 1;
+  q.s = clamp(q.s, WP.minS, room);
+  const ahead = p.x + PIPE_W / 2 - bird.x;
+  if (q.state !== 'fly' && q.state !== 'freeze' && (state === State.PLAY || state === State.DEAD) && ahead < 110 && ahead > -30) { q.state = 'freeze'; q.t = 0; q.head = 0; }
+  if (q.state === 'freeze') { if (q.t > 0.18 || reduceMotion) { q.state = 'fly'; q.t = 0; } return; }
+  if (q.state === 'fly') {   // bølgeflukt: noen vingeslag (stiger), så glid med vingene inntil (synker litt)
+    const beat = (q.t % 0.5) < 0.28;
+    q.fx += (70 + 30 * Math.min(1, q.t)) * dt; q.fy += (beat ? -60 : 25) * dt;
+    if (q.fy < -400 || p.x + q.fx > W + 60) p.wp = null;
+    return;
+  }
+  if (reduceMotion) return;
+  if (q.state === 'peck') {
+    // trommevirvel: 8–12 raske hakk, så en pause
+    if (q.strikes > 0) {
+      const ph = (q.t * 16) % 1; q.head = ph < 0.5 ? ph * 2 : (1 - ph) * 2;
+      if (q.t * 16 >= q.done) {
+        q.strikes = 0; q.head = 0; q.pt = 0.7 + Math.random() * 1.1;
+        if (Math.random() < 0.55 && Math.abs(q.s - (up < 0 ? WP.minS : room)) > 8) { q.state = 'hop'; q.t = 0; q.hops = 1 + ((Math.random() * 3) | 0); q.from = q.s; }
+      } else if (Math.floor(q.t * 16) !== q.lastStrike) {
+        q.lastStrike = Math.floor(q.t * 16);
+        if (q.lastStrike % 3 === 0) {
+          const x = p.x + (q.side < 0 ? 0 : PIPE_W), y = q.part === 'bot' ? p.top + p.gap + END_H / 2 + q.s - 6 : p.top - END_H / 2 - q.s - 6;
+          burst(x, y, 1, ['#E9E1D3', '#C9A06A', '#BFB3A2'], 45, 0.6, 420, 1.2, { shape: 'dot', drag: 1.2 });   // flis
+        }
+      }
+    } else if ((q.pt -= dt) <= 0) {
+      q.strikes = 8 + ((Math.random() * 5) | 0); q.done = q.strikes; q.t = 0; q.lastStrike = -1;
+      const x = p.x + PIPE_W / 2;
+      if (x > 0 && x < W) Sound.drum(q.strikes, (x / W) * 1.6 - 0.8);
+    }
+  } else if (q.state === 'hop') {   // små hopp oppover: rask løft, kort stopp, halen tar imot
+    const k = (q.t % 0.22) / 0.22;
+    q.s = clamp(q.from + up * 7 * (Math.floor(q.t / 0.22) + EASE.out(k)), WP.minS, room);
+    if (q.t >= q.hops * 0.22) { q.state = 'peck'; q.t = 0; q.pt = 0.3 + Math.random() * 0.5; }
+  }
+}
+
+/* ---------- Snegle ----------
+   Kryper sakte oppover den nedre stammen og legger igjen et blankt spor. Når fuglen kommer, trekker den
+   seg inn i huset; når fuglen har passert, kommer følehornene forsiktig ut igjen. Ikke om vinteren
+   (da sover sneglene), men gjerne om kvelden. */
+const SN = { chance: 0.16, speed: 3.2 };
+function maybeSnail(p) {
+  if (seasonName === 'winter' || Math.random() >= SN.chance) return null;
+  const busy = p.decor.fungus || p.decor.sprigBot;
+  const q = { side: busy ? -busy : (Math.random() < 0.5 ? -1 : 1), s: 0, s0: 0, state: 'crawl', t: 0, out: 1, seed: (Math.random() * 1e6) | 0, start: true };
+  q.ps = q.s; q.pout = 1;
+  return q;
+}
+function snailStep(p, dt, groundY) {
+  const q = p.sn; q.ps = q.s; q.pout = q.out; q.t += dt;
+  const room = groundY - (p.baseTop + p.amp + p.gap + END_H / 2) - 10;
+  if (q.start) { q.start = false; q.s = q.s0 = Math.max(12, room - 8 - Math.random() * Math.min(60, room * 0.5)); q.ps = q.s; }   // starter nede ved roten
+  if (room < 24) { p.sn = null; return; }   // for kort stamme: ingen plass
+  const ahead = p.x + PIPE_W / 2 - bird.x, near = (state === State.PLAY || state === State.DEAD) && ahead < 90 && ahead > -40;
+  if (near && q.state === 'crawl') { q.state = 'in'; q.t = 0; }
+  if (q.state === 'in') { q.out = reduceMotion ? 0 : Math.max(0, q.out - dt * 5); if (!near && q.t > 0.8) { q.state = 'out'; q.t = 0; } }
+  else if (q.state === 'out') { q.out = reduceMotion ? 1 : Math.min(1, q.out + dt * 0.8); if (q.out >= 1) { q.state = 'crawl'; q.t = 0; } }
+  else if (!reduceMotion) q.s = Math.max(12, q.s - SN.speed * dt);   // oppover, sakte
+  q.s = clamp(q.s, 12, Math.max(12, room));
 }
 
 /* ---------- Partikler ---------- */
@@ -696,7 +779,11 @@ function update(dt) {
     if (state === State.PLAY && !perched && bird.y + BIRD_R >= groundY) { bird.y = groundY - BIRD_R; if (D.zen) zenBounce(groundY); else die(true); }
   }
 
-  for (const p of pipes) if (p.sq) squirrelStep(p, dt, groundY);   // ekornene lever videre også etter et krasj
+  for (const p of pipes) {   // dyrene på stammene lever videre også etter et krasj
+    if (p.sq) squirrelStep(p, dt, groundY);
+    if (p.wp) woodpeckerStep(p, dt, groundY);
+    if (p.sn) snailStep(p, dt, groundY);
+  }
 
   if (state === State.DEAD) {
     // rekyl fra røret, tumling, sprett i bakken
