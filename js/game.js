@@ -100,7 +100,7 @@ function setTimeOfDay(name, fade = true) {
   worldFade = fade && scene && !reduceMotion ? { from: { T, scene }, k: 0, n: 0 } : null;
   curTheme = name; T = next.T; scene = next.scene;
   if (moteKind() !== kindBefore) initMotes();
-  Sound.setNight(T.night);
+  Sound.setNight(T.night); Sound.setTime(name);
   document.querySelector('meta[name=theme-color]').content = T.skyTop; document.documentElement.style.setProperty('--sky', T.skyTop);
 }
 // tiden runden står på nå: starter på valgt tid og går videre hvert 10. poeng
@@ -542,7 +542,7 @@ function update(dt) {
     // poengene telles opp med små klikk; ny rekord feires med en meiseflokk når tallet er framme
     const shown = Math.min(score, Math.floor(Math.max(0, overT - 0.55) * 30));
     if (shown !== overShown) { overShown = shown; Sound.count(); }
-    if (newBest && !celebrated && overShown === score) { celebrated = true; Sound.fanfare(); celebrate(); }
+    if (newBest && !celebrated && overShown === score) { celebrated = true; Sound.cheer(); celebrate(); }
     if (unlocked.length && !unlockSounded && overT > 1) { unlockSounded = true; Sound.power(); }
     // fuglen setter seg: rotasjon og «gelé»-klem fjærer tilbake, og den sitter på føttene
     bird.angVel += (-bird.rot * 90 - bird.angVel * 10) * dt; bird.rot += bird.angVel * dt;
@@ -646,5 +646,6 @@ function zenBounce(groundY) {
 }
 function land() {
   state = State.OVER; overT = 0;
+  Sound.creak(0.3);   // treskiltet begynner å svinge i tauene
   bird.vy = 0; bird.vx = 0; bird.sy = 0.7; bird.sx = 1.3; bird.sv = 0;
 }

@@ -1,15 +1,17 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v4.0): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v4.1): en liten blåmeis med lusekofte-skjerf flyr
 gjennom en norsk bjørkeskog. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
-søvnig måne. Dag/natt-tema, generert musikk, syntetisert lyd og vibrasjon.
+søvnig måne. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
+vind i bjørk) og vibrasjon.
 Bygget som en installerbar PWA, optimalisert for Samsung Galaxy (portrett) og
 andre Android-telefoner.
 
-All grafikk og lyd er generert i koden – ingen bildefiler eller lydfiler
-trengs utover ikonene. Fonten (Fredoka) er selvhostet, så spillet ser likt ut
-også uten nett.
+All grafikk er generert i koden – ingen bildefiler trengs utover ikonene. Lyden
+er en blanding av syntese og noen få fritt lisensierte opptak (`audio/`, 273 kB
+i alt). Fonten (Fredoka) og opptakene ligger lokalt, så spillet ser og høres
+likt ut også uten nett.
 
 ## Stil: håndlaget og norsk
 
@@ -44,7 +46,7 @@ piksler i stoff**.
 |-----|--------|
 | `index.html` | Siden: lerret, stil og innlasting av skriptene |
 | `js/config.js` | Konstanter, lagring, vanskelighetsgrader, power-ups, tema, årstider og garderobe |
-| `js/sound.js` | Musikk, lydeffekter og naturlyder (Web Audio, alt syntetisert) |
+| `js/sound.js` | Musikk, lydeffekter og naturlyder (Web Audio: opptak med syntese som reserve) |
 | `js/game.js` | Spilltilstand, input, fysikk, tid på døgnet og oppdatering |
 | `js/render.js` | Tegning: forhåndstegnede lag, stammer, fugl, partikler og brukergrensesnitt |
 | `js/main.js` | Oppstart: skjermstørrelse, spill-løkke og PWA |
@@ -52,10 +54,12 @@ piksler i stoff**.
 | `sw.js` | Service worker – spillet fungerer offline etter første besøk |
 | `icons/` | App-ikoner (192, 512, maskable 512, Apple touch, favicon) + skjermbilde |
 | `fonts/` | Fredoka (woff2, variabel vekt) + lisens (SIL OFL 1.1) |
+| `audio/` | Lydopptak (mp3): blåmeis, vind, tre, kalimba og xylofon. Kilder og lisenser i `audio/KILDER.md` |
 | `docs/REVISJON.md` | Første revisjon: funn og plan (fase 1–4, gjennomført) |
 | `docs/REVISJON-2.md` | Andre revisjon: poeng og tiltak mot «AI-stil» (fase A–G) |
 | `.nojekyll` | Sørger for at GitHub Pages serverer alle filer som de er |
 | `make_icons.py` | Regenererer ikonene (blåmeisen foran en bjørkestamme; valgfritt, krever Pillow) |
+| `make_audio.py` | Bygger `audio/` fra originalopptakene: klipper, renser og koder (valgfritt, krever ffmpeg og numpy) |
 
 ## Publisering på GitHub Pages
 
@@ -243,21 +247,40 @@ bevegelsen er jevn på 60, 90 og 120 Hz-skjermer:
 
 ## Musikk
 
-Alt er generert i Web Audio – ingen lydfiler. En rolig 8-takters loop i F-dur
-på 88 BPM med lett swing: spilledåse-melodi, myk pad (Fmaj7 – Dm7 – B♭maj7 –
-Csus4 …) og etterklang. På menyen spilles en enklere, varmere versjon; i spill
-kommer rund bass, kalimba-glimt, en myk shaker og et rolig «hjerteslag» inn i
-stedet for trommer. Om kvelden spilles en vuggevise-variant uten rytme, en
-oktav lavere. Sakte film demper lyden. Musikken starter ved første trykk
-(nettlesere krever brukerhandling).
+Musikken spilles i Web Audio og er i F-dur, 88 BPM, med lett swing. Melodien spilles på et
+ekte kalimbaopptak: én tone som spilles raskere eller langsommere for å gi alle tonehøyder. Under
+ligger en myk pad (Fmaj7 – Dm7 – B♭maj7 – Csus4 …) og etterklang.
 
-**Lydeffekter:** mykt «fwip» når fuglen flakser, bjelle som stiger i skala for
-hvert poeng på rad, liten fanfare hvert 10. poeng og ved ny rekord, «plopp» når
-såpeboblen sprekker, tegneserie-«bonk/boing» ved krasj, og en liten «å nei»-
-melodi i dur på game over. Poengene telles opp med små klikk.
+- **Form:** A – A' – B – A'', i alt 32 takter (cirka 87 s) før den gjentas. B-delen er et lavere
+  mellomspill med lengre toner. Annenhver runde endres basslinjen og kalimba-glimtene litt.
+- **Bro:** når tiden på døgnet skifter midt i en runde, spilles en kort bro på to takter: fallende mot
+  kvelden, stigende mot morgenen, med et glid over en leketøys-xylofon.
+- **Meny og spill:** på menyen spilles en enklere, varmere versjon. I spill kommer rund bass,
+  kalimba-glimt, en myk shaker og et rolig «hjerteslag» inn i stedet for trommer.
+- **Kveld:** om kvelden spilles en vuggevise-variant uten rytme, en oktav lavere.
+- Sakte film demper lyden. Musikken starter ved første trykk (nettlesere krever brukerhandling).
 
-**Naturlyder:** svak vind og fuglekvitter om dagen, sirisser og en ugle innimellom
-om kvelden. «Musikk av» slår av både musikk og naturlyder.
+**Lydeffekter:**
+
+- mykt «fwip» når fuglen flakser
+- kalimbatone som stiger i skala for hvert poeng på rad
+- kalimba-arpeggio og en dempet blåmeis hvert 10. poeng
+- glid over en leketøys-xylofon og meisesang ved ny rekord
+- «plopp» når såpeboblen sprekker
+- treknakk når fuglen treffer en stamme, og et mykt dunk i bakken
+- knirk i tauene når game over-skiltet svinger
+- et lite treklikk på knappene
+- en liten «å nei»-melodi i dur på game over
+- små klikk når poengene telles opp
+
+**Naturlyder:** vind i bjørk (en sømløs sløyfe på 14 s) og blåmeis som synger fra ulike steder i
+skogen om dagen. Om kvelden er det svakere vind, sirisser og en ugle innimellom. «Musikk av» slår
+av både musikk og naturlyder.
+
+**Opptak og reserve:** opptakene (`audio/`, 273 kB) er CC0 eller merket som allemannseie; se
+[`audio/KILDER.md`](audio/KILDER.md). De hentes når siden lastes, dekodes ved første trykk, og
+service workeren hurtigbufrer dem for bruk uten nett. Til de er klare, eller om de ikke kan
+lastes, spilles den syntetiske versjonen av hver lyd.
 
 Felles romklang og en begrenser (kompressor) på slutten hindrer klipping når
 mange lyder overlapper.
