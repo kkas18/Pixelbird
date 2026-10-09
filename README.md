@@ -1,9 +1,11 @@
 # Pixelfugl
 
-Et moderne flakse-spill i glatt vektorstil (v3.1): fem parallakse-lag,
-lysstråler, gradienter og myke skygger, partikler, fartsspor, skjermristing,
-dag/natt-tema, generert chiptune-musikk, syntetisert lyd og vibrasjon. Bygget som en installerbar PWA, optimalisert for Samsung Galaxy
-(portrett) og andre Android-telefoner.
+Et koselig flakse-spill (v3.2): en liten blå fugl med strikket skjerf flyr
+gjennom en norsk bjørkeskog. Varm pastellstil med myke konturer, fjell og fjord,
+røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
+søvnig måne. Dag/natt-tema, generert musikk, syntetisert lyd og vibrasjon.
+Bygget som en installerbar PWA, optimalisert for Samsung Galaxy (portrett) og
+andre Android-telefoner.
 
 All grafikk og lyd er generert i koden – ingen bildefiler eller lydfiler
 trengs utover ikonene. Fonten (Fredoka) er selvhostet, så spillet ser likt ut
@@ -65,21 +67,39 @@ Velges på startskjermen. Beste poengsum lagres per nivå.
 Gapet krymper litt med poengsummen, men aldri under 92 px. Gapene plasseres i en
 fast sone på 400 px over bakken, så vanskeligheten er lik på alle skjermhøyder.
 
-## Rør-varianter
+## Hinder: bjørkestammer
 
-- **Oransje hette** – røret beveger seg opp og ned.
-- **Lilla hette** – smalere åpning (20 % mindre gap).
+Hver stamme er unik (barkmerker, kjuker, kvister, fluesopp, av og til en ugle
+som titter ut), men ser lik ut hele veien gjennom skjermen.
+
+- **Høstløv på kanten** – stammen beveger seg opp og ned.
+- **Lyng i mosen** (lilla blomster) – smalere åpning (20 % mindre gap).
 
 ## Power-ups
 
 Dukker opp i gapet fra 3 poeng. Fly gjennom for å plukke opp.
 
-- **Skjold** (blå) – tåler ett treff: fuglen blinker, er usårbar i 0,8 s og glir
-  mykt inn i gapet.
-- **Sakte film** (lilla) – 6 sekunder med 55 % fart.
-- **Dobbelt** (gul) – 8 sekunder med 2 poeng per rør.
+- **Såpeboble** (skjold) – tåler ett treff: boblen spretter, fuglen blinker, er
+  usårbar i 0,8 s og glir mykt inn i gapet.
+- **Snegl** (sakte film) – 6 sekunder med 55 % fart.
+- **Gyllen eikenøtt** (dobbel) – 8 sekunder med 2 poeng per stamme.
 
 Aktive effekter vises som striper under poengsummen.
+
+## Fuglen
+
+- Blunker, ser seg rundt i menyen og sover (med «z») i menyen om natten.
+- Lukker øynene glad (^ ^) når den får poeng, og sperrer dem opp i fritt fall.
+- Skjerfsnippene er en liten fysikksimulering (Verlet) som blafrer i fartsvinden.
+- Ved krasj: «Bonk!», fuglen klemmes flat, spretter og blir sittende oppreist og
+  svimmel, med stjerner som går rundt hodet.
+
+## Grafikk og ytelse
+
+De statiske bakgrunnslagene (fjell og fjord, åser med hytter, bjørkeskog, busker,
+bakke), himmelen og vignetten tegnes én gang til offscreen-lerreter og blittes
+hvert bilde. Bare det som beveger seg tegnes live. Tegneoppløsningen er begrenset
+til 2× skjermpiksler. Spillet holder 60 bilder/s på en 2,6×-skjerm, også uten GPU.
 
 ## Fysikk
 

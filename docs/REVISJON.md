@@ -4,8 +4,8 @@
 **Omfang:** `index.html` (hele spillet), `sw.js`, `manifest.webmanifest`, `make_icons.py`, ikoner
 **Metode:** Kodegjennomgang linje for linje + kjøring i Chromium (Galaxy-format, 412 × 915, DPR 2–2,6) med skjermbilder fra meny, spill, krasj og game over, i dag- og nattema.
 
-> **Status:** Fase 1 er gjennomført (se seksjon 10). Kunstnerisk retning for fase 2
-> er valgt: **bjørkestammer** som hinder.
+> **Status:** Fase 1 og fase 2 er gjennomført (se seksjon 10). Fase 2 ga spillet ny
+> kunstnerisk retning med **bjørkestammer** som hinder.
 
 ---
 
@@ -381,7 +381,7 @@ Forslaget er delt i faser slik at hver fase kan leveres, testes og vurderes for 
 8. Små tekniske ting: `try/catch` rundt `localStorage`, gi `Audio` nytt navn, maskable-ikon,
    self-hostet font.
 
-### Fase 2: Ny kunstnerisk retning (koselig og søt)
+### Fase 2: Ny kunstnerisk retning (koselig og søt) ✅ Gjennomført
 1. Ny palett og varme konturer (9.1).
 2. Forhåndstegnede parallakselag på offscreen-lerreter (8.1) med hytter, bjørk og fjord (9.3).
 3. Nye hinder (9.2) og nye power-ups/samleobjekter (9.5).
