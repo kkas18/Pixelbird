@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v8.0): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v9.0): en liten blåmeis med lusekofte-skjerf flyr
 hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Malt eventyrbokstil med fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 månesigd. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
@@ -8,7 +8,7 @@ vind i bjørk) og vibrasjon.
 Bygget som en installerbar PWA, optimalisert for Samsung Galaxy (portrett) og
 andre Android-telefoner.
 
-Høstlandskapet og bjørkestammene bruker lokale WebP-illustrasjoner (`art/`, ca. 1,6 MB). Fuglen, grensesnittet, partiklene og de øvrige årstidene tegnes i Canvas. Lyden
+Høstlandskapet og bjørkestammene bruker lokale WebP-illustrasjoner (`art/`, ca. 3,0 MB). Fuglen, grensesnittet, partiklene og de øvrige årstidene tegnes i Canvas. Lyden
 er en blanding av syntese og noen få fritt lisensierte opptak (`audio/`, 273 kB
 i alt). Fonten (Fredoka og Fraunces) og opptakene ligger lokalt, så spillet ser og høres
 likt ut også uten nett.
@@ -32,18 +32,19 @@ er fortsatt levende elementer, tegnet separat på Canvas.
   Fontlisenser finnes i `fonts/`. Ingen eksterne font- eller bildekall.
 - **Lagring:** eksisterende rekorder, lydvalg, tema og pynt beholdes ved oppdatering.
 
-Se [2.5D-dybden](docs/DEPTH-v8.md) for skjermbilder, bevegelsesdemo og verifikasjon.
+Se [landskapet i bevegelse](docs/CONTINUOUS-v9.md) for skjermbilder, bevegelsesdemo og verifikasjon.
 Den tidligere [referansetilpasningen](docs/REFERENCE-v7.md) viser utgangspunktet.
 
 ## Dybde i 2.5D
 
 Spillet beholder 2D-styring og kollisjoner, mens tegningen får flere dybdeplan:
-rolig panorering i himmel, fjell og skog, et separat forgrunnslag med steiner
+kontinuerlig bevegelse i himmel, fjell og et eget skogslag, en nærforgrunn med steiner
 og løv, atmosfærisk dis, sylinderskygge på bjørkene og mykt lys på fuglen.
 Kameraet følger fuglen forsiktig i bakgrunnslagene; knapper og poeng står fast.
-Forgrunnen ruller kontinuerlig. Panoreringen i det smale originalmaleriet er
-begrenset slik at motivet beholder komposisjonen. Redusert bevegelse stopper
-parallakse og kameraforskyvning.
+Under spillingen ruller brede dag-/nattpanoramaer og et separat, transparent
+skogslag kontinuerlig i takt med flyturen. Myke overganger mellom landskapsdelene
+gir en sammenhengende verden. Menyen beholder originalmaleriet. Redusert bevegelse
+stopper parallakse og kameraforskyvning.
 
 ## Filer
 

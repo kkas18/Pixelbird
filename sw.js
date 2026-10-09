@@ -1,6 +1,6 @@
 /* Pixelfugl service worker – cache-first for appens egne filer (inkludert den
    selvhostede fonten og lydopptakene). Bump VERSION ved hver utgivelse. */
-const VERSION = 'pixelfugl-v8.0.0';
+const VERSION = 'pixelfugl-v9.0.0';
 const CORE = [
   './',
   './index.html',
@@ -11,6 +11,9 @@ const CORE = [
   './art/forest-day.webp',
   './art/birch.webp',
   './art/foreground-depth.webp',
+  './art/panorama-night.webp',
+  './art/panorama-day.webp',
+  './art/woodland-scroll.webp',
   './js/config.js',
   './js/sound.js',
   './js/game.js',

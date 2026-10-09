@@ -1,9 +1,9 @@
 /* Production paintings derived from the approved reference. These are scenery
    and bark sprites, never a flattened screenshot of the UI. */
 'use strict';
-const ART = { night: null, day: null, birch: null, foreground: null };
+const ART = { night: null, day: null, birch: null, foreground: null, panoramaNight: null, panoramaDay: null, woodland: null };
 function loadArtwork() {
-  return Promise.all(Object.entries({ night: 'forest-night.webp', day: 'forest-day.webp', birch: 'birch.webp', foreground: 'foreground-depth.webp' }).map(([key, file]) => new Promise(resolve => {
+  return Promise.all(Object.entries({ night: 'forest-night.webp', day: 'forest-day.webp', birch: 'birch.webp', foreground: 'foreground-depth.webp', panoramaNight: 'panorama-night.webp', panoramaDay: 'panorama-day.webp', woodland: 'woodland-scroll.webp' }).map(([key, file]) => new Promise(resolve => {
     const image = new Image();
     image.onload = () => { ART[key] = image; resolve(); };
     // A failed asset must not stop the game: procedural art remains a fallback.
@@ -15,10 +15,12 @@ function hasPaintedForest() { return seasonName === 'autumn' && !!ART.night && !
 
 function drawPaintedBackdrop(groundY) {
   if (!hasPaintedForest()) return false;
-  const image = T.night ? ART.night : ART.day;
+  const traveling = state !== State.MENU;
+  const image = traveling ? (T.night ? ART.panoramaNight : ART.panoramaDay) : (T.night ? ART.night : ART.day);
+  if (!image || (traveling && !ART.woodland)) return false;
   ctx.save();
   const layers = paintedDepthLayers(image);
-  const tileW = Math.max(W + 64, groundY * 0.6);
+  const tileW = traveling ? groundY * image.width / (image.height * 0.86) : Math.max(W + 64, groundY * 0.6);
   const camera = reduceMotion ? 0 : camShift(0.1);
   // Back-to-front compositing: the world is 2D, its scenery has independent
   // depth planes. Menus remain composed around the original artwork.
@@ -26,11 +28,11 @@ function drawPaintedBackdrop(groundY) {
   drawDepthPlane(layers.sky, tileW, groundY, offsets.sky, camera * 0.35);
   drawDepthPlane(layers.mountains, tileW, groundY, offsets.mountains, camera * 0.6);
   drawDepthMist(groundY * 0.56, groundY * 0.13, 0.10);
-  drawDepthPlane(layers.woodland, tileW, groundY, offsets.woodland, camera * 0.85);
+  const woodland = traveling ? paintedWoodlandLayer(T.night) : layers.woodland;
+  drawDepthPlane(woodland, tileW, groundY, offsets.woodland, camera * 0.85);
   drawDepthMist(groundY * 0.75, groundY * 0.10, 0.06);
   // Soil is the gameplay plane: its edge stays at the collision floor.
-  const soil = Math.round(image.height * 0.86);
-  drawDepthSoil(image, soil, tileW, groundY, distance);
+  drawDepthTiles(layers.soil, tileW, GROUND_H, distance, groundY);
   if (T.sunLow) {
     const tint = ctx.createLinearGradient(0, 0, 0, groundY);
     tint.addColorStop(0, 'rgba(168,89,100,.26)'); tint.addColorStop(1, 'rgba(232,159,105,.3)');
@@ -79,29 +81,35 @@ function paintBirchCap(y, upper) {
 }
 
 
-const DEPTH_SPEED = Object.freeze({ sky: 0.012, mountains: 0.065, woodland: 0.22, foreground: 1.35 });
+const DEPTH_SPEED = Object.freeze({ sky: 0.035, mountains: 0.14, woodland: 0.45, foreground: 1.35 });
 const depthPaintCache = new WeakMap();
 function depthScroll() {
   return reduceMotion || state === State.MENU || state === State.READY ? 0 : viewScroll;
 }
 function depthOffsets(distance) {
-  // A bounded camera pan keeps the approved narrow painting intact: distant
-  // features never repeat as mirrored cabins. The near prop strip scrolls
-  // continuously. Each scenery plane responds according to its depth.
-  const pan = Math.sin(distance * 0.0012) * 22;
-  return { sky: pan * DEPTH_SPEED.sky / DEPTH_SPEED.woodland,
-    mountains: pan * DEPTH_SPEED.mountains / DEPTH_SPEED.woodland,
-    woodland: pan, foreground: distance * DEPTH_SPEED.foreground };
+  // World travel is monotonic: no sine sway, clamp or reversal. Different
+  // depths move at different speeds for as long as the bird flies.
+  return { sky: distance * DEPTH_SPEED.sky, mountains: distance * DEPTH_SPEED.mountains,
+    woodland: distance * DEPTH_SPEED.woodland, foreground: distance * DEPTH_SPEED.foreground };
+}
+function loopEdge(g, w, h) {
+  // Incoming tiles fade over the outgoing edge, keeping the scene continuous
+  // without mirrored cabins or trees. This runs only during cache creation.
+  g.globalCompositeOperation = 'destination-in';
+  const edge = g.createLinearGradient(0, 0, w, 0);
+  edge.addColorStop(0, 'transparent'); edge.addColorStop(0.06, '#000'); edge.addColorStop(1, '#000');
+  g.fillStyle = edge; g.fillRect(0, 0, w, h);
 }
 function paintedDepthLayers(image) {
   if (depthPaintCache.has(image)) return depthPaintCache.get(image);
-  // Pre-render masks once at bounded resolution; no full-screen filters or
-  // per-frame pixel reads. Cached canvases are shared across resizes.
-  const w = Math.min(640, image.width), h = Math.round(w * image.height * 0.86 / image.width);
-  const make = start => {
-    const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const wide = image.width > image.height;
+  const w = Math.min(wide ? 3072 : 640, image.width), soil = Math.round(image.height * 0.86);
+  const h = Math.round(w * soil / image.width);
+  const make = (start, soilOnly = false) => {
+    const c = document.createElement('canvas'); c.width = w;
+    c.height = soilOnly ? Math.round(w * (image.height - soil) / image.width) : h;
     const g = c.getContext('2d');
-    g.drawImage(image, 0, 0, image.width, image.height * 0.86, 0, 0, w, h);
+    g.drawImage(image, 0, soilOnly ? soil : 0, image.width, soilOnly ? image.height - soil : soil, 0, 0, w, c.height);
     if (start > 0) {
       g.globalCompositeOperation = 'destination-in';
       const mask = g.createLinearGradient(0, 0, 0, h);
@@ -109,27 +117,38 @@ function paintedDepthLayers(image) {
       mask.addColorStop(start + 0.035, '#000'); mask.addColorStop(1, '#000');
       g.fillStyle = mask; g.fillRect(0, 0, w, h);
     }
-    return c;
+    if (wide) loopEdge(g, w, c.height);
+    c.loopBlend = wide ? 0.06 : 0; return c;
   };
-  const layers = { sky: make(0), mountains: make(0.29), woodland: make(0.48) };
+  const layers = { sky: make(0), mountains: make(wide ? 0.25 : 0.29), woodland: wide ? null : make(0.48), soil: make(0, true) };
   depthPaintCache.set(image, layers); return layers;
 }
-function drawDepthPlane(image, tileW, height, offset, cameraY = 0) {
-  const phase = offset + 32, first = Math.floor(phase / tileW);
-  for (let k = first, x = first * tileW - phase; x < W; k++, x += tileW) {
-    ctx.save(); ctx.translate(x + (k % 2 ? tileW : 0), cameraY - 4);
-    if (k % 2) ctx.scale(-1, 1);
-    ctx.drawImage(image, 0, 0, tileW + 0.5, height + 8);
-    ctx.restore();
+const woodlandPaintCache = new Map();
+function paintedWoodlandLayer(night) {
+  if (woodlandPaintCache.has(night)) return woodlandPaintCache.get(night);
+  const image = ART.woodland, c = document.createElement('canvas');
+  c.width = Math.min(3072, image.width); c.height = Math.round(c.width * image.height * 0.86 / image.width);
+  const g = c.getContext('2d');
+  g.drawImage(image, 0, 0, image.width, image.height * 0.86, 0, 0, c.width, c.height);
+  if (night) {
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = 'rgba(22,29,65,.28)'; g.fillRect(0, 0, c.width, c.height);
   }
+  loopEdge(g, c.width, c.height); c.loopBlend = 0.06;
+  woodlandPaintCache.set(night, c); return c;
 }
-function drawDepthSoil(image, soil, tileW, groundY, distance) {
-  const phase = distance + 32, first = Math.floor(phase / tileW);
-  for (let k = first, x = first * tileW - phase; x < W; k++, x += tileW) {
-    ctx.save(); ctx.translate(x + (k % 2 ? tileW : 0), groundY);
-    if (k % 2) ctx.scale(-1, 1);
-    ctx.drawImage(image, 0, soil, image.width, image.height - soil, 0, 0, tileW + 0.5, GROUND_H);
-    ctx.restore();
+function drawDepthPlane(image, tileW, groundY, offset, cameraY = 0) {
+  const top = cameraY - 4;
+  // Every landscape plane terminates at the same physical floor; camera
+  // following cannot open a gap under the trees.
+  drawDepthTiles(image, tileW, groundY - top, offset, top);
+}
+function drawDepthTiles(image, tileW, height, offset, y) {
+  const step = tileW * (1 - (image.loopBlend || 0)), phase = offset + 32;
+  const first = Math.floor((phase - tileW) / step);
+  for (let k = first, x = first * step - phase; x < W; k++, x += step) {
+    if (x + tileW < 0) continue;
+    ctx.drawImage(image, x, y, tileW + 0.5, height);
   }
 }
 function drawDepthMist(y, h, opacity) {
