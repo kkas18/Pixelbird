@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v3.6): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v3.7): en liten blåmeis med lusekofte-skjerf flyr
 gjennom en norsk bjørkeskog. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 søvnig måne. Dag/natt-tema, generert musikk, syntetisert lyd og vibrasjon.
@@ -143,10 +143,30 @@ game over-skjermen («Ny pynt: …!»).
 Spillet bruker ingen emojier: all tekst er vanlige bokstaver, tall og tegnsetting,
 og symboler som piler, hjerter og stjerner er tegnet som figurer.
 
+## Landskapet
+
+Landskapet er laget for at øyet ikke skal se gjentakelse:
+
+- **Bakken** er satt sammen av 14 bakkestykker i tilfeldig rekkefølge, og samme stykke kommer
+  aldri igjen før minst fire andre har passert. Stykkene har hvert sitt innhold: tuer, en
+  bjørkestubbe, en stor mosegrodd stein, blåbærlyng (bær om sommeren, røde blader om høsten), en
+  tråkket sti, en maurtue, kantareller, og blåklokker med prestekrager. Gresskanten har ujevne buer,
+  og skjøtene er sømløse.
+- **Fjellene** har én tydelig hovedtopp med bratt vegg og lang skulder, et skar, mindre nabotopper
+  og smale snøfonner i søkkene.
+- **Husene i åsen** er forskjellige: en rød hytte med vimpel, et okergult gårdshus med flaggstang,
+  en hvit seterbu med vedstabel og et stabbur på stolper. Åsene er to skjermbredder lange, og skog
+  og busker står i klynger med glenner imellom.
+- **Sjeldne landemerker** dukker opp omtrent hvert 30.–60. sekund, aldri det samme som de to
+  forrige: stavkirke, fyr (med lysstråle om kvelden), seter med kuer, elg i skogkanten, en sau som
+  beiter og en postkasse ved stien. Hvert landemerke står plantet på sitt eget parallakse-lag.
+
 ## Hinder: bjørkestammer
 
 Hver stamme er unik (barkmerker, kjuker, kvister, fluesopp, av og til en ugle
-som titter ut), men ser lik ut hele veien gjennom skjermen.
+som titter ut), men ser lik ut hele veien gjennom skjermen. Barken er som ekte bjørk: merker i
+klynger med bar bark imellom, mørke «belter», «øyne» der greiner har sittet og små lenticeller.
+Alle stammene er like brede og står rett, så treffsonen er rettferdig.
 
 - **Høstløv på kanten** – stammen beveger seg opp og ned.
 - **Lyng i mosen** (lilla blomster) – smalere åpning (20 % mindre gap).

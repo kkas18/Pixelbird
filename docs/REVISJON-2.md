@@ -6,7 +6,8 @@
 natt, game over og garderobe, og målinger i koden: antall gradienter, sirkler og sinusbevegelser,
 fargepalett og flisbredder.
 
-> **Status:** Fase A (signatur og identitet) er gjennomført i v3.6. Se seksjon 8.
+> **Status:** Fase A (signatur og identitet) er gjennomført i v3.6, og fase B (variasjon uten
+> gjentakelse) i v3.7. Se seksjon 8 og 9.
 
 > Den første revisjonen ([`REVISJON.md`](REVISJON.md)) handlet om å gjøre spillet *ryddig, mykt og
 > koselig*. Det er gjort. Denne revisjonen spør om noe annet: **ser spillet ut som noe et menneske har
@@ -349,3 +350,44 @@ Ikonene er tegnet på nytt med blåmeisen og lusekofte-skjerfet.
 
 Det som gjenstår for å komme forbi «AI-pent» er særlig gjentakelsen og symmetrien i bakgrunnen
 (fase B) og den jevne vuggingen (fase C).
+
+---
+
+## 9. Status: fase B gjennomført (v3.7)
+
+| Tiltak | Hva som ble gjort |
+|---|---|
+| B1 Bakken | Bakken er bygget av 14 stykker (96 px) med felles kantprofil. Rekkefølgen er tilfeldig, men fast per posisjon, og samme stykke kommer aldri igjen før minst fire andre har passert. Gresskanten har ujevne buer (8–16 px). Stykkene har tuer, stubbe, stor stein, blåbærlyng, sti, maurtue, kantareller og markblomster, og innholdet følger årstiden (snø om vinteren). |
+| B2 Fjellene | Én hovedtopp med bratt vegg (halvbredde 23 px) og lang skulder (48 px), et skar og lavere nabotopper (høyeste 70 % av hovedtoppen). Snøfonnene er V-formede, ryggen er rufsete og skyggesiden følger en takket rygg. |
+| B3 Hus og lag | Rød hytte med vimpel, okergult gårdshus med flaggstang, hvit seterbu med vedstabel og stabbur på stolper. Åsene er 720 px (var 360), skogen 600 (var 300) og buskene 480 (var 240). Trær og busker står i klynger. Faste farger tones etter tiden på døgnet. |
+| B4 Landemerker | Stavkirke, fyr, seter med kuer, elg, sau og postkasse kommer omtrent hvert 30.–60. sekund, aldri det samme som de to forrige. De står plantet på sitt eget lag. Sauen beiter med pauser, og fyret har en roterende lysstråle om kvelden. |
+| B5 Barken | Merker i klynger med bar bark imellom, mørke belter, «øyne» og lenticeller. Merkene tegnes samlet etter strektykkelse, så det ikke koster ytelse. Lange lag tegnes bare der de er synlige. Stammene er fortsatt like brede og rette, så treffsonen er uendret og rettferdig. |
+
+**Før og etter:**
+
+- [`revisjon-2/fase-b/panorama.jpg`](revisjon-2/fase-b/panorama.jpg): tre skjermbredder av landskapet, før og etter
+- [`revisjon-2/fase-b/landemerker.jpg`](revisjon-2/fase-b/landemerker.jpg): alle landemerkene, dag og kveld
+- [`revisjon-2/fase-b/meny.jpg`](revisjon-2/fase-b/meny.jpg), [`natt.jpg`](revisjon-2/fase-b/natt.jpg), [`spill.jpg`](revisjon-2/fase-b/spill.jpg)
+
+**Verifisering:**
+
+- 25 nye automatiske tester for fase B, blant annet:
+  - ingen periode i bakkens rekkefølge
+  - sømløse skjøter mellom alle 196 par av stykker
+  - skjev hovedtopp
+  - hyppighet og variasjon for landemerkene
+  - bark i klynger
+- Alle tidligere testpakker består på funksjon (fase 1, 2, 4, 5, A og lyd).
+- Tegnetiden per bilde er lik `main` (15,3 mot 15,2 ms på en 2,6×-skjerm uten GPU, målt vekselvis på samme maskin). Med to landemerker på skjermen samtidig er den cirka 3–4 % høyere.
+- To gamle tester med faste fps-terskler (≥ 55 i spill og ≥ 45 under krysstoning) havner like under grensen på testmaskinen, og `main` gjør det samme der. De sammenlignende testene består.
+
+**Oppdaterte poeng:**
+
+| Område | Etter fase A | Etter fase B |
+|---|:-:|:-:|
+| Grafikk: særpreg og originalitet | 6,5 | **7,5** |
+| Innhold og variasjon | 7,5 | **8,5** |
+| **Menneskelig preg** | **5,5** | **6,5** |
+
+Det tydeligste gjenværende «AI-tegnet» er den jevne sinusvuggingen. Fase C (animasjon med intensjon)
+tar den.

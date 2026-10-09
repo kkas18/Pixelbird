@@ -258,10 +258,22 @@ function scarfStep(dt) {
 
 /* ---------- Stammenes utseende (frøbasert, så hver stamme er unik men stabil) ---------- */
 const rng = seed => () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+// bjørkebark slik den faktisk ser ut: merker i klynger med bar bark imellom, noen mørke «belter»,
+// «øyne» der greiner har sittet, og mange små lenticeller (faint) – sortert etter avstand fra enden
 function barkMarks(seed) {
   const r = rng(seed), out = [];
-  for (let d = 8 + r() * 10; d < 900; d += 10 + r() * 16) out.push({ d, x: 4 + r() * (PIPE_W - 22), len: 5 + r() * 11, th: 1.2 + r() * 1.5, scar: r() < 0.08 });
-  return out;
+  for (let d = 6 + r() * 10; d < 900;) {
+    const roll = r();
+    if (roll < 0.12) { out.push({ d, x: 2 + r() * 6, len: PIPE_W * (0.45 + r() * 0.35), th: 2.2 + r() * 1.4, scar: false }); d += 14 + r() * 16; }
+    else if (roll < 0.2) { out.push({ d, x: 6 + r() * (PIPE_W - 24), len: 12, th: 2.4, scar: true }); d += 16 + r() * 18; }
+    else {
+      const n = 2 + ((r() * 3) | 0), cx = 4 + r() * (PIPE_W - 26);
+      for (let i = 0; i < n; i++) out.push({ d: d + i * (2.5 + r() * 3), x: clamp(cx + (r() - 0.5) * 14, 2, PIPE_W - 16), len: 3 + r() * 10, th: 0.9 + r() * 1.6, scar: false });
+      d += n * 3 + 14 + r() * 28;
+    }
+  }
+  for (let d = 4 + r() * 6; d < 900; d += 12 + r() * 14) out.push({ d, x: 3 + r() * (PIPE_W - 10), len: 1.6 + r() * 2.2, th: 0.7, scar: false, faint: true });
+  return out.sort((a, b) => a.d - b.d);
 }
 function trunkDecorPlan(seed) {
   const r = rng(seed), side = () => (r() < 0.5 ? -1 : 1);
@@ -282,6 +294,25 @@ function moteKind() {
 }
 const falling = k => k === 'leaf' || k === 'snow' || k === 'petal';
 const moteY = groundY => moteKind() === 'firefly' ? groundY - 25 - Math.random() * 145 : Math.random() * (groundY - 40);
+
+/* ---------- Landemerker: sjeldne ting i landskapet ----------
+   Dukker opp omtrent hvert 30.–60. sekund (målt i rullet avstand), aldri samme som de to forrige.
+   Hvert landemerke hører til et parallakse-lag (depth = lagets fart) og står plantet på det laget. */
+const LANDMARKS = { stavkirke: 0.14, seter: 0.14, fyr: 0.05, elg: 0.3, sau: 0.6, postkasse: 1 };
+const LM_SPEED = 118;                  // px/s som avstandene regnes i (fart på «lett»)
+let landmarks = [], lmNext = -1, lmRecent = [];
+const lmX = (m, s) => m.x0 - (s - m.at) * LANDMARKS[m.kind];
+function spawnLandmark(kind) {
+  if (!kind) { const free = Object.keys(LANDMARKS).filter(k => !lmRecent.includes(k)); kind = free[(Math.random() * free.length) | 0]; }
+  lmRecent = [kind, ...lmRecent].slice(0, 2);
+  landmarks.push({ kind, at: scroll, x0: W + 50, seed: (Math.random() * 1e6) | 0 });
+  return kind;
+}
+function landmarkStep() {
+  if (lmNext < 0) lmNext = scroll + (10 + Math.random() * 8) * LM_SPEED;   // det første kommer etter 10–18 s
+  if (scroll >= lmNext) { spawnLandmark(); lmNext = scroll + (30 + Math.random() * 30) * LM_SPEED; }
+  landmarks = landmarks.filter(m => lmX(m, scroll) > -90);
+}
 
 /* ---------- Oppdatering (dt i sekunder) ---------- */
 // lagre tilstanden før steget, så render() kan interpolere mellom forrige og nåværende steg
@@ -306,7 +337,7 @@ function update(dt) {
   if (wantSlow !== slowWas) { Sound.music.slowmo(wantSlow); slowWas = wantSlow; }
   const gdt = dt * timeScale;      // spilltid
   const scrolling = state !== State.DEAD && state !== State.OVER;
-  if (scrolling) scroll += D.speed * gdt;
+  if (scrolling) { scroll += D.speed * gdt; landmarkStep(); }
 
   transitionT = Math.max(0, transitionT - dt * 2.4);
   if (worldFade && (worldFade.k += dt / 1.8) >= 1) worldFade = null;   // krysstoning over 1,8 s
