@@ -7,6 +7,8 @@
 > **Status:** Alle fire faser er gjennomført (se seksjon 10). Fase 2 ga spillet ny
 > kunstnerisk retning med **bjørkestammer** som hinder, fase 3 koselig lyd og myke
 > animasjoner, og fase 4 tid på døgnet, årstider, garderobe og Zen-modus.
+>
+> **Neste steg:** se [`REVISJON-2.md`](REVISJON-2.md) – poeng per område og tiltak mot «AI-stil».
 
 ---
 
