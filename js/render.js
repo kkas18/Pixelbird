@@ -1784,16 +1784,24 @@ function drawBird() {
 
 // på maleriet: malt korn i fjærdrakten og varmt kantlys fra sola oppe til høyre, kjølig refleks nede til venstre
 // (vinklene trekker fra fuglens rotasjon, så lyset står fast i verden)
+// kornet ligger ferdig bakt i en rund flis (ingen klipping per bilde), og lyset er to korte strøk innenfor kroppen
 let birdGrain = null;
+function birdGrainSprite() {
+  const R = dpr * scale;
+  if (birdGrain && birdGrain.R === R) return birdGrain.L;
+  const d = BODY_R * 2, L = makeSprite(d, d, g => {
+    g.beginPath(); g.arc(d / 2, d / 2, BODY_R - 0.2, 0, 7); g.clip();
+    const p = g.createPattern(grain(), 'repeat'); p.setTransform(new DOMMatrix().scale(1 / R));
+    g.globalAlpha = 0.38; g.fillStyle = p; g.fillRect(0, 0, d, d);
+  });
+  birdGrain = { R, L }; return L;
+}
 function birdPaintLight(br) {
-  ctx.save(); ctx.beginPath(); ctx.arc(0, 0, BODY_R - 0.2, 0, 7); ctx.clip();
-  // kornet fylles bare over fuglen (ikke hele lerretet bak klippen), med mønsteret skalert til tegneoppløsningen
-  if (!birdGrain || birdGrain.g !== ctx) { birdGrain = { g: ctx, p: ctx.createPattern(grain(), 'repeat') }; birdGrain.p.setTransform(new DOMMatrix().scale(1 / (dpr * scale))); }
-  ctx.globalAlpha *= 0.38; ctx.fillStyle = birdGrain.p; ctx.fillRect(-BODY_R, -BODY_R, BODY_R * 2, BODY_R * 2); ctx.globalAlpha /= 0.38;
+  const L = birdGrainSprite();
+  ctx.drawImage(L.c, -BODY_R, -BODY_R, L.w, L.h);
   ctx.lineCap = 'round';
   ctx.strokeStyle = 'rgba(255,238,196,.55)'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(0, 0, BODY_R - 1.2, -1.35 - br, -0.15 - br); ctx.stroke();
-  ctx.strokeStyle = 'rgba(40,40,90,.18)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, BODY_R - 0.5, 1.9 - br, 3.4 - br); ctx.stroke();
-  ctx.restore();
+  ctx.strokeStyle = 'rgba(40,40,90,.18)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, BODY_R - 1.7, 1.9 - br, 3.4 - br); ctx.stroke();
 }
 
 function drawParticles() {

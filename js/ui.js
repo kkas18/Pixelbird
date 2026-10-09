@@ -15,7 +15,11 @@ function uiText(label, x, y, size, options = {}) {
   ctx.fillText(label, x, y, maxWidth); ctx.restore();
 }
 
+// kortet (papir, sydd kant og kvister) tegnes én gang per størrelse og legges på hele skjermpiksler
 function uiCard(x, y, w, h, decorate = false) {
+  blitSurface(cachedSurface('kort', w, h, 0, decorate, (px, py) => paintCard(px, py, w, h, decorate)), x, y);
+}
+function paintCard(x, y, w, h, decorate) {
   ctx.save();
   ctx.fillStyle = 'rgba(22,22,35,.17)'; rr(x, y + 4, w, h, 12); ctx.fill();
   ctx.fillStyle = UI.paper; rr(x, y, w, h, 12); ctx.fill();
@@ -227,7 +231,8 @@ function drawGameHud(groundY) {
 }
 
 function drawResultsScreen() {
-  const w = 244, h = Math.min(402, H - safeTop - safeBottom - 28), x = (W - w) / 2, k = h / 402;
+  // (kortet har luft under knappene, så den sydde kanten og kvistene ikke havner under «Meny»)
+  const w = 244, h = Math.min(420, H - safeTop - safeBottom - 28), x = (W - w) / 2, k = h / 420;
   const enter = reduceMotion ? 1 : easeOutCubic(Math.min(1, overT / 0.4));
   const y = Math.max(safeTop + 14, (H - safeTop - safeBottom - h) / 2 + safeTop) + (1 - enter) * 14;
   uiDim(0.52 * enter); uiCard(x, y, w, h, true);
@@ -290,8 +295,10 @@ function drawPauseScreen() {
 const controlNodes = new Map(), controlRoot = document.getElementById('controls');
 function syncControls() {
   // under introen finnes ingen knapper: et trykk hopper over introen (og treffer ikke en usynlig «Spill»)
-  controlRoot.hidden = !!intro;
-  document.body.dataset.screen = intro ? 'intro' : state === State.MENU && !settingsOpen && !wardrobe ? 'menu' : 'game';
+  // (skrives bare når noe endres: ellers ugyldiggjør hvert bilde stilen til siden)
+  if (controlRoot.hidden !== !!intro) controlRoot.hidden = !!intro;
+  const screen = intro ? 'intro' : state === State.MENU && !settingsOpen && !wardrobe ? 'menu' : 'game';
+  if (document.body.dataset.screen !== screen) document.body.dataset.screen = screen;
   for (const [key, node] of controlNodes) if (!hud[key]) { node.remove(); controlNodes.delete(key); }
   for (const [key, b] of Object.entries(hud)) {
     let node = controlNodes.get(key);

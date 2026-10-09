@@ -156,7 +156,7 @@ function drawPaintedBackdrop(groundY) {
   }
   // The moon/sun and falling leaves remain live, separate from the painting.
   const skyY = Math.min(groundY * 0.32, safeTop + 170), sx = W * 0.79, body = paintedSkyBody();
-  ctx.drawImage(body.c, sx - 60, skyY - 60, body.w, body.h);
+  blitSurface(body, sx - 60, skyY - 60);   // på hele skjermpiksler: kopieres rett over, uten filtrering
   if (T.night && !reduceMotion) {
     ctx.fillStyle = '#FFF1D1';
     for (const star of stars.slice(0, 12)) {
@@ -196,7 +196,7 @@ function paintedSkyBody() {
       g.restore();
     }
   }, 0.5);
-  skyBodyCache.set(key, L); return L;
+  L.pad = 0; skyBodyCache.set(key, L); return L;
 }
 
 function paintBarkSprite(g, y0, y1) {
