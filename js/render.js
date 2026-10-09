@@ -1125,6 +1125,8 @@ function drawTrunk(p, groundY) {
   trunkEnd(p, p.top - ry, false);
   trunkEnd(p, by + ry, true);
   if (sq && !behind) drawSquirrel(p, groundY);
+  if (p.sn) drawSnail(p);
+  if (p.wp) drawWoodpecker(p);
   ctx.restore();
   if (p.glow > 0) {   // varm glød i åpningen når man får poeng
     const cx = p.x + PIPE_W / 2, cy = p.top + p.gap / 2, gg = ctx.createRadialGradient(cx, cy, 2, cx, cy, p.gap * 0.6);
@@ -1285,6 +1287,97 @@ function squirrelSit(fur, nib, flick) {
   ctx.strokeStyle = tc('#5E3B22'); ctx.lineWidth = 0.6; ctx.beginPath(); for (const yy of [-1.2, 0, 1.2]) { ctx.moveTo(-1.5, yy); ctx.lineTo(1.5, yy + 0.6); } ctx.stroke();
   ctx.restore();
   ctx.fillStyle = fur[0]; ctx.strokeStyle = T.ink; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.ellipse(4.2, hy + 5.6, 1.4, 1, 0.3, 0, 7); ctx.fill(); ctx.stroke();   // forpote
+}
+// flaggspett: svart rygg, hvite skulderflekker, hvitt bryst, rød undergump og rød nakke; henger på kanten
+// med magen mot barken og nebbet inn mot stammen (grunnform vender mot +x, speiles på høyre kant)
+function drawWoodpecker(p) {
+  const q = p.wp, ry = END_H / 2 - 0.5, s = ip(q.ps, q.s), edge = q.side < 0 ? 0 : PIPE_W;
+  const y = q.part === 'bot' ? p.top + p.gap + ry + s : p.top - ry - s;
+  ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  if (q.state === 'fly') {
+    ctx.translate(edge + q.side * 4 + ip(q.pfx, q.fx), y + ip(q.pfy, q.fy)); woodpeckerFly(q.t); ctx.restore(); return;
+  }
+  ctx.translate(edge + q.side * 4.5, y); ctx.scale(-q.side, 1);
+  woodpeckerCling(ip(q.phead, q.head));
+  ctx.restore();
+}
+const WP_COL = { black: '#2A2526', white: '#F6F1E8', red: '#D8322C', beak: '#4A4444' };
+function woodpeckerBody() {
+  const c = {}; for (const k in WP_COL) c[k] = tc(WP_COL[k]);
+  ctx.strokeStyle = T.ink; ctx.lineWidth = 0.9;
+  ctx.fillStyle = c.black; ctx.beginPath(); ctx.moveTo(-1.6, 5.5); ctx.lineTo(2.4, 5.5); ctx.lineTo(4.6, 14); ctx.lineTo(2.2, 14.6); ctx.closePath(); ctx.fill(); ctx.stroke();   // stiv hale mot barken
+  ctx.strokeStyle = c.black; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(2.6, -2.5); ctx.lineTo(4.8, -1.5); ctx.moveTo(2.6, 3); ctx.lineTo(4.8, 4); ctx.stroke();   // klør i barken
+  ctx.save(); ctx.beginPath(); ctx.ellipse(0, 0, 4.2, 7, -0.08, 0, 7); ctx.clip();
+  ctx.fillStyle = c.white; ctx.fillRect(-5, -8, 10, 16);
+  ctx.fillStyle = c.black; ctx.fillRect(-5, -8, 5.2, 16);                                   // svart rygg
+  ctx.fillStyle = c.white; ctx.beginPath(); ctx.ellipse(-2.2, -2.2, 1.2, 2.6, 0.1, 0, 7); ctx.fill();   // skulderflekk
+  for (const yy of [2.2, 4, 5.8]) { ctx.fillRect(-3.6, yy, 1.1, 0.8); ctx.fillRect(-1.8, yy + 0.4, 1.1, 0.8); }   // hvite prikker på vingen
+  ctx.fillStyle = c.red; ctx.beginPath(); ctx.ellipse(1.6, 6.4, 2.6, 1.8, 0, 0, 7); ctx.fill();   // rød undergump
+  ctx.restore();
+  ctx.strokeStyle = T.ink; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.ellipse(0, 0, 4.2, 7, -0.08, 0, 7); ctx.stroke();
+}
+function woodpeckerCling(head) {
+  // kroppen (hale, klør, rygg og bryst) er lik hvert bilde: tegnes én gang per palett; bare hodet hakker
+  const L = cachedSurface('spett', 12, 24, 0, T.skyTop, (ox, oy) => { ctx.save(); ctx.translate(ox + 5, oy + 8); woodpeckerBody(); ctx.restore(); });
+  ctx.drawImage(L.c, -5 - L.pad, -8 - L.pad, L.w, L.h);
+  const c = {}; for (const k in WP_COL) c[k] = tc(WP_COL[k]);
+  // hodet hakker inn mot stammen
+  ctx.save(); ctx.translate(head * 1.7, head * 0.4); ctx.rotate(head * 0.12);
+  ctx.fillStyle = c.beak; ctx.beginPath(); ctx.moveTo(3.4, -9.6); ctx.lineTo(8.4, -9.2); ctx.lineTo(3.4, -8); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = c.white; ctx.beginPath(); ctx.arc(0.6, -9, 3.7, 0, 7); ctx.fill(); ctx.strokeStyle = T.ink; ctx.lineWidth = 0.9; ctx.stroke();
+  ctx.fillStyle = c.black; ctx.beginPath(); ctx.arc(0.6, -9, 3.7, Math.PI * 1.05, Math.PI * 1.95); ctx.closePath(); ctx.fill();   // svart isse
+  ctx.fillStyle = c.red; ctx.beginPath(); ctx.ellipse(-2.4, -9.6, 1.4, 1.2, 0, 0, 7); ctx.fill();                                 // rød nakkeflekk
+  ctx.strokeStyle = c.black; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(3.6, -7.6); ctx.quadraticCurveTo(1, -6.4, -1.8, -7.6); ctx.stroke();   // bartstripe
+  ctx.fillStyle = '#1E1A1A'; circle(ctx, 1.9, -9.6, 0.8); ctx.fillStyle = '#FFFFFF'; circle(ctx, 2.1, -9.9, 0.3);
+  ctx.restore();
+}
+function woodpeckerFly(t) {   // i bølgeflukt: noen vingeslag, så vingene inntil
+  const c = {}; for (const k in WP_COL) c[k] = tc(WP_COL[k]);
+  const beat = (t % 0.5) < 0.28, w = beat ? Math.sin((t % 0.5) / 0.28 * Math.PI * 2) : -0.2;
+  ctx.strokeStyle = T.ink; ctx.lineWidth = 0.9;
+  ctx.fillStyle = c.black; ctx.beginPath(); ctx.moveTo(-5, -0.5); ctx.lineTo(-10, -1.2); ctx.lineTo(-10, 1.4); ctx.lineTo(-5, 1); ctx.closePath(); ctx.fill(); ctx.stroke();   // hale
+  ctx.fillStyle = c.white; ctx.beginPath(); ctx.ellipse(0, 0, 5.6, 3.2, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = c.red; ctx.beginPath(); ctx.ellipse(-3.6, 1.6, 1.6, 1, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = c.white; ctx.beginPath(); ctx.arc(5.6, -1.2, 2.8, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = c.black; ctx.beginPath(); ctx.arc(5.6, -1.2, 2.8, Math.PI, 0); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = c.beak; ctx.beginPath(); ctx.moveTo(8.2, -1.6); ctx.lineTo(11.4, -1); ctx.lineTo(8.2, -0.4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#1E1A1A'; circle(ctx, 6.4, -1.6, 0.6);
+  ctx.fillStyle = c.black; ctx.beginPath(); ctx.moveTo(-2, -1); ctx.quadraticCurveTo(0, -1 - 8 * w, 3, -1.4 - 9 * w); ctx.lineTo(3, -0.6); ctx.closePath(); ctx.fill(); ctx.stroke();   // vinge
+  ctx.fillStyle = c.white; circle(ctx, 0.6, -1 - 4.5 * w, 0.8);
+}
+// snegle på den nedre stammen: blankt spor bak seg, sneglehus på ryggen, følehorn med øyne
+function drawSnail(p) {
+  const q = p.sn, ry = END_H / 2 - 0.5, s = ip(q.ps, q.s), out = ip(q.pout, q.out), edge = q.side < 0 ? 0 : PIPE_W;
+  const cut = p.top + p.gap + ry, y = cut + s;
+  ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1.6;   // slimsporet glinser langs kanten
+  ctx.beginPath(); ctx.moveTo(edge + q.side * 0.6, y + 6); ctx.lineTo(edge + q.side * 0.6, cut + q.s0 + 6); ctx.stroke();
+  ctx.strokeStyle = 'rgba(200,225,255,.35)'; ctx.lineWidth = 0.6; ctx.stroke();
+  ctx.translate(edge + q.side * 3, y); ctx.scale(-q.side, 1);
+  const body = tc('#CDB8A0'), shell = tc('#C98B4A'), band = tc('#E7B977'), dark = tc('#8A5A2E');
+  const head = -3 - 7 * out, wig = reduceMotion ? 0 : Math.sin(q.t * 2.2) * 0.6 * out;
+  ctx.fillStyle = body; ctx.strokeStyle = T.ink; ctx.lineWidth = 0.8;   // foten langs barken, hodet strekker seg opp
+  ctx.beginPath(); ctx.moveTo(1.6, 7); ctx.quadraticCurveTo(2.2, 1, 1.6, head + 1); ctx.quadraticCurveTo(0.4, head - 1.6, -1.2, head + 0.6); ctx.quadraticCurveTo(-1.4, 2, -0.6, 7); ctx.closePath(); ctx.fill(); ctx.stroke();
+  if (out > 0.3) {   // følehorn med øyne
+    const k = (out - 0.3) / 0.7;
+    ctx.strokeStyle = body; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(0, head); ctx.lineTo(-1.6 + wig, head - 4.4 * k); ctx.moveTo(0.8, head); ctx.lineTo(1.8 + wig, head - 4 * k); ctx.stroke();
+    ctx.fillStyle = '#3A2E28'; circle(ctx, -1.6 + wig, head - 4.4 * k, 0.75); circle(ctx, 1.8 + wig, head - 4 * k, 0.7);
+  }
+  // sneglehuset er likt hvert bilde: tegnes én gang per palett
+  const L = cachedSurface('snegl', 12, 12, 0, T.skyTop, (ox, oy) => snailShell(ox + 6, oy + 6, shell, band, dark));
+  ctx.drawImage(L.c, -3.4 - 6 - L.pad, 1.4 - 6 - L.pad, L.w, L.h);
+  ctx.restore();
+}
+function snailShell(x, y, shell, band, dark) {   // sneglehus med spiral, sentrert i (x, y)
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.fillStyle = shell; ctx.strokeStyle = T.ink; ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.arc(x, y, 5.2, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = band; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, 3.6, -2.4, 1.6); ctx.stroke();
+  ctx.strokeStyle = dark; ctx.lineWidth = 0.8; ctx.beginPath();
+  for (let a = 0; a < Math.PI * 3.2; a += 0.25) { const r = 0.6 + a * 0.42, xx = x + Math.cos(a) * r, yy = y + Math.sin(a) * r; if (a === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy); }
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; circle(ctx, x - 1.6, y - 2.8, 1.1);
 }
 function fungus(x, y, side) {   // kjuker (hyllesopp) på siden av stammen
   ctx.strokeStyle = hexA(T.ink, 0.8); ctx.lineWidth = 1.1;
@@ -1889,7 +1982,8 @@ function logButton(key, cx, cy, r, icon, fn, on = true) {
   hud[key] = { x: cx - r, y: cy - r, w: r * 2, h: r * 2, fn };
   const pk = press.key === key ? (time - press.t) / 0.22 : 1, sc = pk < 1 && !reduceMotion ? 1 - 0.1 * Math.sin(Math.PI * pk) : 1;
   // trestykket er likt hvert bilde (per ikon og av/på): tegnes én gang og gjenbrukes
-  const L = cachedSurface('log', r, r, seedOf(key), `${icon.name}|${on}`, (px, py) => paintLog(px + r, py + r, r, icon, on, seedOf(key)));
+  // flaten er hele trestykket (2r × 2r); skyggen under får plass i kanten rundt
+  const L = cachedSurface('log', r * 2, r * 2, seedOf(key), `${icon.name}|${on}`, (px, py) => paintLog(px + r, py + r, r, icon, on, seedOf(key)));
   ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.drawImage(L.c, -r - L.pad, -r - L.pad, L.w, L.h); ctx.restore();
 }
 function paintLog(cx, cy, r, icon, on, seed) {

@@ -361,6 +361,13 @@ const Sound = (() => {
       if (clip('tre', 'dunk', { t, vol: 0.5, rate: rnd(0.7, 0.8), lp: 900 })) { noise(sfxGain, t, 0.09, 0.08, { lp: 600 }); return; }
       tone(sfxGain, 150, t, 0.16, 'sine', 0.3, { slide: 70 }); noise(sfxGain, t, 0.09, 0.14, { lp: 600 });
     },
+    drum(n = 10, pan = 0) {   // flaggspetten trommer: en rask virvel av små treknakk, svakere mot slutten
+      if (!ac) return; const t = now();
+      for (let i = 0; i < n; i++) {
+        const v = 0.16 * (1 - i / (n * 1.6)), ti = t + i / 16;
+        if (!clip('tre', 'knakk', { dest: ambGain, t: ti, vol: v, rate: rnd(2.3, 2.6), pan })) noise(ambGain, ti, 0.02, v * 0.5, { bp: 2200, q: 5, pan });
+      }
+    },
     creak(delay = 0) { if (ac) clip('tre', 'knirk', { t: now() + delay, vol: 0.32, rate: rnd(0.95, 1.05), lp: 3200 }); },   // treskiltet svinger i tauene
     sting() {   // liten «å nei»-melodi i dur som ender med et sukk
       if (!ac) return; const t = now() + 0.25;
