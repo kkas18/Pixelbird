@@ -157,11 +157,78 @@ function spawnPipe(x) {
   const seed = (Math.random() * 1e9) | 0;
   const p = { x, top, baseTop: top, gap, variant, amp, phase: Math.random() * Math.PI * 2, freq: 2.2 + Math.random() * 1.2, scored: false, glow: 0,
     seed, marksTop: barkMarks(seed), marksBot: barkMarks(seed + 1), decor: trunkDecorPlan(seed + 2) };
+  p.sq = maybeSquirrel(p);
   pipes.push(p);
   if (score >= 3 && variant !== 'narrow' && Math.random() < 0.16 && !powers.some(q => q.x > W - 100)) {
     const keys = Object.keys(POWERS).filter(k => !(D.zen && k === 'shield'));   // Zen trenger ikke skjold
     const kind = active.shield || D.zen ? (Math.random() < 0.5 ? 'slow' : 'double') : keys[(Math.random() * keys.length) | 0];
     powers.push({ x: x + PIPE_W / 2, y: p.top + p.gap / 2, pipe: p, kind, t: Math.random() * 10, taken: false });
+  }
+}
+
+/* ---------- Ekorn på stammene ----------
+   Omtrent hver femte stamme har et ekorn (ikke om natten). Det holder seg alltid på barken: på kanten
+   av stammen, der det klatrer i korte rykk med stopp (hodet først, opp eller ned), eller oppå
+   snittflaten på den nedre stammen, der det sitter og gnager på en kongle. Når fuglen nærmer seg,
+   hopper det ned og smetter rundt stammen; når fuglen har passert, titter hodet fram igjen.
+   s = avstand langs stammen fra snittflaten (bort fra gapet); out = 1 ute på kanten, 0 bak stammen.
+   Ekornet er bare pynt: det hindrer aldri fuglen og er aldri inne i gapet. */
+const SQ = { chance: 0.2, run: 80, minS: 14 };
+function maybeSquirrel(p) {
+  if (T.night || Math.random() >= SQ.chance) return null;
+  const part = p.decor.owl || Math.random() < 0.7 ? 'bot' : 'top';   // ugla bor øverst; ekornet holder seg da nede
+  const busy = part === 'bot' ? p.decor.fungus || p.decor.sprigBot : p.decor.sprigTop;   // velg kanten uten kjuker og kvister
+  const side = busy ? -busy : (Math.random() < 0.5 ? -1 : 1);
+  const sit = part === 'bot' && Math.random() < 0.45;
+  const q = { part, side, s: sit ? 0 : 20 + Math.random() * 60, state: sit ? 'sit' : 'climb', t: 0, phase: 'pause', pt: 0.3 + Math.random(),
+    target: 0, face: Math.random() < 0.5 ? -1 : 1, out: 1, gait: 0, flake: 0, seed: (Math.random() * 1e6) | 0 };
+  q.ps = q.s; q.pout = q.out;
+  return q;
+}
+// hvor langt ekornet kan klatre på sin del av stammen (fra snittflaten og bort)
+const sqRoom = (p, q, groundY) => q.part === 'bot' ? groundY - (p.top + p.gap + END_H / 2) - 18 : p.top - END_H / 2 - safeTop - 24;
+function squirrelStep(p, dt, groundY) {
+  const q = p.sq; q.ps = q.s; q.pout = q.out; q.t += dt;
+  const room = Math.max(SQ.minS + 4, sqRoom(p, q, groundY));
+  q.s = clamp(q.s, q.state === 'sit' || q.state === 'flee' ? 0 : SQ.minS, room);   // korte stammer (og stammer som beveger seg): hold det på barken
+  const ahead = p.x + PIPE_W / 2 - bird.x;                                  // > 0: stammen er foran fuglen
+  const alert = (state === State.PLAY || state === State.DEAD) && ahead < 95 && ahead > -35;
+  const go = (st) => { q.state = st; q.t = 0; };
+  const toward = (v, to, rate) => v + clamp(to - v, -rate * dt, rate * dt);
+  if (q.state === 'sit') {
+    q.out = 1;
+    if (alert) { go('flee'); q.face = 1; q.phase = 'run'; q.target = Math.min(room, 44); }   // hopper ned på kanten, hodet først
+  } else if (q.state === 'climb' || q.state === 'flee') {
+    q.out = toward(q.out, 1, 6);
+    if (q.state === 'climb' && alert) { go('hide'); return; }
+    if (reduceMotion) { q.phase = 'pause'; q.gait = 0; return; }
+    if (q.phase === 'run') {
+      const speed = SQ.run * (q.state === 'flee' ? 1.7 : 1), d = q.target - q.s;
+      q.face = Math.sign(d) || q.face;
+      q.s = toward(q.s, q.target, speed); q.gait += dt * 8;
+      if ((q.flake -= dt) <= 0) {   // små barkflak som løsner under klørne
+        q.flake = 0.22 + Math.random() * 0.2;
+        const x = p.x + (q.side < 0 ? 0 : PIPE_W), y = q.part === 'bot' ? p.top + p.gap + END_H / 2 + q.s : p.top - END_H / 2 - q.s;
+        burst(x, y, 1, ['#E9E1D3', '#BFB3A2'], 25, 0.7, 380, 1.1, { shape: 'dot', drag: 1.5 });
+      }
+      if (Math.abs(q.target - q.s) < 0.5) {
+        if (q.state === 'flee') { go('hide'); return; }
+        q.phase = 'pause'; q.pt = 0.45 + Math.random() * 0.9; q.gait = 0;
+        if (q.part === 'bot' && q.s <= SQ.minS + 0.5 && Math.random() < 0.6) { q.s = 0; go('sit'); }   // klatrer opp på snittflaten
+      }
+    } else if ((q.pt -= dt) <= 0) {
+      // nytt mål: et stykke opp eller ned, mest korte rykk; helt opp til snittflaten av og til
+      q.phase = 'run';
+      const up = q.part === 'bot' ? -1 : 1, toTop = q.part === 'bot' && Math.random() < 0.25;
+      q.target = toTop ? SQ.minS : clamp(q.s + (Math.random() < 0.5 ? -1 : 1) * (12 + Math.random() * 26), SQ.minS, room);
+      if (q.target === q.s) q.target = clamp(q.s - up * 20, SQ.minS, room);
+    }
+  } else if (q.state === 'hide') {
+    q.out = reduceMotion ? 0 : toward(q.out, 0, 6); q.gait = 0;
+    if (ahead < -45 && q.t > 0.6) go('peek');
+  } else if (q.state === 'peek') {   // bare hodet titter fram, så kommer det ut igjen
+    q.out = reduceMotion ? 0.45 : toward(q.out, 0.45, 3);
+    if (q.t > 1.3) { go('climb'); q.phase = 'pause'; q.pt = 0.3; }
   }
 }
 
@@ -628,6 +695,8 @@ function update(dt) {
     }
     if (state === State.PLAY && !perched && bird.y + BIRD_R >= groundY) { bird.y = groundY - BIRD_R; if (D.zen) zenBounce(groundY); else die(true); }
   }
+
+  for (const p of pipes) if (p.sq) squirrelStep(p, dt, groundY);   // ekornene lever videre også etter et krasj
 
   if (state === State.DEAD) {
     // rekyl fra røret, tumling, sprett i bakken

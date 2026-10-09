@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v4.2): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v4.3): en liten blåmeis med lusekofte-skjerf flyr
 hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 søvnig måne. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
@@ -231,6 +231,18 @@ Alle stammene er like brede og står rett, så treffsonen er rettferdig.
 
 - **Høstløv på kanten** – stammen beveger seg opp og ned.
 - **Lyng i mosen** (lilla blomster) – smalere åpning (20 % mindre gap).
+
+**Ekorn på stammene.** Omtrent hver femte stamme har et ekorn. Det er ingen ekorn om natten,
+for da sover de og ugla har tatt over. Om vinteren har ekornene gråbrun vinterpels. Ekornet er bare
+pynt og hindrer aldri fuglen.
+
+- **Klatring:** ekornet holder seg alltid på barken. Det klatrer på kanten av stammen i korte rykk med
+  stopp, med hodet først opp eller ned, og det løsner små barkflak når det løper.
+- **På snittflaten:** ekornet kan sitte oppå den nedre stammen og gnage på en kongle, med en
+  haleflikk innimellom.
+- **Når fuglen kommer nær,** hopper ekornet ned og smetter rundt stammen, så bare halen stikker fram.
+  Når fuglen har passert, titter hodet fram igjen.
+- **Redusert bevegelse:** ekornene står stille.
 
 ## Power-ups
 
