@@ -9,7 +9,7 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 const canvas = document.getElementById('game');
 const mainCtx = canvas.getContext('2d', { alpha: false });
 let ctx = mainCtx;   // tegnemålet; byttes midlertidig til et offscreen-lerret under krysstoning av tid på døgnet
-let dpr = 1, scale = 1, W = LOGICAL_W, H = 560, safeTop = 0;
+let dpr = 1, scale = 1, W = LOGICAL_W, H = 560, safeTop = 0, safeBottom = 0;
 
 /* ---------- Tilstand ---------- */
 const State = { MENU: 0, READY: 1, PLAY: 2, DEAD: 3, OVER: 4 };
@@ -112,7 +112,7 @@ const runTimeOfDay = () => CYCLE[(CYCLE.indexOf(themeName) + Math.floor(score / 
 // start i hvilehøyden, så fuglen aldri tegnes øverst i ett bilde før første fysikk-steg
 function resetBird() {
   bird = {
-    x: BIRD_X, y: (H - GROUND_H) * 0.42, vx: 0, vy: 0, rot: 0, angVel: 0, flapT: 9, sx: 1, sy: 1, sv: 0,
+    x: state === State.MENU ? W / 2 : BIRD_X, y: (H - GROUND_H) * 0.42, vx: 0, vy: 0, rot: 0, angVel: 0, flapT: 9, sx: 1, sy: 1, sv: 0,
     blink: 0, blinkT: 1.5 + Math.random() * 2, happy: 0, look: 0, lookTo: 0,            // ansikt
     crest: 0, crestV: 0, scarf: null,                                                     // sekundærbevegelse
     hv: 0, hoverT: 0.2, act: null, actT: 1.6 + Math.random() * 1.5, lastAct: '',           // hvile: svev og småhandlinger
@@ -125,9 +125,9 @@ function resetRun() {
   combo = 0; overShown = 0; celebrated = false;
   placeIdx = 0; placeT = -9; signs = []; home = null; worldK = 1; hitStop = 0; nearMisses = 0;
 }
-function goMenu() { state = State.MENU; menuT = 0; resetRun(); wardrobe = false; transitionT = 1; Sound.music.setMode('menu'); setTimeOfDay(themeName); }
+function goMenu() { state = State.MENU; menuT = 0; resetRun(); wardrobe = false; settingsOpen = false; transitionT = 1; Sound.music.setMode('menu'); setTimeOfDay(themeName); }
 function goReady() {
-  state = State.READY; resetRun(); newBest = false; groundBounced = false; unlocked = []; unlockSounded = false;
+  state = State.READY; settingsOpen = false; wardrobe = false; resetRun(); newBest = false; groundBounced = false; unlocked = []; unlockSounded = false;
   transitionT = 1; Sound.swoosh(); Sound.music.setMode('menu'); setTimeOfDay(themeName);
   // tegn de neste tidene på døgnet ferdig mens fuglen venter («Klar?»), så byttet midt i runden ikke hakker
   // én scene om gangen med pauser imellom, så «Klar?»-skjermen aldri fryser
@@ -341,7 +341,7 @@ function resumeGame() { if (paused && resumeT <= 0) { resumeT = 1.5; Sound.swoos
 /* ---------- Input ---------- */
 function flap() {
   Sound.unlock();
-  if (state === State.MENU) { if (!wardrobe) goReady(); return; }
+  if (state === State.MENU) { if (!wardrobe && !settingsOpen) goReady(); return; }
   if (state === State.READY) goPlay();
   if (state === State.PLAY) {
     if (paused) return;
@@ -364,16 +364,20 @@ function onPointer(e) {
   const x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
   for (const k in hud) {
     const b = hud[k];
-    if (x >= b.x - 4 && x <= b.x + b.w + 4 && y >= b.y - 4 && y <= b.y + b.h + 4) { press = { key: k, t: time }; Sound.unlock(); b.fn(); Sound.tick(); buzz(6); return; }
+    if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { press = { key: k, t: time }; Sound.unlock(); b.fn(); Sound.tick(); buzz(6); render(); return; }
   }
-  flap();
+  if (state === State.READY || state === State.PLAY) flap();
 }
 canvas.addEventListener('pointerdown', onPointer, { passive: false });
 window.addEventListener('keydown', e => {
-  if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); if (paused) resumeGame(); else flap(); }
+  if (e.code === 'Space' || e.code === 'ArrowUp') {
+    if (e.target instanceof HTMLButtonElement) return;
+    e.preventDefault(); if (paused) resumeGame(); else flap();
+  }
   else if (e.code === 'Escape' || e.code === 'KeyP') {
     if (state === State.PLAY) { if (paused) resumeGame(); else pauseGame(); }
     else if (e.code === 'Escape' && state === State.MENU && wardrobe) wardrobe = false;
+    else if (e.code === 'Escape' && state === State.MENU && settingsOpen) settingsOpen = false;
     else if (e.code === 'Escape' && (state === State.READY || (state === State.OVER && overT > 0.7))) goMenu();
   }
 });
