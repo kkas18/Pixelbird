@@ -658,10 +658,13 @@ function idleStep(dt, idleY) {
     if (t >= a.dur) { bird.act = null; bird.actT = 2.2 + Math.random() * 2.8; }
   }
   bird.lookTo = lookTo; bird.preen = preen; bird.lookUp = lookUp; bird.shakeS = sh;
-  // kroppen heller litt etter farten, fram når den pirker i fjærene, bakover når den ser opp
-  const rotTo = clamp(bird.hv / 500, -0.1, 0.1) + preen * 0.32 - lookUp * 0.2;
-  bird.rot = lerp(bird.rot, rotTo, 1 - Math.exp(-10 * dt));
-  bird.sx = lerp(bird.sx, sh, 1 - Math.exp(-25 * dt)); bird.sy = lerp(bird.sy, 2 - sh, 1 - Math.exp(-25 * dt));
+  // kroppen heller litt etter farten, fram når den pirker i fjærene, bakover når den ser opp, og hodet
+  // synker når den sover; da puster den rolig (brystet hever og senker seg, cirka 15 pust i minuttet)
+  const rotTo = clamp(bird.hv / 500, -0.1, 0.1) + preen * 0.32 - lookUp * 0.2 + (asleep ? 0.22 : 0);
+  bird.rot = lerp(bird.rot, rotTo, 1 - Math.exp(-(asleep ? 3 : 10) * dt));
+  bird.breath = asleep && !reduceMotion ? (bird.breath || 0) + dt : 0;
+  const br = bird.breath ? 0.03 * (1 - Math.cos(bird.breath * Math.PI * 0.5)) : 0;
+  bird.sx = lerp(bird.sx, sh + br, 1 - Math.exp(-25 * dt)); bird.sy = lerp(bird.sy, 2 - sh + br * 0.6, 1 - Math.exp(-25 * dt));
 }
 
 /* ---------- Oppdatering (dt i sekunder) ---------- */
@@ -756,11 +759,12 @@ function update(dt) {
     powers = powers.filter(q => !q.taken && q.x > -40);
 
     for (const p of pipes) {
-      // klaring mens fuglen er inne i stammen: minste avstand til kantene over og under
-      if (!p.scored && p.x < bird.x + BIRD_R && p.x + PIPE_W > bird.x - BIRD_R) p.minClear = Math.min(p.minClear ?? 99, bird.y - BIRD_R - p.top, p.top + p.gap - bird.y - BIRD_R);
+      // klaring mens fuglen er inne i stammen: minste avstand fra treffsonen (BIRD_R - 1) til kantene over og under.
+      // Under null betyr at fuglen smatt forbi den runde mosekanten uten å treffe, og det teller også.
+      if (!p.scored && p.x < bird.x + BIRD_R && p.x + PIPE_W > bird.x - BIRD_R) p.minClear = Math.min(p.minClear ?? 99, bird.y - (BIRD_R - 1) - p.top, p.top + p.gap - bird.y - (BIRD_R - 1));
       if (!p.scored && p.x + PIPE_W / 2 < bird.x) {
         p.scored = true; p.glow = 1; scoreT = time;
-        if (grace <= 0 && p.minClear !== undefined && p.minClear >= 0 && p.minClear < NEAR_MISS) nearMiss(p);
+        if (grace <= 0 && p.minClear !== undefined && p.minClear < NEAR_MISS) nearMiss(p);   // (skjold og Zen-sprett har alt satt scored)
         const gain = active.double > 0 ? 2 : 1, before = score; score += gain;
         Sound.point(combo++); buzz(12); bird.happy = 0.45;
         if (Math.floor(score / 10) > Math.floor(before / 10)) {   // milepæl hvert 10. poeng: liten fanfare
