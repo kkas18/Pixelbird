@@ -1,11 +1,16 @@
 /* Pixelfugl service worker – cache-first for appens egne filer (inkludert den
    selvhostede fonten). Bump VERSION ved hver utgivelse. */
-const VERSION = 'pixelfugl-v3.3.0';
+const VERSION = 'pixelfugl-v3.4.0';
 const CORE = [
   './',
   './index.html',
   './manifest.webmanifest',
   './fonts/fredoka-latin.woff2',
+  './js/config.js',
+  './js/sound.js',
+  './js/game.js',
+  './js/render.js',
+  './js/main.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',

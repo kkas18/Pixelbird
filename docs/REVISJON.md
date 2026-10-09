@@ -4,9 +4,9 @@
 **Omfang:** `index.html` (hele spillet), `sw.js`, `manifest.webmanifest`, `make_icons.py`, ikoner
 **Metode:** Kodegjennomgang linje for linje + kjøring i Chromium (Galaxy-format, 412 × 915, DPR 2–2,6) med skjermbilder fra meny, spill, krasj og game over, i dag- og nattema.
 
-> **Status:** Fase 1, 2 og 3 er gjennomført (se seksjon 10). Fase 2 ga spillet ny
-> kunstnerisk retning med **bjørkestammer** som hinder; fase 3 ga det koselig lyd og
-> myke animasjoner.
+> **Status:** Alle fire faser er gjennomført (se seksjon 10). Fase 2 ga spillet ny
+> kunstnerisk retning med **bjørkestammer** som hinder, fase 3 koselig lyd og myke
+> animasjoner, og fase 4 tid på døgnet, årstider, garderobe og Zen-modus.
 
 ---
 
@@ -394,11 +394,16 @@ Forslaget er delt i faser slik at hver fase kan leveres, testes og vurderes for 
 2. Atmosfærelyder for dag og natt (7.4).
 3. Tween-system og UI-animasjoner (4.4), tematiske partikler (5.3).
 
-### Fase 4: Innhold og sjarm
+### Fase 4: Innhold og sjarm ✅ Gjennomført
 1. Dag–natt-syklus gjennom en runde og sesonger (9.3).
 2. Kosmetikk som kan låses opp (9.4).
 3. Zen-modus uten død (6.5).
 4. Del koden i moduler (8.1) og oppdater README.
+
+   *Merk:* Koden er delt i fem filer etter ansvar (`js/`), lastet som klassiske skript som
+   deler globalt omfang. Ekte ES-moduler krever at den delte, muterbare spilltilstanden
+   samles i et eget objekt; det er et naturlig neste steg, men ble holdt utenfor for å
+   unngå en stor omskriving uten ny funksjonalitet.
 
 ---
 
