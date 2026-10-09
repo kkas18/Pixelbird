@@ -629,7 +629,7 @@ function startAct(name) {
   if (name === 'blink2') bird.blink = 1;
 }
 function idleStep(dt, idleY) {
-  const asleep = state === State.MENU && T.night;
+  const asleep = state === State.MENU && T.night && !hasPaintedForest();
   // svev: lett tyngde og en fjær mot hvilehøyden; vingeslagene gir løftet
   bird.hv += (150 * (1 - bird.preen) + (idleY - bird.y) * 7) * dt;   // vektløs mens den pirker i fjærene
   bird.hv -= bird.hv * 1.6 * dt;

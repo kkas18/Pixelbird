@@ -12,7 +12,7 @@ const server = http.createServer((req, res) => {
   const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
   const file = path.resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
   if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return res.writeHead(404).end();
-  const mime = { '.js': 'text/javascript', '.html': 'text/html', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.mp3': 'audio/mpeg', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
+  const mime = { '.js': 'text/javascript', '.html': 'text/html', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.mp3': 'audio/mpeg', '.png': 'image/png', '.webp': 'image/webp', '.webmanifest': 'application/manifest+json' };
   res.setHeader('Content-Type', mime[path.extname(file)] || 'text/plain');
   res.end(fs.readFileSync(file));
 });
@@ -32,6 +32,7 @@ async function run() {
     await page.addInitScript(() => {
       if (!localStorage.getItem('qa.seeded')) {
         localStorage.setItem('qa.seeded', '1');
+        localStorage.setItem('pf.season', 'autumn');
         localStorage.setItem('pf.theme', 'night'); localStorage.setItem('pf.total', '300');
         localStorage.setItem('pf.wear', 'tophat'); localStorage.setItem('pf.diff', 'normal');
         localStorage.setItem('pf.best.normal', '22');
@@ -40,6 +41,7 @@ async function run() {
     const url = `http://127.0.0.1:${server.address().port}`;
     await page.goto(url); await page.waitForFunction(() => time > 0.8);
     assert.equal(await page.evaluate(() => wear), 'tophat');
+    assert.equal(await page.evaluate(() => hasPaintedForest() && !!ART.birch), true);
     assert.equal(await page.evaluate(() => best), 22);
     await page.getByRole('button', { name: 'Hard', exact: true }).click();
     assert.equal(await page.evaluate(() => diffName), 'hard');
@@ -130,13 +132,25 @@ async function run() {
     const start = page.getByRole('button', { name: 'Spill', exact: true }); await start.focus();
     await page.keyboard.press('Space'); assert.equal(await page.evaluate(() => state), 1);
 
-    // The new font and UI are included in the offline cache on first visit.
+    // The paintings, new font and UI are included in the offline cache on first visit.
     await page.evaluate(async () => { await navigator.serviceWorker.ready; });
     await context.setOffline(true); await page.reload(); await page.waitForFunction(() => time > 0.6);
     assert.equal(await page.evaluate(() => document.fonts.check('700 38px Storybook')), true);
     assert.equal(await page.getByRole('button', { name: 'Spill', exact: true }).count(), 1);
+    assert.equal(await page.evaluate(() => hasPaintedForest() && !!ART.birch), true);
+    // A missing painting still permits startup, rendering and actual taps.
+    const fallbackContext = await browser.newContext({ serviceWorkers: 'block', reducedMotion: 'reduce' });
+    const fallback = await fallbackContext.newPage();
+    fallback.on('pageerror', error => errors.push(error.message));
+    await fallback.route('**/art/*.webp', route => route.abort());
+    await fallback.goto(url); await fallback.waitForFunction(() => time > 0.6);
+    assert.equal(await fallback.evaluate(() => hasPaintedForest()), false);
+    await fallback.getByRole('button', { name: 'Spill', exact: true }).click();
+    await fallback.mouse.click(140, 430);
+    assert.equal(await fallback.evaluate(() => state), 2);
+    await fallbackContext.close();
     assert.deepEqual(errors, []);
-    console.log('PASS: menu, difficulty, settings, wardrobe, persistence, tap physics, pause/resume, death/retry, keyboard, five viewport sizes, and offline loading.');
+    console.log('PASS: menu, difficulty, settings, wardrobe, persistence, tap physics, pause/resume, death/retry, keyboard, five viewport sizes, offline paintings/font, and missing-art fallback.');
   } finally { await browser.close(); }
 }
 run().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => server.close());

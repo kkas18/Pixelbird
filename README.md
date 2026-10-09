@@ -1,24 +1,25 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v6.0): en liten blåmeis med lusekofte-skjerf flyr
-hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Varm pastellstil med myke konturer, fjell og fjord,
+Et koselig flakse-spill (v7.0): en liten blåmeis med lusekofte-skjerf flyr
+hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Malt eventyrbokstil med fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 månesigd. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
 vind i bjørk) og vibrasjon.
 Bygget som en installerbar PWA, optimalisert for Samsung Galaxy (portrett) og
 andre Android-telefoner.
 
-All grafikk er generert i koden – ingen bildefiler trengs utover ikonene. Lyden
+Høstlandskapet og bjørkestammene bruker lokale WebP-illustrasjoner (`art/`, ca. 1,1 MB). Fuglen, grensesnittet, partiklene og de øvrige årstidene tegnes i Canvas. Lyden
 er en blanding av syntese og noen få fritt lisensierte opptak (`audio/`, 273 kB
-i alt). Fonten (Fredoka og DejaVu Serif Bold) og opptakene ligger lokalt, så spillet ser og høres
+i alt). Fonten (Fredoka og Fraunces) og opptakene ligger lokalt, så spillet ser og høres
 likt ut også uten nett.
 
 ## Stil: en roligere norsk eventyrbok
 
 Blåmeisen, lusekofte-skjerfet, bjørkeskogen, dyrene og reisen hjem er beholdt.
 Grensesnittet har én samlet visuell retning: varm elfenben, dempet rustrød,
-elegante serifoverskrifter og mindre papirkorn. Alle landskap, figurer og
-animasjoner tegnes fortsatt direkte i Canvas.
+elegante serifoverskrifter og mindre papirkorn. Høstens dag- og kveldsmalerier, bjørkebarken, Fraunces-skriften og
+løvdekoren følger den godkjente designreferansen. Knapper, poeng og fuglen
+er fortsatt levende elementer, tegnet separat på Canvas.
 
 - **Start:** ett samlet nivåvalg og én tydelig «Spill»-knapp.
 - **Innstillinger:** lydeffekter, musikk, dag/kveld og garderoben er samlet.
@@ -27,11 +28,11 @@ animasjoner tegnes fortsatt direkte i Canvas.
 - **Garderobe:** alle eksisterende plagg og opplåsingskrav er bevart.
 - **Tilgjengelige kontroller:** Canvas-knappene har samsvarende native
   HTML-knapper med norske navn, valgt tilstand og synlig tastaturfokus.
-- **Offline:** Fredoka og den medfølgende DejaVu Serif Bold ligger lokalt.
+- **Offline:** Fredoka og den medfølgende Fraunces ligger lokalt.
   Fontlisenser finnes i `fonts/`. Ingen eksterne font- eller bildekall.
 - **Lagring:** eksisterende rekorder, lydvalg, tema og pynt beholdes ved oppdatering.
 
-Se [redesign-notatet](docs/REDESIGN-v6.md) for detaljer og verifikasjon.
+Se [referansetilpasningen](docs/REFERENCE-v7.md) for detaljer og verifikasjon.
 
 ## Filer
 
@@ -42,12 +43,14 @@ Se [redesign-notatet](docs/REDESIGN-v6.md) for detaljer og verifikasjon.
 | `js/sound.js` | Musikk, lydeffekter og naturlyder (Web Audio: opptak med syntese som reserve) |
 | `js/game.js` | Spilltilstand, input, fysikk, tid på døgnet og oppdatering |
 | `js/render.js` | Tegning: forhåndstegnede lag, stammer, fugl, partikler og brukergrensesnitt |
+| `js/art.js` | Innlasting og tegning av malte høstlandskap og bjørkegrafikk |
+| `art/` | Komprimerte illustrasjoner til dag, kveld og bjørk; kilder i `art/README.md` |
 | `js/ui.js` | Menyer, innstillinger, garderobe, HUD, pause, resultater og tilgjengelige knapper |
 | `js/main.js` | Oppstart: skjermstørrelse, spill-løkke og PWA |
 | `manifest.webmanifest` | PWA-manifest: navn, ikoner, portrett, standalone |
 | `sw.js` | Service worker – spillet fungerer offline etter første besøk |
 | `icons/` | App-ikoner (192, 512, maskable 512, Apple touch, favicon) + skjermbilde |
-| `fonts/` | Fredoka (woff2, variabel vekt) + lisens (SIL OFL 1.1) |
+| `fonts/` | Fredoka og Fraunces, selvhostede fonter med SIL OFL-lisenser |
 | `audio/` | Lydopptak (mp3): blåmeis, vind, tre, kalimba og xylofon. Kilder og lisenser i `audio/KILDER.md` |
 | `docs/REVISJON.md` | Første revisjon: funn og plan (fase 1–4, gjennomført) |
 | `docs/REVISJON-2.md` | Andre revisjon: poeng og tiltak mot «AI-stil» (fase A–G) |

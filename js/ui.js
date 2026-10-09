@@ -2,22 +2,41 @@
    med identiske treffområder, slik at menyene også kan brukes med tastatur. */
 'use strict';
 
-const UI = { paper: '#F6EBD6', ink: '#49392E', muted: '#7E6A55', red: '#AC4C35', gold: '#EFC579', edge: '#C8AE88' };
+const UI = { paper: '#F8EBD3', ink: '#4A3224', muted: '#7E6147', red: '#AC452D', gold: '#F3C572', edge: '#B39367' };
 let settingsOpen = false;
 
 function uiText(label, x, y, size, options = {}) {
-  const { serif = false, color = UI.ink, weight = 500, align = 'center', maxWidth = W - 40 } = options;
+  const { serif = true, color = UI.ink, weight = 500, align = 'center', maxWidth = W - 40, shadow = false } = options;
   ctx.save();
   ctx.font = `${serif ? 700 : weight} ${size}px ${serif ? 'Storybook, Georgia, serif' : 'Fredoka, system-ui, sans-serif'}`;
   ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillStyle = color;
+  if (shadow) { ctx.shadowColor = 'rgba(28,19,30,.45)'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1; }
   ctx.fillText(label, x, y, maxWidth); ctx.restore();
 }
 
-function uiCard(x, y, w, h) {
+function uiCard(x, y, w, h, decorate = false) {
   ctx.save();
   ctx.fillStyle = 'rgba(22,22,35,.17)'; rr(x, y + 4, w, h, 12); ctx.fill();
   ctx.fillStyle = UI.paper; rr(x, y, w, h, 12); ctx.fill();
-  ctx.strokeStyle = UI.edge; ctx.lineWidth = 0.8; rr(x + 3, y + 3, w - 6, h - 6, 10); ctx.stroke();
+  ctx.strokeStyle = '#967343'; ctx.lineWidth = 1.2; rr(x, y, w, h, 12); ctx.stroke();
+  ctx.strokeStyle = UI.edge; ctx.lineWidth = 0.6; rr(x + 4, y + 4, w - 8, h - 8, 9); ctx.stroke();
+  ctx.save(); rr(x + 2, y + 2, w - 4, h - 4, 10); ctx.clip(); paperOn(ctx, 0.7); ctx.restore();
+  if (decorate) {
+    uiSprig(x + 14, y + 29, 0.7, 0.2); uiSprig(x + w - 14, y + 30, 0.7, -0.2, true);
+    uiSprig(x + 16, y + h - 15, 0.8, -0.3); uiSprig(x + w - 16, y + h - 15, 0.8, 0.3, true);
+  }
+  ctx.restore();
+}
+
+// Small botanical details use the same warm leaf/ink palette as the paintings.
+function uiSprig(x, y, scale, angle = 0, mirror = false) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.scale(mirror ? -scale : scale, scale);
+  ctx.strokeStyle = '#8C794C'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(6, -16, 1, -33); ctx.stroke();
+  for (const [lx, ly, a, color] of [[-2,-6,-1.05,'#85905A'],[7,-12,1.1,'#B78043'],[0,-20,-1.1,'#C99A50'],[5,-27,0.65,'#9C7C40']]) {
+    ctx.save(); ctx.translate(lx, ly); ctx.rotate(a); ctx.fillStyle = color;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(-5, -2, -4, -9, 0, -12); ctx.bezierCurveTo(5, -8, 4, -2, 0, 0); ctx.fill();
+    ctx.strokeStyle = '#816A3C'; ctx.lineWidth = 0.45; ctx.beginPath(); ctx.moveTo(0, -1); ctx.lineTo(0, -10); ctx.stroke(); ctx.restore();
+  }
   ctx.restore();
 }
 
@@ -35,15 +54,21 @@ function uiButton(key, x, y, w, h, label, fn, options = {}) {
   ctx.fillStyle = primary ? UI.red : '#EEE0C8'; rr(x, y + dy, w, h, 9); ctx.fill();
   ctx.strokeStyle = primary ? '#CB7960' : '#D4BC98'; ctx.lineWidth = 0.8;
   rr(x + 2.5, y + 2.5 + dy, w - 5, h - 5, 7); ctx.stroke();
-  uiText(label, x + w / 2, y + h / 2 + dy, options.size || 16, { color: primary ? UI.paper : UI.ink, weight: 600 });
+  if (primary) {
+    ctx.fillStyle = '#D79B52';
+    for (const side of [x + 9, x + w - 9]) for (const offset of [-6, 6]) { ctx.beginPath(); ctx.ellipse(side, y + h / 2 + offset, 1.1, 0.55, 0, 0, Math.PI * 2); ctx.fill(); }
+  }
+  uiText(label, x + w / 2, y + h / 2 + dy, options.size || 18, { color: primary ? UI.paper : UI.ink, weight: 600 });
   ctx.restore();
 }
 
 function uiIconButton(key, cx, cy, r, icon, fn, on = true, label = key) {
   uiControl(key, cx - r, cy - r, r * 2, r * 2, label, fn);
   ctx.save(); ctx.translate(cx, cy);
-  ctx.fillStyle = UI.paper; circle(ctx, 0, 0, r);
-  ctx.strokeStyle = UI.edge; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.arc(0, 0, r - 2, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#69482E'; circle(ctx, 0, 1.5, r + 1.5);
+  ctx.fillStyle = '#D5AD70'; circle(ctx, 0, 0, r);
+  ctx.fillStyle = UI.paper; circle(ctx, 0, 0, r - 3);
+  ctx.strokeStyle = UI.edge; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.arc(0, 0, r - 5, 0, Math.PI * 2); ctx.stroke();
   ctx.strokeStyle = UI.ink; ctx.fillStyle = UI.ink; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   icon(r * 0.45);
   if (!on) { ctx.strokeStyle = UI.red; ctx.beginPath(); ctx.moveTo(-r * 0.45, r * 0.45); ctx.lineTo(r * 0.45, -r * 0.45); ctx.stroke(); }
@@ -60,26 +85,24 @@ const settingsIcon = k => {
 
 function drawMenuScreen() {
   // Heading and controls have separate quiet areas; the landscape remains visible.
-  const headY = safeTop + Math.min(84, H * 0.14), width = Math.min(236, W - 40), x = (W - width) / 2;
-  uiText('Pixelfugl', W / 2, headY, 38, { serif: true, color: T.night ? UI.paper : UI.ink, maxWidth: width + 12 });
-  uiText(`${SEASONS[seasonName].label} i bjørkeskogen`, W / 2, headY + 32, 12, { color: T.night ? '#E1D5C1' : UI.ink });
-  const bottom = H - safeBottom - 22, playY = bottom - 140;
-  const selectY = playY - 50, cellW = (width - 8) / 4;
-  ctx.fillStyle = T.night ? 'rgba(26,29,46,.88)' : 'rgba(246,235,214,.92)'; rr(x, selectY, width, 36, 9); ctx.fill();
+  const usable = H - safeTop - safeBottom, headY = safeTop + usable * 0.145, width = Math.min(246, W - 32), x = (W - width) / 2;
+  uiText('Pixelfugl', W / 2, headY, 50, { color: T.night ? UI.paper : UI.ink, maxWidth: width + 12, shadow: T.night });
+  uiText(`${SEASONS[seasonName].label} i bjørkeskogen`, W / 2, headY + 31, 13, { color: T.night ? UI.paper : UI.ink, shadow: T.night });
+  const bottom = safeTop + usable * 0.93, playY = safeTop + usable * 0.704;
+  const selectY = playY - 49, cellW = (width - 8) / 4;
+  ctx.fillStyle = '#59402D'; rr(x, selectY, width, 35, 9); ctx.fill();
+  ctx.strokeStyle = UI.edge; ctx.lineWidth = 1.2; rr(x, selectY, width, 35, 9); ctx.stroke();
   Object.entries(DIFFS).forEach(([key, value], i) => {
     const bx = x + 4 + i * cellW, selected = diffName === key;
     if (selected) { ctx.fillStyle = UI.gold; rr(bx, selectY + 4, cellW, 28, 6); ctx.fill(); }
-    uiText(value.label, bx + cellW / 2, selectY + 18, 12, { color: selected || !T.night ? UI.ink : UI.paper, weight: selected ? 600 : 400 });
+    uiText(value.label, bx + cellW / 2, selectY + 18, 11.5, { color: selected ? UI.ink : UI.paper });
     uiControl('diff_' + key, bx, selectY, cellW, 36, value.label, () => setDiff(key), selected);
   });
-  uiButton('start', x + 16, playY, width - 32, 44, 'Spill', goReady, { size: 20 });
-  // These labels sit on one understated strip, readable in every time/season palette.
-  ctx.fillStyle = T.night ? 'rgba(26,29,46,.84)' : 'rgba(246,235,214,.9)'; rr(W / 2 - 91, playY + 56, 182, 44, 7); ctx.fill();
-  const ink = T.night ? UI.paper : UI.ink;
-  uiText('Trykk for å flakse', W / 2, playY + 70, 11, { color: ink });
-  uiText(D.zen ? 'Zen · fly i ditt eget tempo' : `Beste: ${best} · ${D.label}`, W / 2, playY + 87, 10, { color: ink, weight: 400 });
-  uiIconButton('sound', W / 2 - 28, bottom - 1, 17, ICONS.sound, () => Sound.toggleSfx(), !Sound.sfxMuted, 'Lydeffekter av/på');
-  uiIconButton('settings', W / 2 + 28, bottom - 1, 17, settingsIcon, () => { settingsOpen = true; }, true, 'Innstillinger');
+  uiButton('start', x + 28, playY, width - 56, 49, 'Spill', goReady, { size: 27 });
+  uiText('Trykk for å flakse', W / 2, safeTop + usable * 0.812, 12, { color: UI.paper, shadow: true });
+  uiText(D.zen ? 'Fly i ditt eget tempo' : `Beste: ${best}`, W / 2, safeTop + usable * 0.854, 12, { color: UI.paper, shadow: true });
+  uiIconButton('sound', W / 2 - 29, bottom, 19, ICONS.sound, () => Sound.toggleSfx(), !Sound.sfxMuted, 'Lydeffekter av/på');
+  uiIconButton('settings', W / 2 + 29, bottom, 19, settingsIcon, () => { settingsOpen = true; }, true, 'Innstillinger');
   if (wardrobe) drawWardrobeScreen();
   else if (settingsOpen) drawSettingsScreen();
 }
@@ -134,11 +157,10 @@ function drawReadyScreen() {
 }
 
 function drawGameHud(groundY) {
-  const y = safeTop + 31, ink = T.night ? UI.paper : UI.ink;
-  ctx.fillStyle = T.night ? 'rgba(24,28,45,.8)' : 'rgba(246,235,214,.9)'; rr(W / 2 - 44, y - 20, 88, 65, 10); ctx.fill();
+  const y = safeTop + 50, ink = T.night ? UI.paper : UI.ink;
   const pop = reduceMotion ? 1 : keyframes([[0, 1.1], [0.2, 1, 'out']], time - scoreT);
-  uiText(D.zen ? 'Zen' : String(score), W / 2, y + 2, D.zen ? 24 : 32 * pop, { serif: true, color: ink });
-  uiText(D.zen ? 'Bare fly' : `Beste ${best}`, W / 2, y + 30, 9, { color: ink, weight: 400 });
+  uiText(D.zen ? 'Zen' : String(score), W / 2, y + 2, D.zen ? 28 : 47 * pop, { color: ink, shadow: T.night });
+  uiText(D.zen ? 'Bare fly' : `Beste: ${best}`, W / 2, y + 35, 14, { color: ink, shadow: T.night });
   let yy = y + 66;
   if (placeIdx > 0 && time - placeT < 3 && !home) { uiCard(W / 2 - 65, yy - 12, 130, 24); uiText(ROUTE[placeIdx].name, W / 2, yy, 11); yy += 32; }
   for (const [key, value] of Object.entries(active)) {
@@ -153,29 +175,57 @@ function drawGameHud(groundY) {
     const hy = Math.max(yy, groundY * 0.3);
     uiText('Hjemme!', W / 2, hy + 20, 22, { serif: true }); uiText('Trykk for å fly videre', W / 2, hy + 44, 11);
   }
-  if (state === State.PLAY && !paused) uiIconButton('pause', W - 30, safeTop + 27, 16, ICONS.pause, pauseGame, true, 'Pause');
+  if (state === State.PLAY && !paused) uiIconButton('pause', W - 27, safeTop + 32, 16, ICONS.pause, pauseGame, true, 'Pause');
+  if (!home) {
+    const place = ROUTE[Math.min(placeAt(score) + 1, ROUTE.length - 1)];
+    uiText('Mot ' + place.name, W / 2, H - safeBottom - 44, 9, { color: UI.paper, shadow: true });
+    drawIllustratedRoute(W / 2 - 70, W / 2 + 70, H - safeBottom - 24, score, false, true);
+  }
 }
 
 function drawResultsScreen() {
-  const w = 236, h = 338, x = (W - w) / 2;
+  const w = 244, h = Math.min(402, H - safeTop - safeBottom - 28), x = (W - w) / 2, k = h / 402;
   const enter = reduceMotion ? 1 : easeOutCubic(Math.min(1, overT / 0.4));
   const y = Math.max(safeTop + 14, (H - safeTop - safeBottom - h) / 2 + safeTop) + (1 - enter) * 14;
-  uiDim(0.48 * enter); uiCard(x, y, w, h);
-  uiText(newBest ? 'Ny rekord!' : 'Fin flytur!', W / 2, y + 32, 23, { serif: true });
-  uiText(D.label, W / 2, y + 59, 11, { color: UI.muted });
-  uiText(String(overShown), W / 2, y + 99, 48, { serif: true });
-  uiText('POENG', W / 2, y + 131, 10, { color: UI.muted });
-  const medal = medalFor(score);
-  uiText(`Beste: ${best}${medal ? ' · ' + medal[2] : ''}`, W / 2, y + 153, 12);
-  ctx.strokeStyle = '#DCC8A8'; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(x + 24, y + 176); ctx.lineTo(x + w - 24, y + 176); ctx.stroke();
-  const journey = journeyLines(score, homeReached());
-  uiText(journey.line, W / 2, y + 193, 11, { maxWidth: w - 30 });
-  drawRoute(x + 27, x + w - 27, y + 218, Math.min(overShown, score), homeReached() && overShown >= HOME);
-  uiText(unlocked.length ? `Ny pynt: ${unlocked[0].label}` : journey.next || 'Velkommen hjem!', W / 2, y + 237, 10, { color: UI.muted, maxWidth: w - 28 });
+  uiDim(0.52 * enter); uiCard(x, y, w, h, true);
+  uiSprig(W / 2 - 15, y + 59 * k, k, -1.1); uiSprig(W / 2 + 15, y + 59 * k, k, 1.1, true);
+  ctx.save(); ctx.translate(W / 2, y + 48 * k); ctx.scale(1.18 * k, 1.18 * k); birdShape('happy', wear); ctx.restore();
+  uiText(newBest ? 'Ny rekord!' : 'Fin flytur!', W / 2, y + 96 * k, 27 * k);
+  uiText(String(overShown), W / 2, y + 155 * k, 57 * k);
+  uiText('P O E N G', W / 2, y + 190 * k, 10 * k, { color: UI.muted });
+  uiText(`Beste: ${best}`, W / 2, y + 218 * k, 14 * k);
+  uiMountainStamp(x + 18, y + 199 * k, 0.65 * k); uiMountainStamp(x + w - 52, y + 199 * k, 0.65 * k);
+  ctx.strokeStyle = '#BDA57F'; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(x + 24, y + 204 * k); ctx.lineTo(x + w - 24, y + 204 * k); ctx.stroke();
+  const target = ROUTE[Math.min(placeAt(score) + 1, ROUTE.length - 1)].name;
+  uiText(homeReached() ? 'Velkommen hjem!' : 'På vei til ' + target, W / 2, y + 251 * k, 12 * k, { maxWidth: w - 30 });
+  drawIllustratedRoute(x + 28, x + w - 28, y + 280 * k, Math.min(overShown, score), homeReached() && overShown >= HOME);
+  if (unlocked.length) uiText(`Ny pynt: ${unlocked[0].label}`, W / 2, y + 300 * k, 9 * k, { color: UI.muted, maxWidth: w - 28 });
   if (overT > 0.7) {
-    uiButton('again', x + 20, y + 258, w - 40, 38, 'Spill igjen', goReady);
-    uiButton('menu', x + 20, y + 306, w - 40, 24, 'Meny', goMenu, { fill: UI.paper, size: 12 });
+    uiButton('again', x + 24, y + 314 * k, w - 48, 45 * k, 'Spill igjen', goReady, { size: 23 * k });
+    uiButton('menu', x + 24, y + 369 * k, w - 48, 29 * k, 'Meny', goMenu, { fill: UI.paper, size: 17 * k });
   }
+}
+
+function uiMountainStamp(x, y, scale) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale); ctx.fillStyle = '#D6C6A6';
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(15,-22); ctx.lineTo(23,-11); ctx.lineTo(32,-28); ctx.lineTo(51,0); ctx.closePath(); ctx.fill(); ctx.restore();
+}
+
+function drawIllustratedRoute(x0, x1, y, reached, homeNow, onSoil = false) {
+  const ink = onSoil ? '#EBD8B5' : '#92704E', map = at => x0 + (x1 - x0) * at / HOME;
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  for (const place of ROUTE.slice(0, -1)) {
+    ctx.fillStyle = place.at <= reached ? '#D5A352' : UI.paper;
+    ctx.beginPath(); ctx.arc(map(place.at), y, 2.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+  const bx = map(homeNow ? HOME : Math.min(reached, HOME));
+  ctx.save(); ctx.translate(bx, y - 10); ctx.scale(0.3, 0.3); birdShape('normal', wear); ctx.restore();
+  ctx.fillStyle = '#785239'; rr(x1 - 6, y - 10, 15, 12, 1); ctx.fill();
+  ctx.fillStyle = '#E7BF69'; ctx.fillRect(x1 - 3, y - 7, 3, 4); ctx.fillRect(x1 + 3, y - 7, 3, 4);
+  ctx.fillStyle = '#405444'; ctx.beginPath(); ctx.moveTo(x1 - 9, y - 10); ctx.lineTo(x1 + 1.5, y - 17); ctx.lineTo(x1 + 12, y - 10); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = ink; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(x1 + 1, y - 17); ctx.lineTo(x1 + 1, y - 24); ctx.stroke();
+  ctx.fillStyle = '#A64B35'; ctx.fillRect(x1 + 1, y - 24, 6, 3); ctx.restore();
 }
 
 function drawPauseScreen() {
