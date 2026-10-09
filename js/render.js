@@ -1767,12 +1767,25 @@ function drawBird() {
   if (grace > 0 && Math.floor(time * 14) % 2) ctx.globalAlpha = 0.45;   // usårbar etter skjoldtreff: rolig blinking
   ctx.fillStyle = hexA(T.ink, 0.12); ctx.beginPath(); ctx.ellipse(bx + 1, by + 4, BODY_R * bird.sx, BODY_R * bird.sy * 0.95, 0, 0, 7); ctx.fill();
   drawScarfTails(bx - bird.x, by - bird.y, scarfAnchor(bx, by, br, bird.sx, bird.sy));
-  ctx.save(); ctx.translate(bx, by); ctx.rotate(br); ctx.scale(bird.sx, bird.sy); birdShape(expr, wear, br); ctx.restore();
+  ctx.save(); ctx.translate(bx, by); ctx.rotate(br); ctx.scale(bird.sx, bird.sy); birdShape(expr, wear, br);
+  if (hasPaintedForest()) birdPaintLight(br);
+  ctx.restore();
   ctx.globalAlpha = 1;
   if (active.shield) {   // såpeboble rundt fuglen, vugger litt
     const wob = Math.sin(time * 5) * 0.04;
     ctx.save(); ctx.translate(bx, by); ctx.scale(1 + wob, 1 - wob); bubble(0, 0, BODY_R + 8, time); ctx.restore();
   }
+}
+
+// på maleriet: malt korn i fjærdrakten og varmt kantlys fra sola oppe til høyre, kjølig refleks nede til venstre
+// (vinklene trekker fra fuglens rotasjon, så lyset står fast i verden)
+function birdPaintLight(br) {
+  ctx.save(); ctx.beginPath(); ctx.arc(0, 0, BODY_R - 0.2, 0, 7); ctx.clip();
+  paperOn(ctx, 1.6);
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(255,238,196,.55)'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(0, 0, BODY_R - 1.2, -1.35 - br, -0.15 - br); ctx.stroke();
+  ctx.strokeStyle = 'rgba(40,40,90,.18)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, BODY_R - 0.5, 1.9 - br, 3.4 - br); ctx.stroke();
+  ctx.restore();
 }
 
 function drawParticles() {
@@ -1886,11 +1899,13 @@ function paintPlank(x, y, w, h, label, size, paint, arrow, pegX, seed) {
 /* ---------- Merkelapper og papirlapper (i stedet for konturtekst) ---------- */
 // pappmerkelapp (som på en gammel koffert): avklippede hjørner, hull med ring og hyssing opp til et feste
 const KRAFT = { body: '#DCC096', fibre: 'rgba(120,85,45,.2)', text: '#4A3628' };
-function tagSize(txt, size) { ctx.font = `700 ${size}px Fredoka, system-ui, sans-serif`; return { w: Math.ceil(ctx.measureText(txt).width) + 26, h: Math.round(size * 1.7) }; }
+// skriften på lappene: Fredoka, eller Fraunces (serif = true) der lappen står sammen med eventyrbok-teksten
+const labelFont = (size, serif, weight = 700) => serif ? `700 ${size}px Storybook, Georgia, serif` : `${weight} ${size}px Fredoka, system-ui, sans-serif`;
+function tagSize(txt, size, serif = false) { ctx.font = labelFont(size, serif); return { w: Math.ceil(ctx.measureText(txt).width) + 26, h: Math.round(size * 1.7) }; }
 function tag(txt, x, y, opts = {}) {   // (x, y) = midt på lappen
-  const { size = 11, ax = null, ay = null, tilt = null, alpha = 1 } = opts, { w, h } = tagSize(txt, size), seed = seedOf(txt);
+  const { size = 11, ax = null, ay = null, tilt = null, alpha = 1, serif = false } = opts, { w, h } = tagSize(txt, size, serif), seed = seedOf(txt);
   const rot = +(tilt === null ? ((seed % 7) - 3) * 0.012 : tilt).toFixed(3), hx = x - w / 2 + 7;
-  const L = cachedSurface('lapp', w, h, seed, `${txt}|${size}|${rot}`, (px, py) => tilted(px, py, w, h, rot, () => paintTag(px, py, w, h, txt, size, seed)));
+  const L = cachedSurface('lapp', w, h, seed, `${txt}|${size}|${rot}|${serif ? 's' : ''}`, (px, py) => tilted(px, py, w, h, rot, () => paintTag(px, py, w, h, txt, size, seed, serif)));
   ctx.save(); ctx.globalAlpha *= alpha;
   if (ax !== null) {   // hyssing fra festet ned til hullet, med et lite heng
     ctx.strokeStyle = '#8A6A44'; ctx.lineWidth = 1; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(ax, ay);
@@ -1903,7 +1918,7 @@ function tag(txt, x, y, opts = {}) {   // (x, y) = midt på lappen
 function tilted(x, y, w, h, rot, draw) {
   ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(rot); ctx.translate(-x - w / 2, -y - h / 2); draw(); ctx.restore();
 }
-function paintTag(x, y, w, h, txt, size, seed) {
+function paintTag(x, y, w, h, txt, size, seed, serif = false) {
   const c = 5, path = () => { ctx.beginPath(); ctx.moveTo(x + c, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + h); ctx.lineTo(x + c, y + h); ctx.lineTo(x, y + h - c); ctx.lineTo(x, y + c); ctx.closePath(); };
   ctx.save(); ctx.translate(0, 2); ctx.fillStyle = hexA(UI_INK, 0.22); path(); ctx.fill(); ctx.restore();
   path(); ctx.fillStyle = KRAFT.body; ctx.fill();
@@ -1914,19 +1929,19 @@ function paintTag(x, y, w, h, txt, size, seed) {
   path(); ctx.strokeStyle = hexA(UI_INK, 0.85); ctx.lineWidth = 1.1; ctx.stroke();
   ctx.fillStyle = '#F3E6CF'; circle(ctx, x + 7, y + h / 2, 3); ctx.strokeStyle = hexA(UI_INK, 0.6); ctx.lineWidth = 0.7; ctx.beginPath(); ctx.arc(x + 7, y + h / 2, 3, 0, 7); ctx.stroke();   // forsterkningsring
   ctx.fillStyle = hexA(UI_INK, 0.75); circle(ctx, x + 7, y + h / 2, 1.3);   // hullet
-  ctx.font = `700 ${size}px Fredoka, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = labelFont(size, serif); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = KRAFT.text; ctx.fillText(txt, x + 14 + (w - 14) / 2 - 1, y + h / 2 + 0.5);
 }
 // papirlapp: en revet stripe lyst papir med blekktekst (hint, stedsnavn, undertitler)
 function paperLabel(txt, x, y, opts = {}) {   // (x, y) = midt på lappen
-  const { size = 12, alpha = 1, tilt = null } = opts;
-  ctx.font = `600 ${size}px Fredoka, system-ui, sans-serif`;
+  const { size = 12, alpha = 1, tilt = null, serif = false } = opts;
+  ctx.font = labelFont(size, serif, 600);
   const w = Math.ceil(ctx.measureText(txt).width) + 22, h = Math.round(size * 1.75), seed = seedOf(txt) + 3;
   const rot = +(tilt === null ? ((seed % 9) - 4) * 0.008 : tilt).toFixed(3);
-  const L = cachedSurface('papir', w, h, seed, `${txt}|${size}|${rot}`, (px, py) => tilted(px, py, w, h, rot, () => paintPaper(px, py, w, h, txt, size, seed)));
+  const L = cachedSurface('papir', w, h, seed, `${txt}|${size}|${rot}|${serif ? 's' : ''}`, (px, py) => tilted(px, py, w, h, rot, () => paintPaper(px, py, w, h, txt, size, seed, serif)));
   const a = ctx.globalAlpha; ctx.globalAlpha = a * alpha; blitSurface(L, x - w / 2, y - h / 2); ctx.globalAlpha = a;
 }
-function paintPaper(x, y, w, h, txt, size, seed) {
+function paintPaper(x, y, w, h, txt, size, seed, serif = false) {
   const r = rng(seed), path = () => {   // rette langsider, revne korte ender
     ctx.beginPath(); ctx.moveTo(x + 2, y);
     ctx.lineTo(x + w - 2, y); for (let yy = y; yy <= y + h; yy += 2.2) ctx.lineTo(x + w - 2 + (r() - 0.3) * 2.6, yy);
@@ -1936,7 +1951,7 @@ function paintPaper(x, y, w, h, txt, size, seed) {
   ctx.save(); ctx.translate(0.5, 2); ctx.fillStyle = hexA(UI_INK, 0.2); path(); ctx.fill(); ctx.restore();
   path(); ctx.fillStyle = '#FBF4E4'; ctx.fill();
   ctx.save(); ctx.clip(); paperOn(ctx, 0.6); ctx.fillStyle = 'rgba(200,170,120,.12)'; ctx.fillRect(x, y + h - 3, w, 3); ctx.restore();
-  ctx.font = `600 ${size}px Fredoka, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = labelFont(size, serif, 600); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = UI_INK; ctx.fillText(txt, x + w / 2, y + h / 2 + 0.5);
 }
 // veiviser i menyen: en stolpe med fire pilplanker (vanskelighetene); den valgte er malt rød, som merkingen langs
@@ -2455,7 +2470,7 @@ function render() {
     // unntak: ett bilde der menyen tegnes ferdig under linet (bilder i hurtigbufferen, lag til skjermkortet), mens
     // ingenting beveger seg: før nålen kommer inn, eller mens fuglen står på logoen
     const still = intro.rm || intro.t < INTRO.stitch[0] - 0.2 || intro.t >= INTRO.fly[1];
-    if (!(fontsReady && !intro.warm && still)) { drawIntro(); ctx.restore(); return; }
+    if (!(fontsReady && !intro.warm && still)) { for (const k in hud) delete hud[k]; drawIntro(); ctx.restore(); return; }   // ingen knapper under linet
     intro.warm = true;
   }
   // dempet risting langs treffretningen; zoomer litt inn så kantene aldri blottlegges

@@ -126,8 +126,8 @@ function drawPaintedBackdrop(groundY) {
     ctx.fillStyle = tint; ctx.fillRect(0, 0, W, groundY);
   }
   // The moon/sun and falling leaves remain live, separate from the painting.
-  const skyY = Math.min(groundY * 0.32, safeTop + 170), sx = W * 0.79;
-  ctx.drawImage(scene.sun.c, sx - 18, skyY - 18, 36, 36);
+  const skyY = Math.min(groundY * 0.32, safeTop + 170), sx = W * 0.79, body = paintedSkyBody();
+  ctx.drawImage(body.c, sx - 70, skyY - 70, body.w, body.h);
   if (T.night && !reduceMotion) {
     ctx.fillStyle = '#FFF1D1';
     for (const star of stars.slice(0, 12)) {
@@ -137,6 +137,37 @@ function drawPaintedBackdrop(groundY) {
     }
   }
   ctx.restore(); return true;
+}
+
+// sola og månen malt som maleriet: myk glød som smelter inn i himmelen, varm kjerne og penselstrøk, uten blekk-kant
+const skyBodyCache = new Map();
+function paintedSkyBody() {
+  const key = `${T.night ? 'mane' : T.sunLow ? 'kveld' : 'sol'}|${dpr * scale}`;
+  if (skyBodyCache.has(key)) return skyBodyCache.get(key);
+  const L = makeSprite(140, 140, g => {
+    const c = 70, r = rng(31);
+    const glow = (rad, col, a) => { const gr = g.createRadialGradient(c, c, 4, c, c, rad); gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(0, 0, 140, 140); };
+    if (T.night) {   // månesigd: kald glød, blek kjerne og mørkere hav (maria)
+      glow(66, '214,222,255', 0.22); glow(30, '240,236,215', 0.25);
+      g.save(); g.beginPath(); g.arc(c, c, 14, 0, 7); g.clip();
+      const body = g.createRadialGradient(c + 4, c - 5, 2, c, c, 15); body.addColorStop(0, '#FFF8E6'); body.addColorStop(1, '#E8D9B0');
+      g.fillStyle = body; g.fillRect(c - 15, c - 15, 30, 30);
+      g.fillStyle = 'rgba(160,150,130,.28)'; for (const [x, y, s] of [[-4, 3, 3.2], [3, -4, 2.2], [-1, -6, 1.6]]) { g.beginPath(); g.arc(c + x, c + y, s, 0, 7); g.fill(); }
+      g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.arc(c + 7, c - 4, 12.5, 0, 7); g.fill();
+      g.restore();
+    } else {
+      const warm = T.sunLow ? '255,170,110' : '255,232,170';
+      glow(68, warm, T.sunLow ? 0.32 : 0.26); glow(34, T.sunLow ? '255,200,140' : '255,246,214', 0.35);
+      g.save(); g.beginPath(); g.arc(c, c, 15, 0, 7); g.clip();
+      const body = g.createRadialGradient(c + 4, c - 5, 2, c, c, 16);
+      body.addColorStop(0, T.sunLow ? '#FFE7C4' : '#FFFBEA'); body.addColorStop(0.7, T.sunLow ? '#F7B576' : '#FBE3A0'); body.addColorStop(1, T.sunLow ? '#E9925E' : '#F2CB78');
+      g.fillStyle = body; g.fillRect(c - 16, c - 16, 32, 32);
+      g.lineCap = 'round';   // penselstrøk på skrå
+      for (let k = 0; k < 9; k++) { const y = c - 13 + k * 3.2 + r() * 1.5; g.strokeStyle = `rgba(255,255,255,${(0.08 + r() * 0.1).toFixed(2)})`; g.lineWidth = 1 + r() * 1.4; g.beginPath(); g.moveTo(c - 16, y + 4); g.lineTo(c + 16, y - 4); g.stroke(); }
+      g.restore();
+    }
+  }, 0.5);
+  skyBodyCache.set(key, L); return L;
 }
 
 function paintBarkSprite(g, y0, y1) {

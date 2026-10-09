@@ -20,8 +20,8 @@ function uiCard(x, y, w, h, decorate = false) {
   ctx.fillStyle = 'rgba(22,22,35,.17)'; rr(x, y + 4, w, h, 12); ctx.fill();
   ctx.fillStyle = UI.paper; rr(x, y, w, h, 12); ctx.fill();
   ctx.strokeStyle = '#967343'; ctx.lineWidth = 1.2; rr(x, y, w, h, 12); ctx.stroke();
-  ctx.strokeStyle = UI.edge; ctx.lineWidth = 0.6; rr(x + 4, y + 4, w - 8, h - 8, 9); ctx.stroke();
   ctx.save(); rr(x + 2, y + 2, w - 4, h - 4, 10); ctx.clip(); paperOn(ctx, 0.7); ctx.restore();
+  runningStitch(rrPoints(x + 6, y + 6, w - 12, h - 12, 8, 1), '#C9A877', Math.round(w * 3 + h));   // sydd kant, som broderiet i logoen
   if (decorate) {
     uiSprig(x + 14, y + 29, 0.7, 0.2); uiSprig(x + w - 14, y + 30, 0.7, -0.2, true);
     uiSprig(x + 16, y + h - 15, 0.8, -0.3); uiSprig(x + w - 16, y + h - 15, 0.8, 0.3, true);
@@ -76,6 +76,48 @@ function uiIconButton(key, cx, cy, r, icon, fn, on = true, label = key) {
   ctx.restore();
 }
 
+// nivåvelgeren: en mørk tresprosse med skårne skiller; det valgte nivået er en rødmalt innfelling
+function uiWoodBar(x, y, w, h, labels, sel) {
+  const L = cachedSurface('sprosse', Math.ceil(w), Math.ceil(h), 7, `${labels.join(',')}|${sel}`, (px, py) => paintWoodBar(px, py, w, h, labels, sel));
+  blitSurface(L, x, y);
+}
+function paintWoodBar(x, y, w, h, labels, sel) {
+  const r = rng(77), cw = (w - 8) / labels.length;
+  ctx.fillStyle = 'rgba(30,18,10,.32)'; rr(x, y + 2.5, w, h, 8); ctx.fill();
+  ctx.fillStyle = '#5A3F2B'; rr(x, y, w, h, 8); ctx.fill();
+  ctx.save(); rr(x, y, w, h, 8); ctx.clip();
+  ctx.strokeStyle = 'rgba(25,14,8,.28)'; ctx.lineWidth = 0.7;   // årer i valnøtten
+  for (let k = 0; k < 5; k++) { const gy = y + 4 + r() * (h - 8), f = 0.03 + r() * 0.03, p0 = r() * 6; ctx.beginPath(); for (let xx = x; xx <= x + w; xx += 6) ctx.lineTo(xx, gy + Math.sin(xx * f + p0) * 1.2); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(255,230,190,.16)'; ctx.fillRect(x, y, w, 1.4);   // fas: lys overkant, mørk underkant
+  ctx.fillStyle = 'rgba(20,10,5,.3)'; ctx.fillRect(x, y + h - 2, w, 2);
+  paperOn(ctx, 0.25); ctx.restore();
+  ctx.strokeStyle = '#2E1F15'; ctx.lineWidth = 1.2; rr(x, y, w, h, 8); ctx.stroke();
+  labels.forEach((label, i) => {
+    const bx = x + 4 + i * cw;
+    if (i) { ctx.fillStyle = 'rgba(20,10,5,.55)'; ctx.fillRect(bx - 0.6, y + 7, 1.2, h - 14); ctx.fillStyle = 'rgba(255,225,180,.18)'; ctx.fillRect(bx + 0.6, y + 7, 0.8, h - 14); }   // skåret skille
+    if (i === sel) {   // rødmalt innfelling, litt slitt på kantene
+      ctx.fillStyle = 'rgba(20,10,5,.4)'; rr(bx + 1, y + 4.5, cw - 2, h - 8, 5); ctx.fill();
+      ctx.fillStyle = PAINT_RED.body; rr(bx + 1, y + 3.5, cw - 2, h - 8, 5); ctx.fill();
+      ctx.fillStyle = 'rgba(255,235,205,.22)'; ctx.fillRect(bx + 4, y + 4.5, cw - 8, 1);
+      ctx.fillStyle = hexA(WOOD.a, 0.35); for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(bx + 3 + r() * (cw - 6), y + 4 + (r() < 0.5 ? 1 : h - 10), 1.4, 0.6, 0, 0, 7); ctx.fill(); }
+    }
+    ctx.font = `700 11.5px Storybook, Georgia, serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = i === sel ? PAINT_RED.text : '#EAD7B4'; ctx.fillText(label, bx + cw / 2, y + h / 2 - 0.5);
+  });
+}
+// avkrysning: en rute aida med sydd kant; på = et rødt korssting
+function uiCheck(cx, cy, on) {
+  const s = 18, x = cx - s / 2, y = cy - s / 2;
+  ctx.fillStyle = 'rgba(70,45,25,.18)'; ctx.fillRect(x + 1, y + 2, s, s);
+  ctx.fillStyle = '#F6EAD3'; ctx.fillRect(x, y, s, s);
+  ctx.fillStyle = 'rgba(110,84,62,.22)';   // aida-hull
+  for (let i = 1; i < 6; i++) for (let j = 1; j < 6; j++) ctx.fillRect(x + i * 3 - 0.35, y + j * 3 - 0.35, 0.7, 0.7);
+  ctx.strokeStyle = '#8E6C46'; ctx.lineWidth = 1; ctx.setLineDash([2.2, 1.6]); ctx.strokeRect(x + 0.5, y + 0.5, s - 1, s - 1); ctx.setLineDash([]);
+  if (on) { ctx.fillStyle = 'rgba(70,30,20,.3)'; ctx.fillRect(x + 3, y + 4, 12, 12); stitch(ctx, x + 3, y + 3, 12, '#8E3324', '#C9523A'); }
+}
+// tekst rett på maleriet står på en papirlapp (lyse tekster på løv er vanskelige å lese)
+const uiPaper = (txt, x, y, size = 12) => paperLabel(txt, x, y, { size, serif: true });
+
 function uiDim(alpha = 0.48) { ctx.fillStyle = `rgba(18,23,37,${alpha})`; ctx.fillRect(0, 0, W, H); }
 
 const settingsIcon = k => {
@@ -97,17 +139,12 @@ function drawMenuScreen() {
   ctx.restore();
   const bottom = safeTop + usable * 0.93, playY = safeTop + usable * 0.704;
   const selectY = playY - 49, cellW = (width - 8) / 4;
-  ctx.fillStyle = '#59402D'; rr(x, selectY, width, 35, 9); ctx.fill();
-  ctx.strokeStyle = UI.edge; ctx.lineWidth = 1.2; rr(x, selectY, width, 35, 9); ctx.stroke();
-  Object.entries(DIFFS).forEach(([key, value], i) => {
-    const bx = x + 4 + i * cellW, selected = diffName === key;
-    if (selected) { ctx.fillStyle = UI.gold; rr(bx, selectY + 4, cellW, 28, 6); ctx.fill(); }
-    uiText(value.label, bx + cellW / 2, selectY + 18, 11.5, { color: selected ? UI.ink : UI.paper });
-    uiControl('diff_' + key, bx, selectY, cellW, 36, value.label, () => setDiff(key), selected);
-  });
+  const diffs = Object.entries(DIFFS);
+  uiWoodBar(x, selectY, width, 35, diffs.map(([, value]) => value.label), diffs.findIndex(([key]) => key === diffName));
+  diffs.forEach(([key, value], i) => uiControl('diff_' + key, x + 4 + i * cellW, selectY, cellW, 36, value.label, () => setDiff(key), diffName === key));
   uiButton('start', x + 28, playY, width - 56, 49, 'Spill', goReady, { size: 27 });
-  uiText('Trykk for å flakse', W / 2, safeTop + usable * 0.812, 12, { color: UI.paper, shadow: true });
-  uiText(D.zen ? 'Fly i ditt eget tempo' : `Beste: ${best}`, W / 2, safeTop + usable * 0.854, 12, { color: UI.paper, shadow: true });
+  uiPaper('Trykk for å flakse', W / 2, safeTop + usable * 0.807, 12);
+  tag(D.zen ? 'Fly i ditt eget tempo' : best > 0 ? `Beste: ${best}` : 'Ingen rekord ennå', W / 2, safeTop + usable * 0.853, { size: 10.5, serif: true });
   uiIconButton('sound', W / 2 - 29, bottom, 19, ICONS.sound, () => Sound.toggleSfx(), !Sound.sfxMuted, 'Lydeffekter av/på');
   uiIconButton('settings', W / 2 + 29, bottom, 19, settingsIcon, () => { settingsOpen = true; }, true, 'Innstillinger');
   if (wardrobe) drawWardrobeScreen();
@@ -127,8 +164,7 @@ function drawSettingsScreen() {
   rows.forEach(([key, label, on, fn], i) => {
     const yy = y + 59 + i * 40;
     uiText(label, x + 20, yy + 18, 13, { align: 'left' });
-    ctx.fillStyle = on ? '#607965' : '#C5B59D'; rr(x + w - 55, yy + 8, 35, 20, 10); ctx.fill();
-    ctx.fillStyle = UI.paper; circle(ctx, x + w - (on ? 30 : 45), yy + 18, 7);
+    uiCheck(x + w - 32, yy + 18, on);
     uiControl(key, x + 14, yy, w - 28, 36, label, fn, on);
   });
   uiButton('s_wardrobe', x + 20, y + 191, w - 40, 35, 'Garderobe', () => { settingsOpen = false; wardrobe = true; wardrobePage = Math.floor(COSMETICS.findIndex(c => c.id === wear) / WARDROBE_PAGE); }, { fill: UI.paper, size: 14 });
@@ -159,7 +195,7 @@ function drawReadyScreen() {
   uiText('Klar for en flytur?', W / 2, safeTop + 70, 23, { serif: true, color: T.night ? UI.paper : UI.ink });
   uiText(`${D.label} · fra fjellet til hytta`, W / 2, safeTop + 99, 12, { color: T.night ? UI.paper : UI.ink });
   const y = Math.min(H - GROUND_H - 64, (H - GROUND_H) * 0.42 + 85);
-  uiCard(W / 2 - 86, y - 18, 172, 36); uiText('Trykk hvor som helst', W / 2, y, 12);
+  uiPaper('Trykk hvor som helst', W / 2, y, 13);
   uiIconButton('ready_menu', W - 30, safeTop + 25, 16, ICONS.left, goMenu, true, 'Tilbake til menyen');
 }
 
@@ -169,13 +205,13 @@ function drawGameHud(groundY) {
   uiText(D.zen ? 'Zen' : String(score), W / 2, y + 2, D.zen ? 28 : 47 * pop, { color: ink, shadow: T.night, outline: true });
   uiText(D.zen ? 'Bare fly' : `Beste: ${best}`, W / 2, y + 35, 14, { color: ink, shadow: T.night, outline: true });
   let yy = y + 66;
-  if (placeIdx > 0 && time - placeT < 3 && !home) { uiCard(W / 2 - 65, yy - 12, 130, 24); uiText(ROUTE[placeIdx].name, W / 2, yy, 11); yy += 32; }
+  if (placeIdx > 0 && time - placeT < 3 && !home) { uiPaper(ROUTE[placeIdx].name, W / 2, yy, 11); yy += 30; }
   for (const [key, value] of Object.entries(active)) {
     if (!value) continue;
     const fraction = key === 'shield' ? 1 : value / POWERS[key].dur;
-    ctx.fillStyle = UI.paper; rr(W / 2 - 60, yy - 11, 120, 24, 6); ctx.fill();
-    uiText(POWERS[key].label, W / 2, yy, 10);
-    ctx.fillStyle = UI.red; rr(W / 2 - 50, yy + 8, Math.max(1, 100 * fraction), 2, 1); ctx.fill(); yy += 31;
+    tag(POWERS[key].label, W / 2, yy, { size: 10, serif: true, tilt: 0 });
+    if (fraction < 1) { const tw = tagSize(POWERS[key].label, 10, true).w, pts = []; for (let px = W / 2 - tw / 2 + 14; px <= W / 2 - tw / 2 + 14 + (tw - 20) * fraction; px += 2) pts.push({ x: px, y: yy + 6.5 }); if (pts.length > 1) runningStitch(pts, '#C0392B', 41); }   // tiden som er igjen: en rød tråd
+    yy += 28;
   }
   if (home && home.phase === 'rest') {
     uiCard(W / 2 - 107, Math.max(yy, groundY * 0.3), 214, 61);
@@ -185,7 +221,7 @@ function drawGameHud(groundY) {
   if (state === State.PLAY && !paused) uiIconButton('pause', W - 27, safeTop + 32, 16, ICONS.pause, pauseGame, true, 'Pause');
   if (!home) {
     const place = ROUTE[Math.min(placeAt(score) + 1, ROUTE.length - 1)];
-    uiText('Mot ' + place.name, W / 2, H - safeBottom - 44, 9, { color: UI.paper, shadow: true });
+    uiPaper('Mot ' + place.name, W / 2, H - safeBottom - 46, 9.5);
     drawIllustratedRoute(W / 2 - 70, W / 2 + 70, H - safeBottom - 24, score, false, true);
   }
 }

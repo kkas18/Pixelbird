@@ -632,6 +632,7 @@ const introLogoY = () => { const G = introGeo(); return intro.rm ? G.lyM : lerp(
 const introPerch = () => { const G = introGeo(); return { x: G.lx + G.perchX, y: introLogoY() + G.perchTop - BODY_R + 0.5 }; };
 const bez = (a, c, b, u) => (1 - u) * (1 - u) * a + 2 * (1 - u) * u * c + u * u * b;
 function introStep(dt, idleY) {
+  if (state !== State.MENU) { intro = null; skyChrome(); return; }   // spillet er startet på annen måte: introen gir seg
   const I = intro, end = I.rm ? INTRO_RM.end : INTRO.end;
   // menyen tegnes med fonten; lerretet åpner seg ikke før den er lastet (høyst 2,5 s ventetid): klokka stopper like før
   let nt = I.t + dt * I.speed;
