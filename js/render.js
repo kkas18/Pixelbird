@@ -151,6 +151,18 @@ const LOGO_GLYPHS = {
   j: ['.B', '..', '.X', '.X', '.X', '.X', '.X', '.X', 'X.'],
   m: ['.....', '.....', 'XX.X.', 'X.X.X', 'X.X.X', 'X.X.X', 'X.X.X', '.....', '.....'],
   '!': ['X', 'X', 'X', 'X', 'X', '.', 'X', '.', '.'],
+  // sifre (like brede, så poengtallet ikke hopper sidelengs) og pluss
+  '0': ['.XXX.', 'X...X', 'X..XX', 'X.X.X', 'XX..X', 'X...X', '.XXX.', '.....', '.....'],
+  '1': ['..X..', '.XX..', 'X.X..', '..X..', '..X..', '..X..', 'XXXXX', '.....', '.....'],
+  '2': ['.XXX.', 'X...X', '....X', '...X.', '..X..', '.X...', 'XXXXX', '.....', '.....'],
+  '3': ['XXXX.', '....X', '....X', '.XXX.', '....X', '....X', 'XXXX.', '.....', '.....'],
+  '4': ['...X.', '..XX.', '.X.X.', 'X..X.', 'XXXXX', '...X.', '...X.', '.....', '.....'],
+  '5': ['XXXXX', 'X....', 'XXXX.', '....X', '....X', 'X...X', '.XXX.', '.....', '.....'],
+  '6': ['..XX.', '.X...', 'X....', 'XXXX.', 'X...X', 'X...X', '.XXX.', '.....', '.....'],
+  '7': ['XXXXX', '....X', '...X.', '..X..', '.X...', '.X...', '.X...', '.....', '.....'],
+  '8': ['.XXX.', 'X...X', 'X...X', '.XXX.', 'X...X', 'X...X', '.XXX.', '.....', '.....'],
+  '9': ['.XXX.', 'X...X', 'X...X', '.XXXX', '....X', '...X.', '.XX..', '.....', '.....'],
+  '+': ['.....', '.....', '..X..', '..X..', 'XXXXX', '..X..', '..X..', '.....', '.....'],
   '?': ['.XXX.', 'X...X', '....X', '..XX.', '..X..', '.....', '..X..', '.....', '.....'],
   ' ': ['..', '..', '..', '..', '..', '..', '..', '..', '..']
 };
@@ -247,7 +259,7 @@ function paper(g, alpha) {
    kopi av lagene, og fokus glir over til fuglen når runden starter (focusK går fra 0 til 1). */
 const DEPTH = {   // blur i logiske px, dis = andel himmelfarge; s = lagets parallakse
   0.05: { blur: 2.2, haze: 0.2 }, 0.14: { blur: 1.4, haze: 0.11 }, 0.3: { blur: 0.8, haze: 0.05 }, 0.6: { blur: 0.35, haze: 0 },
-  sky: { blur: 0.7, haze: 0 }, fore: { blur: 3.2, haze: 0 }
+  sky: { blur: 0.7, haze: 0 }, fore: { blur: 2.3, haze: 0 }
 };
 // Canvas-filter (blur) finnes ikke i alle nettlesere; da lages uskarpheten i JavaScript (samme resultat, litt tregere)
 const canFilter = (() => { try { const g = document.createElement('canvas').getContext('2d'); g.filter = 'blur(2px)'; return g.filter === 'blur(2px)'; } catch (e) { return false; } })();
@@ -410,14 +422,38 @@ function groundSeg(g, w, h, kind, seed) {
   for (let x = 0; x <= w + 0.01; x += 3) g.lineTo(x, top + 44 + Math.sin(x / w * Math.PI * k1) * a1);
   for (let x = w; x >= -0.01; x -= 3) g.lineTo(x, top + 52 + Math.sin(x / w * Math.PI * k2) * a2);
   g.closePath(); g.fill();
+  // et lyst leirlag nederst med fine, liggende striper
+  g.fillStyle = hexA(mixHex(T.soil, '#FFFFFF', 0.25), 0.35); g.fillRect(0, h - 16, w, 16);
+  g.strokeStyle = hexA(T.soilDark, 0.25); g.lineWidth = 0.7; g.beginPath();
+  for (let i = 0; i < 7; i++) { const x = r() * w, y = h - 14 + r() * 12, l = 6 + r() * 14; g.moveTo(x, y); g.lineTo(Math.min(w, x + l), y + (r() - 0.5)); }
+  g.stroke();
+  // stein: kantete, i ulik størrelse og mest i små grupper; flate lys- og skyggeflater (ingen glans)
   const stone = (x, y, rx, ry) => {
-    g.fillStyle = hexA(T.ink, 0.3); g.beginPath(); g.ellipse(x + SHADE_X * 0.6, y + SHADE_Y * 0.6, rx + 0.9, ry + 0.9, 0, 0, TAU); g.fill();
-    g.fillStyle = T.stone; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill();
-    g.fillStyle = 'rgba(255,255,255,.4)'; g.beginPath(); g.ellipse(x + rx * 0.25, y - ry * 0.35, rx * 0.4, ry * 0.3, 0, 0, TAU); g.fill();
+    const n = 6 + ((r() * 3) | 0), pts = [];
+    for (let i = 0; i < n; i++) { const a = (i + r() * 0.5) / n * TAU, k = 0.78 + r() * 0.3; pts.push([x + Math.cos(a) * rx * k, y + Math.sin(a) * ry * k * (Math.sin(a) > 0 ? 0.85 : 1), a]); }
+    const poly = (list, cx, cy) => { g.beginPath(); if (cx !== undefined) g.moveTo(cx, cy); list.forEach(([px, py], i) => (i || cx !== undefined ? g.lineTo(px, py) : g.moveTo(px, py))); g.closePath(); };
+    g.fillStyle = hexA(T.ink, 0.28); g.save(); g.translate(SHADE_X * 0.8, SHADE_Y * 0.8); poly(pts); g.fill(); g.restore();
+    g.fillStyle = T.stone; poly(pts); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.3)'; poly(pts.filter(([, , a]) => a > TAU * 0.6 || a < TAU * 0.02), x, y); g.fill();   // lys flate oppe til høyre
+    g.fillStyle = hexA(T.ink, 0.13); poly(pts.filter(([, , a]) => a > TAU * 0.22 && a < TAU * 0.55), x, y); g.fill();      // skyggeflate nede til venstre
+    g.strokeStyle = hexA(T.ink, 0.35); g.lineWidth = 0.7; poly(pts); g.stroke();
   };
-  for (let i = 0, n = 3 + ((r() * 5) | 0); i < n; i++) { const rx = 2.2 + r() * 3.6; stone(inner(rx + 6), top + 24 + r() * (h - top - 32), rx, 1.6 + r() * 1.9); }
-  g.fillStyle = hexA(T.soilDark, 0.8);
-  for (let i = 0; i < 16; i++) circle(g, inner(), top + 18 + r() * (h - top - 22), 0.6 + r() * 0.6);
+  for (let c = 0, nc = 1 + ((r() * 2) | 0); c < nc; c++) {   // grupper
+    const cx = inner(16), cy = top + 26 + r() * (h - top - 46);
+    for (let k = 0, n = 2 + ((r() * 3) | 0); k < n; k++) { const rx = 1.8 + r() * 4.4; stone(cx + (r() - 0.5) * 18, cy + (r() - 0.5) * 7, rx, rx * (0.55 + r() * 0.25)); }
+  }
+  for (let i = 0, n = (r() * 3) | 0; i < n; i++) { const rx = 1.4 + r() * 1.8; stone(inner(8), top + 22 + r() * (h - top - 30), rx, rx * 0.7); }   // enkeltstein
+  // røtter fra gresset ned i jorda, med en sidegren
+  g.strokeStyle = hexA(mixHex(T.soilDark, T.ink, 0.3), 0.5); g.lineCap = 'round';
+  for (let i = 0, n = 1 + ((r() * 3) | 0); i < n; i++) {
+    let x = inner(10), y = top + 11; const len = 10 + r() * 24, pts = [[x, y]];
+    for (let k = 0; k < len; k += 3) { x += (r() - 0.5) * 2.6; y += 3; pts.push([x, y]); }
+    g.lineWidth = 1.3; g.beginPath(); pts.forEach(([px, py], k) => (k ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke();
+    const [bx, by] = pts[(pts.length / 2) | 0], sd = r() < 0.5 ? -1 : 1;
+    g.lineWidth = 0.8; g.beginPath(); g.moveTo(bx, by); g.quadraticCurveTo(bx + sd * 4, by + 3, bx + sd * 7, by + 8); g.stroke();
+  }
+  g.fillStyle = hexA(T.soilDark, 0.7);
+  for (let i = 0; i < 8; i++) circle(g, inner(), top + 18 + r() * (h - top - 22), 0.5 + r() * 0.7);
   // stien går inn i bildet: gresset er slitt bort over et stykke
   const path = kind === 'sti' ? [w * 0.32, w * 0.7] : null;
   // gresskant med ujevne buer (8–16 px brede, ulik høyde) som starter og slutter i kantene
@@ -618,10 +654,12 @@ function buildScene(keepSharp = false) {
     const gr = g.createLinearGradient(0, 0, 0, groundY);
     gr.addColorStop(0, T.skyTop); gr.addColorStop(0.55, T.skyMid); gr.addColorStop(1, T.skyBot);
     g.fillStyle = gr; g.fillRect(0, 0, W + 2, groundY + 2);
-    g.fillStyle = T.sunGlow;   // solglød som flate, malte glorier (ingen gradient)
-    for (const [r, a] of [[68, 0.13], [50, 0.2], [35, 0.32]]) { g.globalAlpha = a; inkCircle(g, sx, sy, r - 2, 2, r, 1.2); }
-    g.globalAlpha = 1;
+    // solglød: ett mykt, malt lysskjær som ebber ut (ingen faste ringer); tegnes én gang i himmelbildet
+    const bloom = g.createRadialGradient(sx, sy, 14, sx, sy, T.night ? 64 : 92);
+    bloom.addColorStop(0, T.sunGlow); bloom.addColorStop(0.45, hexA(T.sun, T.night ? 0.07 : 0.16)); bloom.addColorStop(1, hexA(T.sun, 0));
+    g.fillStyle = bloom; g.fillRect(sx - 100, sy - 100, 200, 200);
   }, 0.7);
+  scene.sun = makeSprite(48, 48, g => paintSunMoon(g, 24, 24));   // sol eller måne for denne tiden på døgnet
   scene.vignette = makeSprite(W, H, g => {
     const vg = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.8);
     vg.addColorStop(0, hexA('#000000', 0)); vg.addColorStop(1, T.vignette);
@@ -764,12 +802,13 @@ function foreClumps() {
 }
 function foreClump(g, w, h, kind, seed) {
   const r = rng(seed), TAU = Math.PI * 2, winter = seasonName === 'winter', autumn = seasonName === 'autumn', cx = w / 2;
-  const leaf = winter ? '#E8EEF6' : mixHex(T.grassDark, '#1E3A2A', 0.45), leaf2 = winter ? '#CBD6E4' : mixHex(T.crown, '#2E5A34', 0.4);
+  // lysere og tydeligere silhuetter (mørke, sterkt uskarpe strå så ut som flekker på skjermen)
+  const leaf = winter ? '#E8EEF6' : mixHex(T.grassDark, '#1E3A2A', 0.22), leaf2 = winter ? '#CBD6E4' : mixHex(T.crown, '#2E5A34', 0.2);
   g.lineCap = 'round'; g.lineJoin = 'round';
   if (kind < 0.4) {   // høyt gress
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 7; i++) {
       const x = cx + (r() - 0.5) * 30, len = 34 + r() * 40, lean = (r() - 0.5) * 24;
-      g.strokeStyle = r() < 0.5 ? leaf : leaf2; g.lineWidth = 3 + r() * 2.5;
+      g.strokeStyle = r() < 0.5 ? leaf : leaf2; g.lineWidth = 2.4 + r() * 1.8;
       g.beginPath(); g.moveTo(x, h + 4); g.quadraticCurveTo(x + lean * 0.3, h - len * 0.6, x + lean, h - len); g.stroke();
     }
   } else if (kind < 0.75) {   // bregne: bøyd stilk med småblad
@@ -999,19 +1038,10 @@ function drawSky(groundY) {
       ctx.strokeStyle = sg; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 30, y - 11); ctx.stroke();
     }
   }
-  // myk sol / søvnig halvmåne (ingen harde lysstråler); gløden ligger ferdig i himmelbildet
+  // sol og månesigd som malte flater uten ansikt; gløden ligger ferdig i himmelbildet
   const { sx, sy } = sunPos();
-  ctx.fillStyle = T.sun;
-  if (T.night) {
-    ctx.save(); ctx.beginPath(); ctx.arc(sx, sy, 19, 0, 7); ctx.clip();
-    ctx.beginPath(); ctx.rect(sx - 21, sy - 21, 42, 42); ctx.arc(sx + 8, sy - 5, 16, 0, 7); ctx.fill('evenodd');
-    ctx.restore();
-    ctx.strokeStyle = hexA(T.ink, 0.8); ctx.lineWidth = 1.2; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(sx - 9, sy + 1, 2.2, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();   // lukket øye
-  } else {
-    circle(ctx, sx, sy, 20);
-    ctx.fillStyle = 'rgba(255,255,255,.45)'; circle(ctx, sx - 6, sy - 6, 6);
-  }
+  const S = scene.sun, R = dpr * scale;
+  ctx.drawImage(S.c, Math.round((sx - 24) * R) / R, Math.round((sy - 24) * R) / R, S.w, S.h);   // på hele skjermpiksler (rask kopi)
   // skyer (to lag) og luftballong
   for (const c of clouds) {
     const x = wrap(c.x - viewScroll * c.sp - time * c.drift, W + 260) - 130, S = scene.clouds[c.v];   // margen er bredere enn den største skyen, så ingen sky forsvinner synlig
@@ -1033,6 +1063,22 @@ function drawSky(groundY) {
         ctx.beginPath(); ctx.moveTo(x - 4, y - f); ctx.quadraticCurveTo(x - 2, y - 1, x, y); ctx.quadraticCurveTo(x + 2, y - 1, x + 4, y - f); ctx.stroke();
       });
     }
+  }
+}
+function paintSunMoon(g, x, y) {
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  if (T.night) {   // sigd: hel skive minus en forskjøvet skive, med noen svake «hav» og en tynn mørk kant på innsiden
+    g.save(); g.beginPath(); g.arc(x, y, 19, 0, 7); g.clip();
+    g.beginPath(); g.rect(x - 21, y - 21, 42, 42); g.arc(x + 8, y - 5, 16, 0, 7); g.fillStyle = T.sun; g.fill('evenodd');
+    g.fillStyle = 'rgba(190,170,120,.28)';
+    for (const [dx, dy, r] of [[-11, 2, 3.4], [-6, 10, 2.6], [-13, -6, 1.8], [-2, 14, 1.6]]) { g.beginPath(); g.arc(x + dx, y + dy, r, 0, 7); g.fill(); }
+    g.restore();
+    g.strokeStyle = 'rgba(210,190,140,.55)'; g.lineWidth = 0.8; g.beginPath(); g.arc(x + 8, y - 5, 16, 1.62, 3.98); g.stroke();
+  } else {   // sola: en flat, malt skive med ujevn kant og et litt varmere felt nederst
+    g.fillStyle = T.sun; inkCircle(g, x, y, 20, 1.2, 33, 0.5); g.fill();
+    g.save(); g.beginPath(); g.arc(x, y, 19.5, 0, 7); g.clip();
+    g.fillStyle = hexA(T.sunLow ? '#FFB46A' : '#FFE29A', 0.35); g.beginPath(); g.ellipse(x - 3, y + 12, 22, 10, -0.2, 0, 7); g.fill();
+    paperOn(g, 0.35); g.restore();
   }
 }
 function drawScenery(groundY) {
@@ -1147,11 +1193,12 @@ function paintTrunk(g, marks, ref, dir, y0, y1, seed) {
   g.fillStyle = T.trunkShade; g.fillRect(0, y0, w * 0.2, h);
   g.fillStyle = mixHex(T.trunk, T.trunkShade, 0.5); g.fillRect(w * 0.2, y0, w * 0.1, h); g.fillRect(w - 3.5, y0, 3.5, h);
   // barkmerkene samles i noen få stier etter strektykkelse
-  const byWidth = new Map(), faint = [];
+  const byWidth = new Map(), faint = [], scars = [];
   for (const m of marks) {
     const y = ref + dir * m.d;
     if (dir < 0 ? y < y0 - 4 : y > y1 + 4) break;
     if (m.faint) { faint.push(m.x, y, m.len); continue; }
+    if (m.scar) { scars.push(m.x, y); continue; }
     const lw = m.scar ? 2.4 : Math.round(m.th * 2) / 2;
     if (!byWidth.has(lw)) byWidth.set(lw, []);
     byWidth.get(lw).push(m, y);
@@ -1161,10 +1208,20 @@ function paintTrunk(g, marks, ref, dir, y0, y1, seed) {
     g.lineWidth = lw; g.beginPath();
     for (let i = 0; i < list.length; i += 2) {
       const m = list[i], y = list[i + 1];
-      if (m.scar) { g.moveTo(m.x, y + 3); g.lineTo(m.x + 6, y - 2.5); g.lineTo(m.x + 12, y + 3); }   // «øye» der en gren har sittet
-      else { g.moveTo(m.x, y); g.lineTo(m.x + m.len * 0.5, y + 0.45); g.lineTo(m.x + m.len, y); }   // svak knekk (billigere enn kurve)
+      g.moveTo(m.x, y); g.lineTo(m.x + m.len * 0.5, y + 0.45); g.lineTo(m.x + m.len, y);   // svak knekk (billigere enn kurve)
     }
     g.stroke();
+  }
+  if (scars.length) {   // greinarr («bart»): to avsmalnende kiler som henger ned fra et kvistarr, tykkest inne ved kvisten
+    g.fillStyle = T.bark; g.beginPath();
+    for (let i = 0; i < scars.length; i += 2) {
+      const x = scars[i] + 6, y = scars[i + 1];
+      g.moveTo(x, y - 3.4); g.quadraticCurveTo(x - 4, y - 1.6, x - 7.4, y + 3.6); g.quadraticCurveTo(x - 3.4, y + 0.4, x, y + 0.6);
+      g.quadraticCurveTo(x + 3.4, y + 0.4, x + 7.4, y + 3.6); g.quadraticCurveTo(x + 4, y - 1.6, x, y - 3.4); g.closePath();
+    }
+    g.fill();
+    g.fillStyle = hexA(T.trunkShade, 0.9);
+    for (let i = 0; i < scars.length; i += 2) { g.beginPath(); g.ellipse(scars[i] + 6, scars[i + 1] - 1.4, 1.2, 0.9, 0, 0, 7); g.fill(); }   // selve kvistarret
   }
   if (faint.length) {   // lenticeller
     g.fillStyle = hexA(T.bark, 0.42); g.beginPath();
@@ -1729,26 +1786,167 @@ function drawParticles() {
     } else circle(ctx, x, y, q.r);
   }
   ctx.globalAlpha = 1;
-  for (const f of floats) text(f.txt, f.x, f.y, f.size, { color: f.color, alpha: clamp(f.life / 0.3, 0, 1), stroke: f.stroke, shadow: !f.stroke });
+  for (const f of floats) {
+    const a = clamp(f.life / 0.3, 0, 1);
+    if (f.style === 'stitch' && canStitch(f.txt)) { ctx.save(); ctx.globalAlpha = a; stitchHeading(f.txt, f.x, f.y, f.size / 7.5, 'gold'); ctx.restore(); }
+    else if (f.style === 'tag') tag(f.txt, f.x, f.y, { size: 11, alpha: a });
+    else text(f.txt, f.x, f.y, f.size, { color: f.color, alpha: a, stroke: f.stroke, shadow: !f.stroke });
+  }
 }
 
 /* ---------- Brukergrensesnitt ---------- */
 // stabilt frø fra en tekst (samme knapp får samme strek hvert bilde)
 function seedOf(str) { let h = 7; for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; }
+// knapp: en kort treplanke med årer, fas og treplugger; teksten er brent inn i treet. Hovedvalget
+// (standard) er malt i rød linoljemaling, som gamle kubbestoler og stabbursdører; resten er umalt furu.
 function button(key, x, y, w, h, label, fn, opts = {}) {
-  const { fill = '#FFD27A', color = '#4A3424', size = 13, active = true } = opts;
+  const { fill = null, size = 14 } = opts;
+  plank(key, x, y, w, h, label, fn, { paint: fill === null ? PAINT_RED : null, size });
+}
+const PAINT_RED = { body: '#A8432F', text: '#F7E9D2' };
+function plank(key, x, y, w, h, label, fn, opts = {}) {
+  const { paint = null, size = 14, arrow = 0, peg = null } = opts;
   hud[key] = { x, y, w, h, fn };
   const pk = press.key === key ? (time - press.t) / 0.22 : 1;   // kort klem ved trykk
-  ctx.save();
-  if (pk < 1 && !reduceMotion) { const s = 1 - 0.08 * Math.sin(Math.PI * pk); ctx.translate(x + w / 2, y + h / 2); ctx.scale(s, s); ctx.translate(-x - w / 2, -y - h / 2); }
-  ctx.fillStyle = hexA(UI_INK, 0.25); rr(x, y + 3, w, h, h / 2); ctx.fill();
-  ctx.fillStyle = active ? UI_INK : hexA(UI_INK, 0.45); inkRR(ctx, x, y, w, h, h / 2, 1.6, seedOf(key), 0.32);
-  ctx.fillStyle = active ? fill : '#F4ECDF'; rr(x, y, w, h, h / 2); ctx.fill();
-  if (active) {   // flat, litt mørkere underkant (ett tonetrinn) i stedet for blank glans
-    ctx.save(); rr(x, y, w, h, h / 2); ctx.clip(); ctx.fillStyle = hexA(UI_INK, 0.1); rr(x - 2, y + h * 0.66, w + 4, h, h / 2); ctx.fill(); ctx.restore();
-  }
-  text(label, x + w / 2, y + h / 2 + 0.5, size, { color: active ? color : hexA(UI_INK, 0.75), shadow: false, weight: 600 });
+  const L = cachedSurface('planke', Math.ceil(w), Math.ceil(h), seedOf(key), `${label}|${paint ? 1 : 0}|${arrow}|${size}|${peg === null ? '' : Math.round(peg - x)}`,
+    (px, py) => paintPlank(px, py, w, h, label, size, paint, arrow, peg === null ? null : px + (peg - x), seedOf(key)));
+  if (pk >= 1 || reduceMotion) return blitSurface(L, x, y);
+  const s = 1 - 0.07 * Math.sin(Math.PI * pk);
+  ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.scale(s, s); ctx.translate(-x - w / 2, -y - h / 2);
+  ctx.drawImage(L.c, x - L.pad, y - L.pad, L.w, L.h);
   ctx.restore();
+}
+// plankens omriss: litt skjeve, avfasede ender; arrow = -1 eller 1 gir en spiss ende (veiviser)
+function plankPath(x, y, w, h, arrow, seed) {
+  const r = rng(seed), j = () => (r() - 0.5) * 1.2, c = 2.5, tip = h * 0.45;
+  ctx.beginPath();
+  if (arrow < 0) { ctx.moveTo(x, y + h / 2); ctx.lineTo(x + tip, y + j()); } else { ctx.moveTo(x + j() * 0.5, y + c); ctx.lineTo(x + c, y + j()); }
+  ctx.lineTo(x + w - (arrow > 0 ? tip : c), y + j());
+  if (arrow > 0) ctx.lineTo(x + w, y + h / 2); else { ctx.lineTo(x + w + j() * 0.5, y + c); ctx.lineTo(x + w + j() * 0.5, y + h - c); }
+  ctx.lineTo(x + w - (arrow > 0 ? tip : c), y + h + j());
+  if (arrow < 0) ctx.lineTo(x + tip, y + h + j()); else { ctx.lineTo(x + c, y + h + j()); ctx.lineTo(x + j() * 0.5, y + h - c); }
+  ctx.closePath();
+}
+function peg(x, y) {   // treplugg: endeved med en mørk ring
+  ctx.fillStyle = '#9A7A55'; circle(ctx, x, y, 2.2);
+  ctx.strokeStyle = 'rgba(60,35,20,.55)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.arc(x, y, 2.2, 0, 7); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,240,215,.45)'; circle(ctx, x - 0.6, y - 0.7, 0.8);
+}
+function paintPlank(x, y, w, h, label, size, paint, arrow, pegX, seed) {
+  const R = dpr * scale;
+  ctx.save(); ctx.translate(0, 3); ctx.fillStyle = hexA(UI_INK, 0.28); plankPath(x, y, w, h, arrow, seed); ctx.fill(); ctx.restore();   // skygge
+  plankPath(x, y, w, h, arrow, seed); ctx.fillStyle = paint ? paint.body : WOOD.a; ctx.fill();
+  ctx.save(); ctx.clip();
+  const r = rng(seed + 9);
+  ctx.strokeStyle = paint ? 'rgba(60,20,10,.16)' : WOOD.grain; ctx.lineWidth = 0.8;   // årer
+  for (let k = 0; k < 4; k++) {
+    const gy = y + 3 + r() * (h - 6), f = 0.04 + r() * 0.04, p0 = r() * 6;
+    ctx.beginPath(); ctx.moveTo(x, gy); for (let xx = x; xx <= x + w + 8; xx += 8) ctx.lineTo(xx, gy + Math.sin(xx * f + p0) * 1.1); ctx.stroke();
+  }
+  if (r() < 0.6) { ctx.fillStyle = paint ? 'rgba(60,20,10,.18)' : WOOD.knot; ctx.beginPath(); ctx.ellipse(x + 10 + r() * (w - 20), y + h * (0.3 + r() * 0.4), 3.4, 1.7, 0, 0, 7); ctx.fill(); }   // kvist
+  if (paint) {   // slitt maling: treet skinner gjennom på kantene, der hendene tar
+    ctx.fillStyle = hexA(WOOD.a, 0.5);
+    for (let k = 0; k < 7; k++) { const ex = r() < 0.5 ? x + r() * 9 : x + w - r() * 9, ey = y + r() * h; ctx.beginPath(); ctx.ellipse(ex, ey, 0.8 + r() * 2.2, 0.5 + r() * 0.9, 0, 0, 7); ctx.fill(); }
+  }
+  ctx.fillStyle = 'rgba(255,245,225,.35)'; ctx.fillRect(x - 2, y, w + 4, 1.6);          // fas: lys overkant
+  ctx.fillStyle = 'rgba(70,40,20,.22)'; ctx.fillRect(x - 2, y + h - 2.6, w + 4, 2.6);   // og mørkere underkant
+  paperOn(ctx, 0.3);
+  ctx.restore();
+  plankPath(x, y, w, h, arrow, seed); ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.stroke();
+  if (pegX !== null) peg(pegX, y + h / 2);
+  else if (!arrow) { peg(x + 6.5, y + h / 2); peg(x + w - 6.5, y + h / 2); }
+  // teksten: malt med kremfarge på den røde planken, brent inn i det umalte treet
+  const tx = x + w / 2 - arrow * h * 0.18 + (pegX === null ? 0 : (pegX < x + w / 2 ? 4 : -4)), ty = y + h / 2 + 0.5;
+  ctx.font = `700 ${size}px Fredoka, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (paint) { ctx.fillStyle = paint.text; ctx.fillText(label, tx, ty); }
+  else {
+    ctx.save(); ctx.shadowColor = 'rgba(120,60,20,.6)'; ctx.shadowBlur = 2.2 * R; ctx.fillStyle = '#4E321C'; ctx.fillText(label, tx, ty); ctx.restore();
+    ctx.fillStyle = '#5A3A22'; ctx.fillText(label, tx, ty);
+  }
+}
+/* ---------- Merkelapper og papirlapper (i stedet for konturtekst) ---------- */
+// pappmerkelapp (som på en gammel koffert): avklippede hjørner, hull med ring og hyssing opp til et feste
+const KRAFT = { body: '#DCC096', fibre: 'rgba(120,85,45,.2)', text: '#4A3628' };
+function tagSize(txt, size) { ctx.font = `700 ${size}px Fredoka, system-ui, sans-serif`; return { w: Math.ceil(ctx.measureText(txt).width) + 26, h: Math.round(size * 1.7) }; }
+function tag(txt, x, y, opts = {}) {   // (x, y) = midt på lappen
+  const { size = 11, ax = null, ay = null, tilt = null, alpha = 1 } = opts, { w, h } = tagSize(txt, size), seed = seedOf(txt);
+  const rot = +(tilt === null ? ((seed % 7) - 3) * 0.012 : tilt).toFixed(3), hx = x - w / 2 + 7;
+  const L = cachedSurface('lapp', w, h, seed, `${txt}|${size}|${rot}`, (px, py) => tilted(px, py, w, h, rot, () => paintTag(px, py, w, h, txt, size, seed)));
+  ctx.save(); ctx.globalAlpha *= alpha;
+  if (ax !== null) {   // hyssing fra festet ned til hullet, med et lite heng
+    ctx.strokeStyle = '#8A6A44'; ctx.lineWidth = 1; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(ax, ay);
+    ctx.quadraticCurveTo((ax + hx) / 2, Math.max(ay, y) + 4, hx, y); ctx.stroke();
+  }
+  blitSurface(L, x - w / 2, y - h / 2);
+  ctx.restore();
+}
+// tegn noe som står litt skjevt (rundt midten av w × h); hellingen ligger i det ferdige bildet, så det kopieres rett over
+function tilted(x, y, w, h, rot, draw) {
+  ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(rot); ctx.translate(-x - w / 2, -y - h / 2); draw(); ctx.restore();
+}
+function paintTag(x, y, w, h, txt, size, seed) {
+  const c = 5, path = () => { ctx.beginPath(); ctx.moveTo(x + c, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + h); ctx.lineTo(x + c, y + h); ctx.lineTo(x, y + h - c); ctx.lineTo(x, y + c); ctx.closePath(); };
+  ctx.save(); ctx.translate(0, 2); ctx.fillStyle = hexA(UI_INK, 0.22); path(); ctx.fill(); ctx.restore();
+  path(); ctx.fillStyle = KRAFT.body; ctx.fill();
+  ctx.save(); ctx.clip(); const r = rng(seed);
+  ctx.strokeStyle = KRAFT.fibre; ctx.lineWidth = 0.6; ctx.beginPath();
+  for (let i = 0; i < w * 0.6; i++) { const fx = x + r() * w, fy = y + r() * h, a = r() * 6; ctx.moveTo(fx, fy); ctx.lineTo(fx + Math.cos(a) * 2.5, fy + Math.sin(a) * 1.2); }
+  ctx.stroke(); paperOn(ctx, 0.4); ctx.restore();
+  path(); ctx.strokeStyle = hexA(UI_INK, 0.85); ctx.lineWidth = 1.1; ctx.stroke();
+  ctx.fillStyle = '#F3E6CF'; circle(ctx, x + 7, y + h / 2, 3); ctx.strokeStyle = hexA(UI_INK, 0.6); ctx.lineWidth = 0.7; ctx.beginPath(); ctx.arc(x + 7, y + h / 2, 3, 0, 7); ctx.stroke();   // forsterkningsring
+  ctx.fillStyle = hexA(UI_INK, 0.75); circle(ctx, x + 7, y + h / 2, 1.3);   // hullet
+  ctx.font = `700 ${size}px Fredoka, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = KRAFT.text; ctx.fillText(txt, x + 14 + (w - 14) / 2 - 1, y + h / 2 + 0.5);
+}
+// papirlapp: en revet stripe lyst papir med blekktekst (hint, stedsnavn, undertitler)
+function paperLabel(txt, x, y, opts = {}) {   // (x, y) = midt på lappen
+  const { size = 12, alpha = 1, tilt = null } = opts;
+  ctx.font = `600 ${size}px Fredoka, system-ui, sans-serif`;
+  const w = Math.ceil(ctx.measureText(txt).width) + 22, h = Math.round(size * 1.75), seed = seedOf(txt) + 3;
+  const rot = +(tilt === null ? ((seed % 9) - 4) * 0.008 : tilt).toFixed(3);
+  const L = cachedSurface('papir', w, h, seed, `${txt}|${size}|${rot}`, (px, py) => tilted(px, py, w, h, rot, () => paintPaper(px, py, w, h, txt, size, seed)));
+  const a = ctx.globalAlpha; ctx.globalAlpha = a * alpha; blitSurface(L, x - w / 2, y - h / 2); ctx.globalAlpha = a;
+}
+function paintPaper(x, y, w, h, txt, size, seed) {
+  const r = rng(seed), path = () => {   // rette langsider, revne korte ender
+    ctx.beginPath(); ctx.moveTo(x + 2, y);
+    ctx.lineTo(x + w - 2, y); for (let yy = y; yy <= y + h; yy += 2.2) ctx.lineTo(x + w - 2 + (r() - 0.3) * 2.6, yy);
+    ctx.lineTo(x + 2, y + h); for (let yy = y + h; yy >= y; yy -= 2.2) ctx.lineTo(x + 2 - (r() - 0.3) * 2.6, yy);
+    ctx.closePath();
+  };
+  ctx.save(); ctx.translate(0.5, 2); ctx.fillStyle = hexA(UI_INK, 0.2); path(); ctx.fill(); ctx.restore();
+  path(); ctx.fillStyle = '#FBF4E4'; ctx.fill();
+  ctx.save(); ctx.clip(); paperOn(ctx, 0.6); ctx.fillStyle = 'rgba(200,170,120,.12)'; ctx.fillRect(x, y + h - 3, w, 3); ctx.restore();
+  ctx.font = `600 ${size}px Fredoka, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = UI_INK; ctx.fillText(txt, x + w / 2, y + h / 2 + 0.5);
+}
+// veiviser i menyen: en stolpe med fire pilplanker (vanskelighetene); den valgte er malt rød, som merkingen langs
+// stiene. Hele veiviseren tegnes som ett bilde (per valg og rekord); trykkflatene registreres hvert bilde.
+function drawSignpost(groundY) {
+  const px = W - 74, ph = 25, gap = 7, keys = Object.keys(DIFFS), top = Math.round(Math.max(safeTop + 150, groundY * 0.5));
+  const bottom = top + keys.length * (ph + gap);
+  const rows = keys.map((k, i) => { const dir = i % 2 ? 1 : -1, w = 84; return { k, dir, w, y: top + i * (ph + gap), x: dir > 0 ? px - 12 : px - w + 12 }; });
+  for (const r of rows) hud['d_' + r.k] = { x: r.x, y: r.y, w: r.w, h: ph, fn: () => setDiff(r.k) };
+  const txt = D.zen ? 'Zen: bare kos' : best > 0 ? `Beste: ${best}` : 'Ingen rekord ennå', tw = tagSize(txt, 10).w;
+  signpostPole(px, top, groundY);
+  // bildet dekker bare plankene og lappen (stolpen ned til bakken er noen få streker og tegnes direkte)
+  const x0 = Math.floor(Math.min(px - 76, px - tw - 2)), y0 = top - 4, w = px + 76 - x0, h = bottom + 26 - y0;
+  const L = cachedSurface('veiviser', w, h, 5, `${diffName}|${txt}|${top}`, (ox, oy) => {
+    ctx.save(); ctx.translate(ox - x0, oy - y0); paintSignpost(px, bottom, rows, ph, txt, tw); ctx.restore();
+  });
+  blitSurface(L, x0, y0);
+}
+function signpostPole(px, top, groundY) {
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.fillStyle = hexA(UI_INK, 0.22); ctx.beginPath(); ctx.ellipse(px + 2, groundY + 3, 9, 2.4, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#9C7A55'; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(px - 3.5, groundY + 3); ctx.lineTo(px - 3.5, top - 6); ctx.lineTo(px, top - 11); ctx.lineTo(px + 3.5, top - 6); ctx.lineTo(px + 3.5, groundY + 3); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(70,40,20,.3)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(px - 1, top); ctx.lineTo(px - 1, groundY); ctx.stroke();
+}
+function paintSignpost(px, bottom, rows, ph, txt, tw) {
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const r of rows) paintPlank(r.x, r.y, r.w, ph, DIFFS[r.k].label, 12, r.k === diffName ? PAINT_RED : null, r.dir, px, seedOf('d_' + r.k));
+  tag(txt, px - 6 - tw / 2 + 8, bottom + 12, { size: 10, ax: px - 3, ay: bottom - 4 });
 }
 // kremfarget panel med «strikkesøm» innenfor kanten
 function panel(x, y, w, h) {
@@ -1767,8 +1965,8 @@ function nail(x, y) { ctx.fillStyle = '#6B5A4C'; circle(ctx, x, y, 2.1); ctx.fil
 // skilt av liggende furuplanker med årer, kvister, fuger, spikre i hjørnene og (valgfritt) malt rosemaling
 // skiltet og neveret er like hvert bilde: de tegnes én gang per størrelse og gjenbrukes (som et bilde)
 const surfaceCache = new Map();
-function cachedSurface(kind, w, h, seed, opt, draw) {
-  const R = dpr * scale, key = `${kind}|${w}|${h}|${seed}|${opt}|${R}`, pad = 12;
+function cachedSurface(kind, w, h, seed, opt, draw, pad = 12) {
+  const R = dpr * scale, key = `${kind}|${w}|${h}|${seed}|${opt}|${R}`;
   let L = surfaceCache.get(key);
   if (!L) {
     L = makeSprite(w + pad * 2, h + pad * 2, g => { const old = ctx; ctx = g; try { draw(pad, pad); } finally { ctx = old; } });
@@ -1776,9 +1974,14 @@ function cachedSurface(kind, w, h, seed, opt, draw) {
   }
   return L;
 }
+// tegn et ferdig bilde med øvre venstre hjørne (innenfor margen) i (x, y), lagt på hele skjermpiksler: uten skalering,
+// rotasjon og halve piksler kan nettleseren kopiere pikslene rett over i stedet for å filtrere hvert av dem
+function blitSurface(L, x, y) {
+  const R = dpr * scale;
+  ctx.drawImage(L.c, Math.round((x - L.pad) * R) / R, Math.round((y - L.pad) * R) / R, L.w, L.h);
+}
 function woodSign(x, y, w, h, seed, rose = true) {
-  const L = cachedSurface('wood', w, h, seed, rose, (px, py) => paintWoodSign(px, py, w, h, seed, rose));
-  ctx.drawImage(L.c, x - L.pad, y - L.pad, L.w, L.h);
+  blitSurface(cachedSurface('wood', w, h, seed, rose, (px, py) => paintWoodSign(px, py, w, h, seed, rose)), x, y);
 }
 function paintWoodSign(x, y, w, h, seed, rose) {
   const r = rng(seed);
@@ -1916,19 +2119,18 @@ function drawEgg(x, y) {
   ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(-5, -9, 2.2, 4, 0.3, 0, 7); ctx.fill();
   ctx.restore();
 }
+// aktive power-ups: merkelapper med navnet; en rød tråd langs underkanten viser hvor mye tid som er igjen
 function drawActiveHud(y) {
   const items = [];
   if (active.shield) items.push(['shield', 1]);
   if (active.slow > 0) items.push(['slow', active.slow / POWERS.slow.dur]);
   if (active.double > 0) items.push(['double', active.double / POWERS.double.dur]);
-  const w = 120, h = 20; let yy = y;
+  let yy = y + 10;
   for (const [k, frac] of items) {
-    const P = POWERS[k], x = (W - w) / 2;
-    ctx.fillStyle = hexA(UI_INK, 0.38); rr(x, yy, w, h, h / 2); ctx.fill();
-    ctx.save(); rr(x, yy, w, h, h / 2); ctx.clip(); ctx.fillStyle = P.color; ctx.fillRect(x, yy, w * frac, h); ctx.restore();
-    ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.4; rr(x, yy, w, h, h / 2); ctx.stroke();
-    text(P.label, x + w / 2, yy + h / 2 + 0.5, 11, { shadow: false, weight: 600, stroke: true });
-    yy += h + 6;
+    const P = POWERS[k], { w, h } = tagSize(P.label, 11), x0 = W / 2 - w / 2;
+    tag(P.label, W / 2, yy, { size: 11, tilt: 0 });
+    if (frac < 1) { const pts = []; for (let x = x0 + 14; x <= x0 + 14 + (w - 20) * frac; x += 2) pts.push({ x, y: yy + h / 2 - 3 }); if (pts.length > 1) runningStitch(pts, '#C0392B', 41); }
+    yy += h + 8;
   }
 }
 // garderoben: rutenett med pynt; låst pynt vises gjennomsiktig med krav
@@ -1967,15 +2169,8 @@ function drawWardrobe(groundY) {
   for (let i = 0; i < pages; i++) { ctx.fillStyle = i === page ? UI_INK : hexA(UI_INK, 0.25); circle(ctx, W / 2 + (i - (pages - 1) / 2) * 12, ny, 3.2); }
   button('w_done', (W - 120) / 2, py + ph + 14, 120, 36, 'Ferdig', () => { wardrobe = false; }, { size: 15 });
 }
-function arrowButton(key, x, y, w, h, dir, fn) {
-  hud[key] = { x, y, w, h, fn };
-  const pk = press.key === key ? (time - press.t) / 0.22 : 1, s = pk < 1 && !reduceMotion ? 1 - 0.1 * Math.sin(Math.PI * pk) : 1;
-  ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.scale(s, s);
-  ctx.fillStyle = UI_INK; inkRR(ctx, -w / 2, -h / 2, w, h, h / 2, 1.4, seedOf(key), 0.3);
-  ctx.fillStyle = '#FFF1D6'; rr(-w / 2, -h / 2, w, h, h / 2); ctx.fill();
-  ctx.fillStyle = UI_INK; ctx.lineJoin = 'round'; ctx.beginPath();
-  ctx.moveTo(dir * 5, 0); ctx.lineTo(-dir * 3, -5); ctx.lineTo(-dir * 3, 5); ctx.closePath(); ctx.fill();
-  ctx.restore();
+function arrowButton(key, x, y, w, h, dir, fn) {   // små trestykker med en pil, som de andre ikonknappene
+  logButton(key, x + w / 2, y + h / 2, h / 2 + 2, dir < 0 ? ICONS.left : ICONS.right, fn);
 }
 // ikonknapp: et rundt trestykke (som snittflaten på stammene) med bark, årringer og et tegnet ikon
 function logButton(key, cx, cy, r, icon, fn, on = true) {
@@ -1984,6 +2179,7 @@ function logButton(key, cx, cy, r, icon, fn, on = true) {
   // trestykket er likt hvert bilde (per ikon og av/på): tegnes én gang og gjenbrukes
   // flaten er hele trestykket (2r × 2r); skyggen under får plass i kanten rundt
   const L = cachedSurface('log', r * 2, r * 2, seedOf(key), `${icon.name}|${on}`, (px, py) => paintLog(px + r, py + r, r, icon, on, seedOf(key)));
+  if (sc === 1) return blitSurface(L, cx - r, cy - r);
   ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.drawImage(L.c, -r - L.pad, -r - L.pad, L.w, L.h); ctx.restore();
 }
 function paintLog(cx, cy, r, icon, on, seed) {
@@ -2011,8 +2207,33 @@ const ICONS = {
   moon: k => {   // sigd: hel sirkel minus en forskjøvet sirkel, klippet til den første
     ctx.save(); ctx.beginPath(); ctx.arc(0, 0, k * 0.78, 0, 7); ctx.clip();
     ctx.beginPath(); ctx.rect(-k, -k, k * 2, k * 2); ctx.arc(k * 0.42, -k * 0.22, k * 0.62, 0, 7); ctx.fill('evenodd'); ctx.restore(); },
-  pause: k => { rr(-k * 0.5, -k * 0.6, k * 0.32, k * 1.2, 1.5); ctx.fill(); rr(k * 0.18, -k * 0.6, k * 0.32, k * 1.2, 1.5); ctx.fill(); }
+  pause: k => { rr(-k * 0.5, -k * 0.6, k * 0.32, k * 1.2, 1.5); ctx.fill(); rr(k * 0.18, -k * 0.6, k * 0.32, k * 1.2, 1.5); ctx.fill(); },
+  left: k => { ctx.beginPath(); ctx.moveTo(-k * 0.5, 0); ctx.lineTo(k * 0.32, -k * 0.62); ctx.lineTo(k * 0.32, k * 0.62); ctx.closePath(); ctx.fill(); },
+  right: k => { ctx.beginPath(); ctx.moveTo(k * 0.5, 0); ctx.lineTo(-k * 0.32, -k * 0.62); ctx.lineTo(-k * 0.32, k * 0.62); ctx.closePath(); ctx.fill(); },
+  hat: k => {   // strikkelue med dusk og mønsterbord (garderoben)
+    circle(ctx, 0, -k * 0.86, k * 0.2);
+    ctx.beginPath(); ctx.moveTo(-k * 0.62, k * 0.12); ctx.quadraticCurveTo(-k * 0.62, -k * 0.7, 0, -k * 0.7); ctx.quadraticCurveTo(k * 0.62, -k * 0.7, k * 0.62, k * 0.12); ctx.closePath(); ctx.fill();
+    rr(-k * 0.72, k * 0.12, k * 1.44, k * 0.46, 2); ctx.stroke();
+    ctx.lineWidth = 1.1; ctx.beginPath(); for (let i = 0; i <= 6; i++) { const x = -k * 0.6 + i * k * 0.2; ctx[i ? 'lineTo' : 'moveTo'](x, k * (i % 2 ? 0.24 : 0.46)); } ctx.stroke();
+  }
 };
+// strikket vott som trykker (hintet på «Klar?»): lusekofte-mønster, vrangbord og tommel
+function mitten(x, y, press) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(-0.25); ctx.scale(1 - press * 0.04, 1 + press * 0.04);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.fillStyle = hexA(UI_INK, 0.2); ctx.beginPath(); ctx.ellipse(1, 15, 9, 3, 0, 0, 7); ctx.fill();
+  const body = () => { ctx.beginPath(); ctx.moveTo(-7, 8); ctx.lineTo(-7.5, -6); ctx.quadraticCurveTo(-7.5, -15, 0, -15); ctx.quadraticCurveTo(7.5, -15, 7.5, -6); ctx.lineTo(7, 8); ctx.closePath(); };
+  ctx.fillStyle = '#FBF6EE'; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.ellipse(-8.5, -1, 3, 5, -0.5, 0, 7); ctx.fill(); ctx.stroke();   // tommel
+  body(); ctx.fill(); ctx.stroke();
+  ctx.save(); body(); ctx.clip();
+  ctx.fillStyle = '#B5503C'; for (let yy = -11; yy < 6; yy += 4.4) for (let xx = -6 + ((yy / 4.4) & 1) * 2; xx < 7; xx += 4) circle(ctx, xx, yy, 0.9);   // lusekofte-prikker
+  ctx.fillStyle = '#2C4F7A'; ctx.fillRect(-8, -4.5, 16, 1.4);
+  ctx.restore();
+  ctx.fillStyle = '#B5503C'; rr(-8, 7, 16, 6, 2); ctx.fill(); ctx.stroke();   // vrangbord
+  ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 0.8; ctx.beginPath(); for (let xx = -6; xx <= 6; xx += 2.4) { ctx.moveTo(xx, 8.5); ctx.lineTo(xx, 11.5); } ctx.stroke();
+  ctx.restore();
+}
 function drawPauseButton(x, y, s) {
   logButton('pause', x + s / 2, y + s / 2, s / 2, ICONS.pause, pauseGame);
 }
@@ -2020,7 +2241,7 @@ function drawPauseOverlay(groundY) {
   ctx.fillStyle = 'rgba(40,28,50,.38)'; ctx.fillRect(0, 0, W, H);
   if (resumeT > 0) {   // nedtelling 3-2-1 før spillet fortsetter
     const n = Math.ceil(resumeT / 0.5), f = (resumeT % 0.5) / 0.5, pop = 1 + f * f * 0.5;
-    ctx.save(); ctx.translate(W / 2, groundY * 0.42); ctx.scale(pop, pop); text(String(n), 0, 0, 56, { color: '#FFD27A', alpha: 0.4 + 0.6 * (1 - f * f), stroke: true }); ctx.restore();
+    ctx.save(); ctx.translate(W / 2, groundY * 0.42); ctx.scale(pop, pop); stitchHeading(String(n), 0, 0, 6, 'gold', 0.4 + 0.6 * (1 - f * f)); ctx.restore();   // brodert nedtelling
     return;
   }
   const cy = groundY * 0.36, bw = 120, bh = 38, y = cy + 40;
@@ -2213,43 +2434,38 @@ function render() {
   if (state === State.MENU) {
     const ty = topY + 40 + (reduceMotion ? 0 : keyframes([[0, -22], [0.6, 0, 'back']], menuT));   // faller på plass når menyen åpnes, står så stille
     const LG = scene.logo; ctx.drawImage(LG.c, Math.round(W / 2 - LG.w / 2), ty - 24, LG.w, LG.h);
-    text(`${SEASONS[seasonName].label} i bjørkeskogen`, W / 2, ty + 34, 13, { weight: 600, stroke: true, shadow: false });
+    paperLabel(`${SEASONS[seasonName].label} i bjørkeskogen`, W / 2, ty + 36, { size: 12 });
     if (wardrobe) { drawWardrobe(groundY); return finishFrame(groundY); }
-    text('Trykk for å flakse', W / 2, groundY * 0.58, 15, { weight: 600, stroke: true });
-    if (D.zen) text('Zen: ingen poengjag – bare kos', W / 2, groundY * 0.58 + 24, 12, { weight: 600, color: '#BFE6D9', stroke: true });
-    else if (best > 0) text(`Beste (${D.label.toLowerCase()}): ${best}`, W / 2, groundY * 0.58 + 24, 12, { weight: 600, color: '#FFD27A', stroke: true });
-    const bw = 62, bh = 30, gapX = 6, total = bw * 4 + gapX * 3, x0 = (W - total) / 2, y0 = groundY * 0.58 + 52;
-    text('Vanskelighet', W / 2, y0 - 12, 11, { weight: 600, stroke: true, shadow: false });
-    let i = 0;
-    for (const k in DIFFS) { const on = k === diffName; button('d_' + k, x0 + i * (bw + gapX), y0, bw, bh, DIFFS[k].label, () => setDiff(k), { fill: DIFFS[k].color, active: on, size: 12 }); i++; }
-    button('wardrobe', (W - 132) / 2, y0 + bh + 12, 132, 28, 'Garderobe', () => { wardrobe = true; wardrobePage = Math.floor(COSMETICS.findIndex(c => c.id === wear) / WARDROBE_PAGE); }, { fill: '#D9C6F7', size: 12 });
-    const y3 = groundY + 46;   // tre trestykker nede til venstre, litt forskjøvet i høyden
+    // asymmetrisk: hintet til venstre under fuglen, veiviseren med vanskelighetene til høyre
+    paperLabel('Trykk for å flakse', 78, groundY * 0.42 + 42, { size: 13 });
+    drawSignpost(groundY);
+    const y3 = groundY + 46;   // fire trestykker nede til venstre, litt forskjøvet i høyden
     logButton('sound', 34, y3, 19, ICONS.sound, () => Sound.toggleSfx(), !Sound.sfxMuted);
     logButton('music', 80, y3 + 6, 19, ICONS.music, () => Sound.toggleMusic(), !Sound.musMuted);
     logButton('theme', 126, y3 - 2, 19, themeName === 'day' ? ICONS.sun : ICONS.moon, toggleTheme);
+    logButton('wardrobe', 172, y3 + 4, 19, ICONS.hat, () => { wardrobe = true; wardrobePage = Math.floor(COSMETICS.findIndex(c => c.id === wear) / WARDROBE_PAGE); });
   }
 
   if (state === State.READY) {
     stitchHeading('Klar?', W / 2, topY + 40, 3.8, 'gold');
-    text(D.label, W / 2, topY + 70, 13, { weight: 600, color: D.color, stroke: true, shadow: false });
-    text('Fra fjellet hjem til hytta', W / 2, topY + 90, 12, { weight: 600, color: '#FFF1D6', stroke: true, shadow: false });
-    const hy = groundY * 0.42 + 30 + (reduceMotion ? 0 : loopKeys([[0, 0], [0.55, 0], [0.64, 4, 'in'], [0.8, 0, 'out'], [1.2, 0]], time));   // trykker, venter, trykker
-    ctx.fillStyle = '#FFF8EC'; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.5; rr(W / 2 + 36, hy, 20, 30, 10); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = UI_INK; rr(W / 2 + 44, hy + 5, 4, 10, 2); ctx.fill();
-    text('Trykk', W / 2, groundY * 0.42 + 80, 14, { weight: 600, stroke: true });
+    paperLabel(`${D.label} – fra fjellet hjem til hytta`, W / 2, topY + 76, { size: 12 });
+    const press = reduceMotion ? 0 : loopKeys([[0, 0], [0.55, 0], [0.64, 1, 'in'], [0.8, 0, 'out'], [1.2, 0]], time);   // trykker, venter, trykker
+    mitten(W / 2 + 44, groundY * 0.42 + 26 + press * 4, press);
+    paperLabel('Trykk', W / 2 + 44, groundY * 0.42 + 70, { size: 13 });
   }
 
   if (state === State.PLAY || state === State.DEAD) {
-    const ds = time - scoreT, pop = ds < 0.8 && !reduceMotion ? 1 + 0.45 * Math.exp(-ds * 7) * Math.cos(ds * 22) : 1;
-    ctx.save(); ctx.translate(W / 2, topY + 16); ctx.scale(pop, pop); text(String(score), 0, 0, 40, { stroke: true }); ctx.restore();
+    // poengtallet er brodert som logoen; et nytt poeng «sys inn» med et kort støt (nøkkelbilder, ingen vibring)
+    const ds = time - scoreT, pop = reduceMotion ? 1 : keyframes([[0, 1.3], [0.16, 0.95, 'out'], [0.3, 1, 'inOut']], ds);
+    ctx.save(); ctx.translate(W / 2, topY + 16); ctx.scale(pop, pop); stitchHeading(String(score), 0, 0, 4.2, 'gold'); ctx.restore();
     // et nytt sted på veien hjem: navnet står kort under poengene (skiltet står i verden)
     const pk = time - placeT, showPlace = placeIdx > 0 && pk < 3 && !home;
-    if (showPlace) text(ROUTE[placeIdx].name, W / 2, topY + 46, 13, { weight: 600, stroke: true, shadow: false, color: '#FFF1D6', alpha: Math.min(1, pk * 4, (3 - pk) * 2) });
-    drawActiveHud(topY + 46 + (showPlace ? 18 : 0));
+    if (showPlace) paperLabel(ROUTE[placeIdx].name, W / 2, topY + 50, { size: 12, alpha: Math.min(1, pk * 4, (3 - pk) * 2) });
+    drawActiveHud(topY + 50 + (showPlace ? 24 : 0));
     if (home && home.phase === 'rest') {
       const hy = Math.max(topY + 90, groundY * 0.32);   // under månen og sola
       stitchHeading('Hjemme!', W / 2, hy, 3.4, 'gold', Math.min(1, home.t * 3));
-      if (home.t > 0.9) text('Trykk for å fly videre', W / 2, hy + 34, 14, { weight: 600, stroke: true, alpha: Math.min(1, (home.t - 0.9) * 3) });
+      if (home.t > 0.9) paperLabel('Trykk for å fly videre', W / 2, hy + 36, { size: 13, alpha: Math.min(1, (home.t - 0.9) * 3) });
     }
     if (state === State.PLAY && !paused) drawPauseButton(W - 46, safeTop + 12, 34);
   }
@@ -2267,12 +2483,12 @@ function render() {
     stitchHeading(overTitle, 0, 0, 3.4, newBest ? 'gold' : 'coral', Math.min(1, tk * 2));
     ctx.restore();
     woodSign(pxx, py, pw, ph, 2024);
-    if (unlocked.length && overT > 1) {   // ny pynt låst opp: et lite bånd over tittelen
-      const uk = Math.min(1, (overT - 1) / 0.4), us = reduceMotion ? 1 : easeOutBack(uk), label = `Ny pynt: ${unlocked.map(c => c.label).join(', ')}!`;
-      ctx.save(); ctx.translate(W / 2, py - 72); ctx.scale(us, us);
-      ctx.font = '600 12px Fredoka, system-ui, sans-serif'; const tw = ctx.measureText(label).width + 28;
-      ctx.fillStyle = '#D9C6F7'; rr(-tw / 2, -12, tw, 24, 12); ctx.fill(); ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.5; ctx.stroke();
-      text(label, 0, 0.5, 12, { color: '#4A3424', shadow: false, weight: 600 });
+    if (unlocked.length && overT > 1) {   // ny pynt låst opp: en merkelapp knyttet til tauet
+      const uk = Math.min(1, (overT - 1) / 0.4), us = reduceMotion ? 1 : easeOutBack(uk);
+      const label = `Ny pynt: ${unlocked[0].label}${unlocked.length > 1 ? ` +${unlocked.length - 1}` : ''}`;
+      const tw = tagSize(label, 11).w, tx = Math.min(W - tw / 2 - 6, pxx + 22 + tw / 2), tyy = py - 70;
+      ctx.save(); ctx.translate(pxx + 14, tyy); ctx.scale(us, us); ctx.translate(-(pxx + 14), -tyy);
+      tag(label, tx, tyy, { size: 11, ax: pxx + 14, ay: tyy - 6 });
       ctx.restore();
     }
     // medaljen (eller egget) snurrer inn når opptellingen er ferdig
@@ -2297,8 +2513,7 @@ function render() {
     text('Beste', pxx + pw - 28, py + 84, 12, { align: 'right', color: WOOD_TEXT, shadow: false, weight: 600 });
     text(String(best), pxx + pw - 28, py + 108, 28, { align: 'right', color: UI_INK, shadow: false });
     if (newBest && shown === score) {
-      ctx.fillStyle = '#FFA28C'; rr(pxx + pw - 120, py + 74, 34, 18, 9); ctx.fill(); ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.4; ctx.stroke();
-      text('Ny!', pxx + pw - 103, py + 83.5, 11, { shadow: false, weight: 600, color: '#FFFDF6', stroke: true });
+      stitchHeading('Ny!', pxx + pw - 103, py + 83, 1.7, 'coral');   // brodert rett på skiltet
     }
     ctx.fillStyle = D.color; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(pxx + 30, py + 22, 3.6, 0, 7); ctx.fill(); ctx.stroke();   // malt prikk i nivåets farge
     text(D.label, pxx + 38, py + 22, 11, { color: UI_INK, shadow: false, weight: 600, align: 'left' });
@@ -2320,21 +2535,18 @@ function render() {
 
   finishFrame(groundY);
 }
+// farget kant rundt skjermen: klar i midten (innenfor inner × H), fargen kommer mot kantene
+function edgeTint(rgb, a, inner) {
+  const g = ctx.createRadialGradient(W / 2, H / 2, H * inner, W / 2, H / 2, H * 0.75);
+  g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(1, `rgba(${rgb},${a.toFixed(3)})`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
 // felles avslutning av bildet: vignett, effekter, pause og overgang
 function finishFrame(groundY) {
   // vignett: varm og lys om dagen, mørkeblå om natten
   ctx.drawImage(scene.vignette.c, 0, 0, scene.vignette.w, scene.vignette.h);
-  if (state === State.PLAY && active.slow > 0) {
-    const sg = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
-    sg.addColorStop(0, 'rgba(180,155,232,0)'); sg.addColorStop(1, 'rgba(180,155,232,.3)');
-    ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H);
-  }
-  // myk farget kant ved treff (erstatter hvit fullskjerm-blits)
-  if (fx.tint > 0) {
-    const tg = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.75);
-    tg.addColorStop(0, `rgba(${fx.rgb},0)`); tg.addColorStop(1, `rgba(${fx.rgb},${(fx.tint * 0.45).toFixed(3)})`);
-    ctx.fillStyle = tg; ctx.fillRect(0, 0, W, H);
-  }
+  if (state === State.PLAY && active.slow > 0) edgeTint('180,155,232', 0.3, 0.3);   // lilla kant i sakte film
+  if (fx.tint > 0) edgeTint(fx.rgb, fx.tint * 0.45, 0.2);   // myk farget kant ved treff (erstatter hvit fullskjerm-blits)
   if (paused) drawPauseOverlay(groundY);
   if (transitionT > 0) {   // overgang: en sirkel som åpner seg rundt fuglen (eller en enkel toning ved redusert bevegelse)
     if (reduceMotion) { ctx.fillStyle = `rgba(40,28,50,${transitionT * 0.45})`; ctx.fillRect(0, 0, W, H); }

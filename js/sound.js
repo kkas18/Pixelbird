@@ -361,6 +361,11 @@ const Sound = (() => {
       if (clip('tre', 'dunk', { t, vol: 0.5, rate: rnd(0.7, 0.8), lp: 900 })) { noise(sfxGain, t, 0.09, 0.08, { lp: 600 }); return; }
       tone(sfxGain, 150, t, 0.16, 'sine', 0.3, { slide: 70 }); noise(sfxGain, t, 0.09, 0.14, { lp: 600 });
     },
+    nearMiss() {   // tett forbi: et luftig sus som stiger, og en lys kalimbatone over poengtonen
+      if (!ac) return; const t = now();
+      noise(sfxGain, t, 0.28, 0.09, { bp: 1800, sweep: 6500, q: 1.4 });
+      musicBox(sfxGain, midi(96), t + 0.05, 0.08, 0.7, 0.3);
+    },
     drum(n = 10, pan = 0) {   // flaggspetten trommer: en rask virvel av små treknakk, svakere mot slutten
       if (!ac) return; const t = now();
       for (let i = 0; i < n; i++) {

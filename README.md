@@ -1,9 +1,9 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v4.4): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v5.0): en liten blåmeis med lusekofte-skjerf flyr
 hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
-søvnig måne. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
+månesigd. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
 vind i bjørk) og vibrasjon.
 Bygget som en installerbar PWA, optimalisert for Samsung Galaxy (portrett) og
 andre Android-telefoner.
@@ -32,8 +32,17 @@ piksler i stoff**.
     og svinger litt når det faller på plass.
   - Garderoben er en knaggrekke der pynten henger på lapper med sydd kant.
   - Pausemenyen ligger på et stykke bjørkenever.
-- **Ikonknapper:** lyd, musikk og dag/natt er runde trestykker (som snittflaten på stammene) med
-  tegnede ikoner, plassert nede til venstre. Pauseknappen er av samme slag.
+- **Knapper er treplanker** med avfasede kanter, årer og treplugger. Teksten er brent inn i det
+  umalte treet. Hovedvalget («Spill igjen», «Fortsett») er malt i tradisjonell rød linoljemaling,
+  som gamle kubbestoler og stabbursdører, og malingen er slitt der hendene tar.
+- **Vanskeligheten velges på en veiviser:** en stolpe med fire pilplanker, i samme stil som
+  veiskiltene på reisen. Den valgte er malt rød, og rekorden henger på en merkelapp under.
+- **Ikonknapper:** lyd, musikk, dag/natt og garderoben (lue) er runde trestykker (som snittflaten
+  på stammene) med tegnede ikoner, plassert nede til venstre. Pauseknappen og pilene i garderoben
+  er av samme slag.
+- **Tekst uten kontur:** hint, undertitler og stedsnavn står med blekk på små, revne papirlapper.
+  Power-ups og «Ny pynt» står på pappmerkelapper på hyssing, som på en gammel koffert.
+- **Poengtallet er brodert** i den samme korsstingskriften som logoen.
 - **Håndtegnet strek:** konturene er litt ujevne og tykkest på skyggesiden (lyset
   kommer fra sola oppe til høyre). Ujevnheten er frøstyrt, så ingenting flimrer.
 - **Papirkorn** er bakt inn i himmel, landskap og paneler.
@@ -57,6 +66,7 @@ piksler i stoff**.
 | `audio/` | Lydopptak (mp3): blåmeis, vind, tre, kalimba og xylofon. Kilder og lisenser i `audio/KILDER.md` |
 | `docs/REVISJON.md` | Første revisjon: funn og plan (fase 1–4, gjennomført) |
 | `docs/REVISJON-2.md` | Andre revisjon: poeng og tiltak mot «AI-stil» (fase A–G) |
+| `docs/REVISJON-3.md` | Tredje revisjon: poeng for design, grafikk, animasjoner og spillfølelse (fase H) |
 | `.nojekyll` | Sørger for at GitHub Pages serverer alle filer som de er |
 | `make_icons.py` | Regenererer ikonene (blåmeisen foran en bjørkestamme; valgfritt, krever Pillow) |
 | `make_audio.py` | Bygger `audio/` fra originalopptakene: klipper, renser og koder (valgfritt, krever ffmpeg og numpy) |
@@ -87,10 +97,11 @@ også i en undermappe.
   når appen legges i bakgrunnen, og lyden stoppes. «Fortsett» gir en kort 3-2-1-nedtelling.
 - **Hjemme:** når fuglen har landet på fuglebrettet ved hytta, hviler den til du trykker. Da flyr den videre.
 - Etter game over: **Spill igjen** eller **Meny** (for å bytte nivå, lyd eller tema).
-- De tre runde trestykkene nede til venstre på startskjermen slår **lydeffekter** (høyttaler) og
+- **Vanskelighet:** trykk på en pilplanke på veiviseren til høyre på startskjermen.
+- De runde trestykkene nede til venstre på startskjermen slår **lydeffekter** (høyttaler) og
   **musikk** (note) av/på og velger om runden starter på **dag** (sol) eller **natt** (måne).
   Av vises med en skrå strek over ikonet.
-- **Garderobe** på startskjermen: velg pynt til fuglen (se under).
+- **Garderobe:** trestykket med lue på startskjermen. Velg pynt til fuglen (se under).
 - Beste poengsum og samlede poeng lagres lokalt på enheten.
 
 Medaljer (broderte merker med selburose): 10 bronse, 20 sølv, 30 gull, 40 platina.
@@ -125,7 +136,7 @@ Hver runde er en reise fra fjellet ned til hytta. Underveis passerer fuglen ti s
 
 ## Vanskelighetsgrader
 
-Velges på startskjermen. Beste poengsum lagres per nivå.
+Velges på veiviseren på startskjermen. Beste poengsum lagres per nivå.
 
 | Nivå | Gap (px) | Fart (px/s) | Maks sprang mellom gap (px) | Varianter fra poeng |
 |------|----------|-------------|-----------------------------|---------------------|
@@ -226,7 +237,8 @@ JavaScript. Med «redusert bevegelse» står kameraet stille, og fokus skifter u
 
 Hver stamme er unik (barkmerker, kjuker, kvister, fluesopp, av og til en ugle
 som titter ut), men ser lik ut hele veien gjennom skjermen. Barken er som ekte bjørk: merker i
-klynger med bar bark imellom, mørke «belter», «øyne» der greiner har sittet og små lenticeller.
+klynger med bar bark imellom, mørke «belter», små lenticeller og mørke, avsmalnende kiler
+(«barter») med en kvist i toppen der greiner har sittet.
 Alle stammene er like brede og står rett, så treffsonen er rettferdig.
 
 - **Høstløv på kanten** – stammen beveger seg opp og ned.
@@ -268,13 +280,15 @@ Dukker opp i gapet fra 3 poeng. Fly gjennom for å plukke opp.
 - **Snegl** (sakte film) – 6 sekunder med 55 % fart.
 - **Gyllen eikenøtt** (dobbel) – 8 sekunder med 2 poeng per stamme.
 
-Aktive effekter vises som striper under poengsummen.
+Navnet flyter opp på en merkelapp når du plukker en power-up. Aktive effekter henger som
+merkelapper under poengsummen, med en rød tråd i tråklesting som viser tiden som er igjen.
 
 ## Fuglen
 
 - En blåmeis (se «Stil» over). Øynene sitter i den mørke øyestripen, med en lys kant
   så de er lette å lese.
-- Blunker, ser seg rundt i menyen og sover (med «z») i menyen om natten.
+- Blunker og ser seg rundt i menyen. Om natten sover den med hodet litt ned, lukkede øyne og
+  rolig pust.
 - Lukker øynene glad (^ ^) når den får poeng, og sperrer dem opp i fritt fall.
 - Skjerfsnippene er en liten fysikksimulering (Verlet) som blafrer i fartsvinden.
 - Ved krasj: fuglen klemmes flat, mister noen fjær, spretter og blir sittende oppreist og
@@ -286,6 +300,10 @@ De statiske bakgrunnslagene (fjell og fjord, åser med hytter, bjørkeskog, busk
 bakke), himmelen og vignetten tegnes én gang til offscreen-lerreter og blittes
 hvert bilde. Bare det som beveger seg tegnes live. Tegneoppløsningen er begrenset
 til 2× skjermpiksler. Spillet holder 60 bilder/s på en 2,6×-skjerm, også uten GPU.
+
+Planker, merkelapper, papirlapper, trestykker og veiviseren tegnes én gang (med hellingen innbakt)
+og legges på hele skjermpiksler. Da kan nettleseren kopiere pikslene rett over i stedet for å
+filtrere hvert av dem, og menyen tegnes raskere enn i v4.4.
 
 ## Fysikk
 
@@ -341,6 +359,15 @@ lastes, spilles den syntetiske versjonen av hver lyd.
 Felles romklang og en begrenser (kompressor) på slutten hindrer klipping når
 mange lyder overlapper.
 
+## Spillfølelse
+
+- **Treffpause:** når fuglen treffer en stamme, står verden helt stille i 70 ms (50 ms i bakken) før
+  fuglen spretter av. Det gir treffet tyngde. Ikke ved redusert bevegelse.
+- **Tett forbi:** passerer fuglen en stamme med under 6 px klaring, kommer et vindsus, en liten, lys
+  klang og noen fjær som følger fuglen. Det står ingen tekst; lyden og fjærene sier det.
+- **Milepæler** (hver tiende stamme) og «+2» med gyllen eikenøtt broderes inn i stedet for å stå
+  som tekst.
+
 ## Animasjoner
 
 Bevegelsene har pauser og intensjon i stedet for jevn vugging. De bygger på nøkkelbilder med
@@ -364,11 +391,11 @@ pauser, myk start og stopp, overskyting og forberedelse.
 - **Brukergrensesnittet:**
   - Logoen faller på plass når menyen åpnes og står så stille.
   - Egget på game over rister i korte støt.
-  - Hånden på «Klar?» trykker.
+  - En strikket vott trykker på «Klar?».
   - Power-ups står i ro og slår som et hjerte.
 - Overgang mellom skjermer: en sirkel som åpner seg rundt fuglen.
 - Knapper klemmes litt når du trykker.
-- Poengtallet spretter som en fjær; game over-panelet og tittelen spretter inn,
+- Poengtallet hopper ett hakk opp og setter seg når det øker; game over-panelet og tittelen spretter inn,
   og medaljen (eller egget) snurrer inn når poengene er talt opp.
 - Ny rekord: «Ny rekord!» og en liten flokk meiser som letter, med blader som virvler opp etter dem.
 - Poeng gir bjørkefrø og et blad som virvler; et krasj gir fjær og barkstøv. Det er ingen

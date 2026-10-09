@@ -47,6 +47,8 @@ let bird, pipes = [], particles = [], powers = [], floats = [], dust = [], stars
 let overT = 0, transitionT = 0, newBest = false, groundBounced = false, menuT = 0;   // menuT: tid siden menyen åpnet
 let active = { shield: false, slow: 0, double: 0 };
 let timeScale = 1, slowWas = false;
+let hitStop = 0;                     // kort stopp ved treff (alt står stille et øyeblikk, så treffet kjennes)
+let nearMisses = 0;                  // dristige passeringer i denne runden
 let worldK = 1;                      // verdens fart (1 = vanlig); bremser ned til 0 når fuglen lander hjemme
 let paused = false, resumeT = 0;      // pause + nedtelling før spillet fortsetter
 let grace = 0, guidePipe = null;     // usårbarhet og glidemål (røret) etter skjoldtreff
@@ -112,7 +114,7 @@ function resetBird() {
   bird = {
     x: BIRD_X, y: (H - GROUND_H) * 0.42, vx: 0, vy: 0, rot: 0, angVel: 0, flapT: 9, sx: 1, sy: 1, sv: 0,
     blink: 0, blinkT: 1.5 + Math.random() * 2, happy: 0, look: 0, lookTo: 0,            // ansikt
-    crest: 0, crestV: 0, scarf: null, zT: 0.6,                                           // sekundærbevegelse
+    crest: 0, crestV: 0, scarf: null,                                                     // sekundærbevegelse
     hv: 0, hoverT: 0.2, act: null, actT: 1.6 + Math.random() * 1.5, lastAct: '',           // hvile: svev og småhandlinger
     preen: 0, lookUp: 0, shakeS: 1
   };
@@ -121,7 +123,7 @@ function resetRun() {
   resetBird(); pipes = []; particles = []; powers = []; floats = []; score = 0;
   active = { shield: false, slow: 0, double: 0 }; timeScale = 1; paused = false; resumeT = 0; grace = 0;
   combo = 0; overShown = 0; celebrated = false;
-  placeIdx = 0; placeT = -9; signs = []; home = null; worldK = 1;
+  placeIdx = 0; placeT = -9; signs = []; home = null; worldK = 1; hitStop = 0; nearMisses = 0;
 }
 function goMenu() { state = State.MENU; menuT = 0; resetRun(); wardrobe = false; transitionT = 1; Sound.music.setMode('menu'); setTimeOfDay(themeName); }
 function goReady() {
@@ -324,8 +326,8 @@ function burst(x, y, n, colors, spd, life, grav = 700, size = 3, { shape = 'dot'
       rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * spin, c: colors[(Math.random() * colors.length) | 0], r: size * (0.5 + Math.random()) });
   }
 }
-function floatText(x, y, txt, color, size = 13, { life = 0.85, vx = 0, vy = -42, stroke = false } = {}) {
-  floats.push({ x, y, txt, color, size, life, max: life, vx, vy, stroke });
+function floatText(x, y, txt, color, size = 13, { life = 0.85, vx = 0, vy = -42, stroke = false, style = 'text' } = {}) {
+  floats.push({ x, y, txt, color, size, life, max: life, vx, vy, stroke, style });   // style: text, stitch (brodert) eller tag (merkelapp)
 }
 const feathers = (x, y, n) => burst(x, y, n, ['#4A93DA', '#F6CF45', '#FFFDF6'], 70, 1.3, 60, 2.2, { shape: 'feather', drag: 2.2, vdrag: 2.4, spin: 3 });
 
@@ -417,10 +419,6 @@ function animateBird(dt) {
   // fjærtoppen henger etter bevegelsen (dempet fjær)
   const vy = state === State.PLAY || state === State.DEAD ? bird.vy : bird.hv;
   bird.crestV += ((clamp(vy / 500, -1, 1) * 0.5 - bird.crest) * 160 - bird.crestV * 10) * dt; bird.crest += bird.crestV * dt;
-  // søvnige «z» i menyen om natten
-  if (state === State.MENU && T.night && (bird.zT -= dt) <= 0) {
-    bird.zT = 1.1; floatText(bird.x + 9, bird.y - 14, 'z', '#FFF6E0', 9 + Math.random() * 4, { life: 1.6, vx: 9, vy: -16 });
-  }
   scarfStep(dt);
 }
 function scarfAnchor(x, y, rot, sx, sy) {
@@ -613,7 +611,7 @@ const IDLE_ACTS = {
 function balloonPos() {
   if (H - GROUND_H - safeTop <= 400) return null;
   const x = wrap(W * 0.25 - viewScroll * 0.02 - time * 4, W + 120) - 60;
-  const y = safeTop + 58 + (reduceMotion ? 0 : loopKeys([[0, 0], [3.5, -6], [8, -6], [11.5, 0], [15, 0]], time));   // stiger og synker i rolige trinn
+  const y = safeTop + 124 + (reduceMotion ? 0 : loopKeys([[0, 0], [3.5, -6], [8, -6], [11.5, 0], [15, 0]], time));   // stiger og synker i rolige trinn
   return { x, y };
 }
 function flockPos() {
@@ -660,10 +658,13 @@ function idleStep(dt, idleY) {
     if (t >= a.dur) { bird.act = null; bird.actT = 2.2 + Math.random() * 2.8; }
   }
   bird.lookTo = lookTo; bird.preen = preen; bird.lookUp = lookUp; bird.shakeS = sh;
-  // kroppen heller litt etter farten, fram når den pirker i fjærene, bakover når den ser opp
-  const rotTo = clamp(bird.hv / 500, -0.1, 0.1) + preen * 0.32 - lookUp * 0.2;
-  bird.rot = lerp(bird.rot, rotTo, 1 - Math.exp(-10 * dt));
-  bird.sx = lerp(bird.sx, sh, 1 - Math.exp(-25 * dt)); bird.sy = lerp(bird.sy, 2 - sh, 1 - Math.exp(-25 * dt));
+  // kroppen heller litt etter farten, fram når den pirker i fjærene, bakover når den ser opp, og hodet
+  // synker når den sover; da puster den rolig (brystet hever og senker seg, cirka 15 pust i minuttet)
+  const rotTo = clamp(bird.hv / 500, -0.1, 0.1) + preen * 0.32 - lookUp * 0.2 + (asleep ? 0.22 : 0);
+  bird.rot = lerp(bird.rot, rotTo, 1 - Math.exp(-(asleep ? 3 : 10) * dt));
+  bird.breath = asleep && !reduceMotion ? (bird.breath || 0) + dt : 0;
+  const br = bird.breath ? 0.03 * (1 - Math.cos(bird.breath * Math.PI * 0.5)) : 0;
+  bird.sx = lerp(bird.sx, sh + br, 1 - Math.exp(-25 * dt)); bird.sy = lerp(bird.sy, 2 - sh + br * 0.6, 1 - Math.exp(-25 * dt));
 }
 
 /* ---------- Oppdatering (dt i sekunder) ---------- */
@@ -681,6 +682,7 @@ function snapshot() {
 
 function update(dt) {
   snapshot();
+  if (hitStop > 0) { hitStop -= dt; return; }   // treffpause: ingenting beveger seg
   time += dt;
   if (paused) {
     if (resumeT > 0 && (resumeT -= dt) <= 0) { resumeT = 0; paused = false; Sound.music.setMode('play'); if (active.slow > 0) Sound.music.slowmo(true); }
@@ -757,17 +759,21 @@ function update(dt) {
     powers = powers.filter(q => !q.taken && q.x > -40);
 
     for (const p of pipes) {
+      // klaring mens fuglen er inne i stammen: minste avstand fra treffsonen (BIRD_R - 1) til kantene over og under.
+      // Under null betyr at fuglen smatt forbi den runde mosekanten uten å treffe, og det teller også.
+      if (!p.scored && p.x < bird.x + BIRD_R && p.x + PIPE_W > bird.x - BIRD_R) p.minClear = Math.min(p.minClear ?? 99, bird.y - (BIRD_R - 1) - p.top, p.top + p.gap - bird.y - (BIRD_R - 1));
       if (!p.scored && p.x + PIPE_W / 2 < bird.x) {
         p.scored = true; p.glow = 1; scoreT = time;
+        if (grace <= 0 && p.minClear !== undefined && p.minClear < NEAR_MISS) nearMiss(p);   // (skjold og Zen-sprett har alt satt scored)
         const gain = active.double > 0 ? 2 : 1, before = score; score += gain;
         Sound.point(combo++); buzz(12); bird.happy = 0.45;
         if (Math.floor(score / 10) > Math.floor(before / 10)) {   // milepæl hvert 10. poeng: liten fanfare
-          Sound.fanfare(); floatText(bird.x + 12, bird.y - 34, `${Math.floor(score / 10) * 10}!`, '#FFD27A', 18, { stroke: true, life: 1.1, vy: -30 });
+          Sound.fanfare(); floatText(bird.x + 12, bird.y - 34, `${Math.floor(score / 10) * 10}!`, '#FFD27A', 18, { style: 'stitch', life: 1.1, vy: -30 });
           burst(bird.x + 10, bird.y - 10, 10, leafColors(), 110, 1.1, 40, 2.6, { shape: 'leaf', drag: 2, vdrag: 1.5, spin: 5 });   // en virvel av blader
         }
         burst(bird.x + 14, bird.y - 4, 4, ['#C9A06A', '#E8D3A8', '#B88A55'], 70, 0.9, 30, 2, { shape: 'seed', drag: 2.4, vdrag: 2, spin: 7 });   // bjørkefrø som virvler
         burst(bird.x + 10, bird.y - 8, 1, leafColors(), 50, 0.9, 30, 2.2, { shape: 'leaf', drag: 2, vdrag: 2, spin: 4 });
-        if (gain === 2) floatText(bird.x + 4, bird.y - 22, '+2', '#FFD27A', 14, { stroke: true });
+        if (gain === 2) floatText(bird.x + 4, bird.y - 22, '+2', '#FFD27A', 14, { style: 'stitch' });
         if (!D.zen && score > best) { best = score; newBest = true; store.set(bestKey(), best); }
         const tod = runTimeOfDay(); if (tod !== curTheme) setTimeOfDay(tod);   // tiden glir videre hvert 10. poeng
         if (!home) { const pi = placeAt(score); if (pi > placeIdx) reachPlace(pi); }   // et nytt sted på veien hjem
@@ -837,7 +843,7 @@ function collect(q) {
   if (q.kind === 'shield') active.shield = true; else active[q.kind] = P.dur;
   Sound.power(); buzz([10, 20, 10]); bird.happy = 0.6;
   burst(q.x, q.y, 8, [P.color, '#FFFFFF'], 100, 0.7, 60, 2.2, { shape: 'seed', drag: 2.2, vdrag: 1.6, spin: 6 });
-  floatText(bird.x + 4, bird.y - 26, P.label, P.color, 13, { stroke: true });
+  floatText(bird.x + 20, bird.y - 30, P.label, P.color, 13, { style: 'tag', life: 1.1, vy: -26 });
 }
 const guideY = () => guidePipe ? guidePipe.top + guidePipe.gap / 2 : bird.y;
 function useShield(p) {
@@ -848,8 +854,18 @@ function useShield(p) {
   // ingen teleport: kort usårbarhet, og fuglen glir inn i gapet (se update)
   grace = SHIELD_GRACE; guidePipe = p; p.scored = true;
 }
+// tett forbi: vindsus, fjær som følger fuglen og et lite løft i lyden (ingen tekst)
+const NEAR_MISS = 6;
+function nearMiss(p) {
+  nearMisses++; bird.happy = 0.6; buzz(6);
+  Sound.nearMiss();
+  const up = bird.y < p.top + p.gap / 2;   // nærmest den øvre eller den nedre stammen
+  burst(bird.x - 6, bird.y + (up ? -8 : 8), 2, ['#FFFFFF', '#4A93DA'], 50, 0.9, 40, 2, { shape: 'feather', drag: 2.6, vdrag: 2, spin: 4 });
+  burst(bird.x - 10, bird.y, 3, ['#FFFFFF'], 70, 0.4, -10, 2.2, { shape: 'puff', drag: 4 });
+}
 function die(onGround, p) {
   Sound.hit(); if (!onGround) Sound.die();
+  hitStop = reduceMotion ? 0 : (onGround ? 0.05 : 0.07);
   buzz([40, 20, 60]); addTint(1, '255,110,90');
   active = { shield: false, slow: 0, double: 0 }; grace = 0;
   overTitle = newBest ? 'Ny rekord!' : ['Å nei!', 'Oi da!', 'Uff da!'][(Math.random() * 3) | 0];
