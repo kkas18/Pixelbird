@@ -169,13 +169,40 @@ Alle tiltakene H1–H7 er gjennomført. Skjermbildene etter endringene ligger i
 
 ### Verifisering
 
-- `phaseH-test.js`: 32 kontroller.
+Kjørt i Chromium uten GPU (programvaretegning), 412 × 915 og DPR 2–2,625.
+
+- **`phaseH-test.js`: 34 av 34 kontroller består.**
   - Kontrast (minst 4,5:1) på planker, merkelapper og papirlapper.
   - Veiviseren, garderobe-trestykket og plankene på pause og game over.
   - Ingen konturtekst i meny, spill, pause og game over.
-  - Solgløden uten ringer, målt som snittvarme rundt sola (største sprang 2,5 mot 11,4 i v4.4).
+  - Solgløden uten ringer, målt som snittvarme (rød minus blå) rundt sola: største sprang 2,5 mot 11,4
+    i v4.4 om dagen, og 1,2 mot 3,8 om natten.
+  - Fuglen sover med hodet ned og rolig pust; ved redusert bevegelse puster den ikke.
   - Brodert poengtall og milepæl, merkelapper for power-ups og papirlapp for stedsnavn.
   - Treffpausen (8–9 frosne fysikksteg) og tett forbi (lyd og fjær, ingen tekst).
   - Ballongen ligger aldri oppå logoen. Alle tider og årstider tegnes uten feil.
-  - Tegnetiden er minst like god som i v4.4 (median av sju vekslende målinger mot main).
-- Alle eldre testsuiter (fase 1–5, A–G, dyrene og lyden) er kjørt på nytt.
+  - Tegnetiden er minst like god som i v4.4: meny −8,9 %, spill +3,1 %, game over −8,5 %
+    (median av sju vekselvise målinger mot main; grense +8 %).
+- **Eldre suiter:** fase 1, 5, A–G, dyrene, ekornene og lyden består.
+- **Ytelse i detalj** (median, vekselvis mot main):
+  - Tegnetid per bilde i vanlig spill: 15,5 mot 15,3 ms (+1,3 %).
+  - Med veiskilt og med hytta: −1,1 % og −8,4 %.
+  - Under krysstoningen mellom tider på døgnet: median 11,1–11,2 mot 11,2–11,5 ms per bilde.
+  - Planker, lapper, trestykker og veiviseren legges på hele skjermpiksler med hellingen innbakt.
+    Veiviseren gikk fra cirka 2 ms til 0,23 ms per bilde, og fire trestykker fra 0,54 til 0,05 ms.
+- **Fase 2 og 4 (faste fps-grenser):** alle andre kontroller består (17 og 37). Grensene på 55 bilder/s
+  i spill og 45 under krysstoningen nås ikke av main (v4.4) heller i dette testmiljøet:
+  - i spill: main 48–55, ny 44–57
+  - under krysstoningen: main 37,8–41,0, ny 31,7–39,8
+
+  Tallene veksler om hvem som leder fra runde til runde. Tegnetiden per bilde over viser at det er
+  maskinen som setter grensen, ikke endringene.
+
+#### Tester som er oppdatert, og hvorfor
+
+| Test | Endring | Grunn |
+|---|---|---|
+| `phaseA`: høyst 9 gradienter | Uendret test. Koden er rettet: sakte film og treff-fargen deler nå én kantvignett. | Solgløden trengte én ny gradient. |
+| `phaseE`: service worker-versjonen | Leser nå både hoved- og underversjon. | Testen kjente bare igjen v4.x, så v5.0 ble avvist. |
+| `phaseF`: stedsnavnet vises | Registrerer også papirlapper. | Stedsnavnet står nå på en papirlapp, ikke som konturtekst. |
+| `phaseF`: tegnetid med veiskilt og hytte | Måler main med samme oppsett, i sju runder i stedet for fem. | Main har hatt veiskilt og hytte siden v4.2. Den gamle testen sammenlignet ny med veiskilt mot main uten. |
