@@ -140,7 +140,11 @@ function goReady() {
   next.forEach((name, k) => setTimeout(() => { sceneFor(name); prewarmPainted(name); }, 80 + k * 260));
   setTimeout(() => prewarmPainted(themeName), 40);
 }
-function goPlay() { state = State.PLAY; spawnPipe(W + 60); Sound.music.setMode('play'); }
+function goPlay() {
+  state = State.PLAY; spawnPipe(W + 60); Sound.music.setMode('play');
+  // maleriet står stille i menyen, så landemerkene derfra hører ikke til reisen: den begynner med tom horisont
+  if (hasPaintedForest()) { landmarks = []; lmNext = scroll + (10 + Math.random() * 8) * LM_SPEED; }
+}
 
 function spawnPipe(x) {
   const groundY = H - GROUND_H;
@@ -507,15 +511,18 @@ const moteY = groundY => moteKind() === 'firefly' ? groundY - 25 - Math.random()
 const LANDMARKS = { stavkirke: 0.14, seter: 0.14, fyr: 0.05, elg: 0.3, sau: 0.6, tjern: 0.6, postkasse: 1 };
 const LM_SPEED = 118;                  // px/s som avstandene regnes i (fart på «lett»)
 let landmarks = [], lmNext = -1, lmRecent = [];
-const lmX = (m, s) => m.x0 - (s - m.at) * LANDMARKS[m.kind];
+// i maleriet følger landemerket planet det står i (enga foran skogen eller stien), se PAINTED_LM i art.js
+const lmSpeed = k => hasPaintedForest() && PAINTED_LM[k] ? paintedSpeed(k) : LANDMARKS[k];
+const lmX = (m, s) => m.x0 - (s - m.at) * lmSpeed(m.kind);
 function spawnLandmark(kind) {
   if (!kind) {
     // i en runde: bare landemerker fra steder fuglen alt har passert (eller som ikke hører til noe sted)
     const ahead = k => state === State.PLAY && ROUTE.some(r => r.lm === k && r.at > score);
-    const free = Object.keys(LANDMARKS).filter(k => !lmRecent.includes(k) && !ahead(k));
+    const free = Object.keys(LANDMARKS).filter(k => !lmRecent.includes(k) && !ahead(k) && (!hasPaintedForest() || PAINTED_LM[k]));
     if (!free.length) return null;
     kind = free[(Math.random() * free.length) | 0];
   }
+  if (hasPaintedForest() && !PAINTED_LM[kind]) return null;
   lmRecent = [kind, ...lmRecent].slice(0, 2);
   landmarks.push({ kind, at: scroll, x0: W + 50, seed: (Math.random() * 1e6) | 0 });
   return kind;

@@ -857,9 +857,13 @@ function drawForeground() {
 
 /* ---------- Landemerker ----------
    Forhåndstegnet per tid på døgnet; ankeret er midt nede (der de står på bakken). */
-function buildLandmarks(keepSharp) {
+// raw: uten dybdeskarphet, og sizes: forstørrelse per landemerke (maleriet gir dem sin egen behandling og målestokk)
+function buildLandmarks(keepSharp, raw = false, sizes = null) {
   const out = {}, TAU = Math.PI * 2;
-  const sprite = (name, w, h, draw) => { out[name] = makeSprite(w, h, g => { g.lineJoin = 'round'; g.lineCap = 'round'; g.translate(w / 2, h - 2); draw(g); }, 0.4); };
+  const sprite = (name, w, h, draw) => {
+    const s = (sizes && sizes[name]) || 1;
+    out[name] = makeSprite(w * s, h * s, g => { g.lineJoin = 'round'; g.lineCap = 'round'; g.translate(w * s / 2, (h - 2) * s); g.scale(s, s); draw(g); }, 0.4);
+  };
   const ink = (g, lw = 1) => { g.strokeStyle = T.ink; g.lineWidth = lw; };
   sprite('stavkirke', 42, 54, g => {   // stavkirke: svalgang rundt foten, bratte saltak i trinn, drakehoder på gavlene og et spir
     const tar = tc('#5E3D29'), roof = tc('#3F2A1E'), shingle = tc('#6E4A31');
@@ -952,7 +956,7 @@ function buildLandmarks(keepSharp) {
     g.fillStyle = tc('#FFFFFF'); g.fillRect(-2, -18.2, 4, 1.6);
     g.fillStyle = tc('#3E6E4A'); g.fillRect(-4, -11.5, 8, 3); g.strokeRect(-4, -11.5, 8, 3);   // avisrør
   });
-  for (const k in out) if (DEPTH[LANDMARKS[k]]) depthify(out[k], DEPTH[LANDMARKS[k]], { tiled: false, keepSharp });
+  if (!raw) for (const k in out) if (DEPTH[LANDMARKS[k]]) depthify(out[k], DEPTH[LANDMARKS[k]], { tiled: false, keepSharp });
   return out;
 }
 // tegn landemerkene som hører til laget med fart «depth», plantet på lagets overflate
