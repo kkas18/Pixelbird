@@ -608,7 +608,7 @@ function leaveHome() {
    Lin med aida-ruter i en oval broderiramme: en nål syr logoen sting for sting, blåmeisen flyr inn og lander på
    den første «l»-en, og rammen vokser ut av skjermen mens logoen glir opp på plassen sin i menyen. Fuglen letter
    og glir ned til hvileplassen. Alt regnes fra introens klokke, så et trykk (hopp over) bare spoler fram. */
-const INTRO = { stitch: [0.3, 1.3], fly: [1.1, 1.8], open: [1.95, 2.55], glide: [2.12, 2.66], end: 2.7 };
+const INTRO = { stitch: [0.3, 1.3], fly: [1.2, 1.75], open: [1.95, 2.55], glide: [2.12, 2.66], end: 2.7 };
 const INTRO_RM = { open: [0.7, 1.1], end: 1.1 };   // redusert bevegelse: logoen står ferdig sydd, og lerretet toner bort
 function startIntro() {
   intro = { t: 0, speed: 1, wait: 0, glyph: -1, landed: false, opened: false, rm: reduceMotion };
@@ -646,8 +646,8 @@ function introStep(dt, idleY) {
   const P = introPerch(), [f0, f1] = INTRO.fly, [g0, g1] = INTRO.glide;
   bird.flapT += dt; bird.hv = 0;
   if (t < f0) { bird.x = -40; bird.y = P.y + 70; }
-  else if (t < f1) {   // flyr inn fra venstre i en bue og bremser inn mot landingen
-    const k = (t - f0) / (f1 - f0), u = 1 - (1 - k) * (1 - k);
+  else if (t < f1) {   // flyr inn fra venstre i en bue i jevn fart, og bremser mykt det siste stykket
+    const k = (t - f0) / (f1 - f0), u = k + k * (1 - k) * 0.6;
     const x = bez(-30, P.x * 0.42, P.x, u), y = bez(P.y + 70, P.y - 78, P.y, u);
     bird.rot = lerp(bird.rot, clamp(Math.atan2(y - bird.y, Math.max(1, x - bird.x)) * 0.6, -0.45, 0.3), 1 - Math.exp(-12 * dt));
     bird.x = x; bird.y = y;

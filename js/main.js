@@ -39,7 +39,9 @@ function loop(t) {
 
 /* ---------- PWA ---------- */
 const installBtn = document.getElementById('install');
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; installBtn.classList.add('show'); });
+// knappen vises først når introen er ferdig (den skal ikke ligge over lerretet)
+const showInstall = () => { if (!deferredPrompt) return; if (intro) setTimeout(showInstall, 300); else installBtn.classList.add('show'); };
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; showInstall(); });
 installBtn.addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; installBtn.classList.remove('show'); });
 window.addEventListener('appinstalled', () => installBtn.classList.remove('show'));
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

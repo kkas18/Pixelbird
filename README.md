@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v5.0): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v5.1): en liten blåmeis med lusekofte-skjerf flyr
 hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 månesigd. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
@@ -19,7 +19,8 @@ Navnet «Pixelfugl» er tatt bokstavelig på norsk-håndarbeidsvis: **korssting 
 piksler i stoff**.
 
 - **Logoen** er en egen pikselskrift der hver piksel er ett korssting (i-prikken er
-  et blått sting). Den bruker ikke fonten.
+  et blått sting). Den bruker ikke fonten. Ved oppstart sys den for hånd i en broderiramme (se
+  «Oppstart og intro»).
 - **Medaljene** er broderte merker med en **selburose** (åttebladsrose) i korssting
   og kant i plattsøm.
 - **Fuglen er en blåmeis**: blå hette, hvitt ansikt med mørk øyestripe og halsring,
@@ -67,6 +68,7 @@ piksler i stoff**.
 | `docs/REVISJON.md` | Første revisjon: funn og plan (fase 1–4, gjennomført) |
 | `docs/REVISJON-2.md` | Andre revisjon: poeng og tiltak mot «AI-stil» (fase A–G) |
 | `docs/REVISJON-3.md` | Tredje revisjon: poeng for design, grafikk, animasjoner og spillfølelse (fase H) |
+| `docs/REVISJON-4.md` | Fjerde revisjon: poeng etter v5.0 med oppstarten fra telefonvideo, og introen (fase I) |
 | `.nojekyll` | Sørger for at GitHub Pages serverer alle filer som de er |
 | `make_icons.py` | Regenererer ikonene (blåmeisen foran en bjørkestamme; valgfritt, krever Pillow) |
 | `make_audio.py` | Bygger `audio/` fra originalopptakene: klipper, renser og koder (valgfritt, krever ffmpeg og numpy) |
@@ -88,11 +90,41 @@ også i en undermappe.
 1. Åpne adressen i **Chrome** eller **Samsung Internet**.
 2. Trykk **Installer Pixelfugl**-knappen nederst på startskjermen, eller velg
    *Legg til på startskjermen* / *Installer app* i nettlesermenyen.
-3. Appen åpnes i fullskjerm uten nettleser-linjer, låst til portrett.
+3. Appen åpnes uten nettleser-linjer, låst til portrett. Statuslinjen øverst får himmelens farge
+   (lys blå om dagen, mørk blå om natten), så den glir inn i bildet i stedet for å være en svart stripe.
+
+Hadde du installert en eldre versjon, kan telefonen fortsatt vise det gamle ikonet og en cyan
+oppstartsskjerm. Chrome oppdaterer dette selv etter en stund (ikonene har fått nye filnavn, så endringen
+oppdages), men det går raskest å fjerne appen fra startskjermen og installere den på nytt.
+
+## Oppstart og intro
+
+Fra du trykker på ikonet til menyen er alt i samme materiale:
+
+1. **Oppstartsskjermen** (Android) er lin (`#F1E6D0`) med ikonet: blåmeisen foran en bjørkestamme.
+2. **Siden** er lin fra første bilde, så det kommer ingen tom eller mørk ramme mens spillet lastes.
+3. **Introen «Broderiet»** (cirka 2,7 s):
+   - En oval broderiramme av bjørk med messingskrue settes på linet. Inne i rammen er stoffet aida,
+     med ruter som går nøyaktig opp med stingene.
+   - En synål syr «Pixelfugl» sting for sting, bokstav for bokstav, med tråd i samme farge som
+     stingene (blå for i-prikken). Hver bokstav gir en stille kalimbatone.
+   - Blåmeisen flyr inn og lander på den første «l»-en, med et kort meisekall.
+   - Rammen vokser ut forbi kameraet og åpner seg mot menyen. Logoen glir opp på plassen sin, og
+     fuglen letter og glir ned til hvileplassen. Den sydde logoen er den samme som i menyen, så det
+     er ingen hopp.
+4. **Menyen** vises først når fonten er lastet (høyst 2,5 s ventetid), så papirlappene aldri lagres
+   med feil skrift. Menyen tegnes én gang skjult under linet mens ingenting beveger seg, så åpningen
+   ikke hakker.
+
+Introen vises hver gang appen startes, men ikke når du går tilbake til menyen fra et spill. Et trykk
+eller en tast hopper over den (og starter ikke spillet). Ved redusert bevegelse står logoen ferdig
+sydd i rammen, og linet toner rolig bort på cirka 1 s. Lyden i introen spilles bare i den installerte
+appen, der Chrome tillater lyd før første trykk; i nettleseren er introen stille.
 
 ## Kontroller
 
-- **Trykk** hvor som helst på skjermen (eller mellomrom / pil opp) for å flakse.
+- **Trykk** hvor som helst på skjermen (eller mellomrom / pil opp) for å flakse. Under introen
+  hopper et trykk over den.
 - **Pause**: knappen øverst til høyre, eller Esc / P. Spillet pauses også automatisk
   når appen legges i bakgrunnen, og lyden stoppes. «Fortsett» gir en kort 3-2-1-nedtelling.
 - **Hjemme:** når fuglen har landet på fuglebrettet ved hytta, hviler den til du trykker. Da flyr den videre.
