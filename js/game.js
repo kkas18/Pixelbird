@@ -137,7 +137,8 @@ function goReady() {
   // tegn de neste tidene på døgnet ferdig mens fuglen venter («Klar?»), så byttet midt i runden ikke hakker
   // én scene om gangen med pauser imellom, så «Klar?»-skjermen aldri fryser
   const i = CYCLE.indexOf(themeName), next = [...new Set(CYCLE.slice(i + 1).concat(CYCLE.slice(0, i)))];
-  next.forEach((name, k) => setTimeout(() => sceneFor(name), 80 + k * 260));
+  next.forEach((name, k) => setTimeout(() => { sceneFor(name); prewarmPainted(name); }, 80 + k * 260));
+  setTimeout(() => prewarmPainted(themeName), 40);
 }
 function goPlay() { state = State.PLAY; spawnPipe(W + 60); Sound.music.setMode('play'); }
 
@@ -372,7 +373,8 @@ function onPointer(e) {
     const b = hud[k];
     if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { press = { key: k, t: time }; Sound.unlock(); b.fn(); Sound.tick(); buzz(6); render(); return; }
   }
-  if (state === State.READY || state === State.PLAY) flap();
+  // et trykk på maleriet i menyen starter også (som hintet sier); ikke når et panel er åpent
+  if (state === State.MENU || state === State.READY || state === State.PLAY) flap();
 }
 canvas.addEventListener('pointerdown', onPointer, { passive: false });
 window.addEventListener('keydown', e => {

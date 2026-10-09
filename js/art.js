@@ -41,6 +41,23 @@ ${recolor.toString()}`;
 function recolor(d, w, h, season, role, play, night) {
   const green = season === 'summer' ? [92, 0.62, 0.86] : season === 'spring' ? [70, 0.55, 1] : null, winter = season === 'winter';
   const haze = night ? [64, 70, 104] : [222, 226, 232];
+  // vinter: lysstyrken jevnet ut i ruter på 4 px (rimfrosten legger seg på flater som vender opp, ikke som støy på
+  // hver kant) og på 16 px (et lys er mye lysere enn det som er rundt det, et lyst løvfelt er det ikke)
+  let ls = null, lc = null, sw = 0, sh = 0, cw = 0;
+  if (winter && role !== 'bark') {
+    sw = Math.max(2, Math.ceil(w / 4)); sh = Math.max(2, Math.ceil(h / 4)); cw = Math.ceil(sw / 4);
+    ls = new Float32Array(sw * sh); lc = new Float32Array(cw * Math.ceil(sh / 4));
+    const n = new Float32Array(sw * sh), nc = new Float32Array(lc.length);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4, k = (y >> 2) * sw + (x >> 2); ls[k] += (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]) / 255; n[k]++; }
+    for (let k = 0; k < ls.length; k++) { ls[k] /= n[k] || 1; const kc = ((k / sw | 0) >> 2) * cw + ((k % sw) >> 2); lc[kc] += ls[k]; nc[kc]++; }
+    for (let k = 0; k < lc.length; k++) lc[k] /= nc[k] || 1;
+  }
+  // utjevnet lysstyrke mellom rutene (bilineært), så rimfrosten får myke kanter og ingen firkanter
+  const lsAt = (fx, fy) => {
+    const x0 = Math.min(sw - 2, Math.max(0, Math.floor(fx))), y0 = Math.min(sh - 2, Math.max(0, Math.floor(fy)));
+    const tx = Math.min(1, Math.max(0, fx - x0)), ty = Math.min(1, Math.max(0, fy - y0)), k = y0 * sw + x0;
+    return (ls[k] * (1 - tx) + ls[k + 1] * tx) * (1 - ty) + (ls[k + sw] * (1 - tx) + ls[k + sw + 1] * tx) * ty;
+  };
   for (let y = 0; y < h; y++) {
     const yf = y / h, soil = role === 'scene' && yf > 0.87, land = role !== 'scene' || yf > 0.42;
     for (let x = 0; x < w; x++) {
@@ -63,11 +80,22 @@ function recolor(d, w, h, season, role, play, night) {
         const lum = (0.3 * r + 0.59 * g + 0.11 * b) / 255;
         if (role === 'bark') { r = r * 0.86 + lum * 255 * 0.1; g = g * 0.9 + lum * 255 * 0.08; b = Math.min(255, b * 0.96 + lum * 255 * 0.12); }
         else {
-          const j = i + 8 * w < d.length ? i + 8 * w : i, below = (0.3 * d[j] + 0.59 * d[j + 1] + 0.11 * d[j + 2]) / 255;
-          const up = Math.min(1, Math.max(0, (lum - below) * 8));
-          const snow = land ? Math.min(1, up * 1.1 + Math.min(1, Math.max(0, (lum - 0.45) * 2.2)) * 0.8) * 0.85 : 0;
+          const mx = Math.max(r, g, b), mn = Math.min(r, g, b), v = mx / 255, s = mx ? (mx - mn) / mx : 0;
+          let hu = mx === mn ? 0 : mx === r ? 60 * (((g - b) / (mx - mn)) % 6) : mx === g ? 60 * ((b - r) / (mx - mn) + 2) : 60 * ((r - g) / (mx - mn) + 4);
+          if (hu < 0) hu += 360;
+          const cx = x >> 2, cy = y >> 2, fx = x / 4 - 0.5, fy = y / 4 - 0.5;
+          const up = Math.min(1, Math.max(0, (lsAt(fx, fy) - lsAt(fx, fy + 1) - 0.015) * 9));
+          const water = hu > 185 && hu < 255 && s > 0.16;   // vann (og himmel i speilingen) får ikke rim
+          let snow = land && !water ? Math.min(1, up + Math.min(1, Math.max(0, (lum - 0.5) * 2)) * 0.55) * 0.8 : 0;
+          // varme lys om kvelden (vinduer, lykter) og falurødt beholder fargen; resten blir kaldt og blekt
+          const around = lc[(cy >> 2) * cw + (cx >> 2)];
+          const lamp = night && land && s > 0.3 && hu > 18 && hu < 66 ? Math.min(1, Math.max(0, (v - 0.72) * 5)) * Math.min(1, Math.max(0, (lum - around - 0.12) * 6)) : 0;
+          const red = s > 0.42 && (hu < 16 || hu > 342) ? 0.55 : 0, keep = Math.max(lamp, red);
+          snow *= 1 - keep;
           const cr = ((lum * 0.75 + r / 255 * 0.25) * 0.88 + 0.04), cg = ((lum * 0.75 + g / 255 * 0.25) * 0.95 + 0.04), cb = ((lum * 0.75 + b / 255 * 0.25) * 1.1 + 0.04);
-          r = (cr * (1 - snow) + 0.94 * snow) * 255; g = (cg * (1 - snow) + 0.96 * snow) * 255; b = (cb * (1 - snow) + 1.0 * snow) * 255;
+          r = (cr * (1 - snow) + 0.94 * snow) * 255 * (1 - keep) + r * keep;
+          g = (cg * (1 - snow) + 0.96 * snow) * 255 * (1 - keep) + g * keep;
+          b = (cb * (1 - snow) + 1.0 * snow) * 255 * (1 - keep) + b * keep;
         }
       }
       if (play) {   // bak spillet: lavere metning og kontrast, og et tynt dislag
@@ -199,27 +227,52 @@ function paintedSkyBody() {
   L.pad = 0; skyBodyCache.set(key, L); return L;
 }
 
+// bjørka i lyset fra tiden på døgnet: kjølig og mørkere om kvelden, varm i solnedgangen (samme toner som
+// stammene i det tegnede landskapet). Tonet én gang per bilde og tid; forhåndslages mens fuglen venter.
+const BIRCH_LIGHT = { sunset: ['#F2A07A', 0.18], night: ['#2A2C5A', 0.46] };
+const birchToneCache = new Map();
+function birchFor(tod) {
+  const image = seasonImage('birch'), tone = BIRCH_LIGHT[tod];
+  if (!image || !tone) return image;
+  let e = birchToneCache.get(tod);
+  if (!e || e.src !== image) {
+    const c = document.createElement('canvas'); c.width = image.width; c.height = image.height;
+    const g = c.getContext('2d'); g.drawImage(image, 0, 0);
+    g.globalCompositeOperation = 'source-atop'; g.globalAlpha = tone[1]; g.fillStyle = tone[0]; g.fillRect(0, 0, c.width, c.height);
+    birchToneCache.set(tod, e = { src: image, c });
+  }
+  return e.c;
+}
+const birchImage = () => birchFor(T.night ? 'night' : T.sunLow ? 'sunset' : 'day');
+// lag det som hører til en tid på døgnet ferdig på forhånd (mens fuglen venter på «Klar?»), så byttet midt i
+// runden ikke hakker
+function prewarmPainted(name) {
+  if (!hasPaintedForest()) return;
+  birchFor(name === 'night' ? 'night' : name === 'sunset' ? 'sunset' : 'day');
+}
+
 function paintBarkSprite(g, y0, y1) {
   if (!hasPaintedForest() || !ART.birch || y1 <= y0) return false;
-  const image = seasonImage('birch');
+  const image = birchImage();
   // The interior bark slice stays within the exact physical trunk width. Caps
   // are rendered separately, so rings/moss are never stretched with the body.
   g.drawImage(image, image.width * 0.375, 0, image.width * 0.245, image.height * 0.78, 0, y0, PIPE_W, y1 - y0);
-  // Continuous light across the cylinder, not a flat rectangular colour.
+  // Continuous light across the cylinder, not a flat rectangular colour (om kvelden: kjølig månelys)
+  const hi = T.night ? '196,208,255' : '255,245,215';
   const light = g.createLinearGradient(0, 0, PIPE_W, 0);
   light.addColorStop(0, 'rgba(15,20,36,.52)');
   light.addColorStop(0.23, 'rgba(24,27,40,.22)');
-  light.addColorStop(0.60, 'rgba(255,244,206,.07)');
-  light.addColorStop(0.82, 'rgba(255,245,215,.28)');
+  light.addColorStop(0.60, `rgba(${hi},.07)`);
+  light.addColorStop(0.82, `rgba(${hi},${T.night ? '.16' : '.28'})`);
   light.addColorStop(1, 'rgba(24,23,32,.30)');
   g.fillStyle = light; g.fillRect(0, y0, PIPE_W, y1 - y0);
-  g.fillStyle = 'rgba(255,242,202,.34)'; g.fillRect(PIPE_W - 3, y0, 0.7, y1 - y0);
+  g.fillStyle = `rgba(${hi},${T.night ? '.22' : '.34'})`; g.fillRect(PIPE_W - 3, y0, 0.7, y1 - y0);
   return true;
 }
 
 function paintBirchCap(y, upper) {
   if (!hasPaintedForest() || !ART.birch) return false;
-  const image = seasonImage('birch'), height = 23;
+  const image = birchImage(), height = 23;
   ctx.save(); ctx.translate(PIPE_W / 2, y);
   if (upper) ctx.scale(1, -1);
   ctx.drawImage(image, image.width * 0.30, image.height * 0.80, image.width * 0.40, image.height * 0.15,
