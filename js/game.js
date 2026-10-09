@@ -47,13 +47,29 @@ function addTint(v, rgb) { fx.tint = Math.max(fx.tint, v); fx.rgb = rgb; }
    Hver tid har sin egen ferdig tegnede scene (hurtigbufret). Ved bytte tones hele verden
    myk over fra den gamle til den nye scenen i løpet av 1,8 s. */
 let sceneCache = {}, worldFade = null;
-function sceneFor(name) {
-  if (!sceneCache[name]) {
+// sharp = scenen trenger skarpe kopier av lagene (menyen, der fokus ligger på landskapet); bare starttiden trenger dem
+function sceneFor(name, sharp = name === themeName) {
+  const have = sceneCache[name];
+  if (!have || (sharp && !have.sharp)) {
     const prev = T; T = paletteFor(name);
-    sceneCache[name] = { T, scene: buildScene() };
+    sceneCache[name] = { T, scene: buildScene(sharp), sharp };
     T = prev;
   }
   return sceneCache[name];
+}
+/* ---------- Kamera og fokus ----------
+   cam: kameraet følger fuglen litt i høyden (logiske px, + = ned); bakgrunnslagene forskyves etter avstand.
+   focusK: 0 = fokus på landskapet (menyen), 1 = fokus på fuglen (spill). */
+let cam = 0, camPrev = 0, camV = 0, focusK = 0;
+const CAM_MAX = 8;
+function cameraStep(dt) {
+  const groundY = H - GROUND_H, playing = state === State.PLAY || state === State.DEAD;
+  const target = reduceMotion || !playing ? 0 : clamp((bird.y - groundY * 0.45) * 0.045, -CAM_MAX, CAM_MAX);
+  camV += ((target - cam) * 30 - camV * 11) * dt;   // kritisk dempet fjær: følger mykt, uten å svinge
+  cam = clamp(cam + camV * dt, -CAM_MAX, CAM_MAX);
+  const want = state === State.MENU ? 0 : 1;
+  focusK = reduceMotion ? want : focusK + (want - focusK) * (1 - Math.exp(-dt * 5));
+  if (Math.abs(want - focusK) < 0.002) focusK = want;
 }
 function setTimeOfDay(name, fade = true) {
   if (name === curTheme && scene) return;
@@ -85,7 +101,9 @@ function goReady() {
   state = State.READY; resetRun(); newBest = false; groundBounced = false; unlocked = []; unlockSounded = false;
   transitionT = 1; Sound.swoosh(); Sound.music.setMode('menu'); setTimeOfDay(themeName);
   // tegn de neste tidene på døgnet ferdig mens fuglen venter («Klar?»), så byttet midt i runden ikke hakker
-  setTimeout(() => { const i = CYCLE.indexOf(themeName); for (let k = 1; k < CYCLE.length; k++) sceneFor(CYCLE[(i + k) % CYCLE.length]); }, 60);
+  // én scene om gangen med pauser imellom, så «Klar?»-skjermen aldri fryser
+  const i = CYCLE.indexOf(themeName), next = [...new Set(CYCLE.slice(i + 1).concat(CYCLE.slice(0, i)))];
+  next.forEach((name, k) => setTimeout(() => sceneFor(name), 80 + k * 260));
 }
 function goPlay() { state = State.PLAY; spawnPipe(W + 60); Sound.music.setMode('play'); }
 
@@ -317,7 +335,7 @@ function landmarkStep() {
 /* ---------- Oppdatering (dt i sekunder) ---------- */
 // lagre tilstanden før steget, så render() kan interpolere mellom forrige og nåværende steg
 function snapshot() {
-  prevScroll = scroll;
+  prevScroll = scroll; camPrev = cam;
   bird.px = bird.x; bird.py = bird.y; bird.pr = bird.rot;
   for (const p of pipes) { p.px = p.x; p.ptop = p.top; }
   for (const q of powers) { q.px = q.x; q.py = q.y; }
@@ -343,6 +361,7 @@ function update(dt) {
   if (worldFade && (worldFade.k += dt / 1.8) >= 1) worldFade = null;   // krysstoning over 1,8 s
   fx.t += dt; fx.tint = Math.max(0, fx.tint - dt * 2.2);
   animateBird(dt);
+  cameraStep(dt);
 
   const groundY = H - GROUND_H, idleY = groundY * 0.42;
 
@@ -453,9 +472,10 @@ function update(dt) {
   for (let i = floats.length - 1; i >= 0; i--) { const f = floats[i]; f.x += f.vx * dt; f.y += f.vy * dt; f.life -= dt; if (f.life <= 0) floats.splice(i, 1); }
   const mk = moteKind(), fall = falling(mk);
   for (const m of dust) {
-    m.x -= (D.speed * 0.2 * (scrolling ? 1 : 0) + m.vx) * dt;
+    const nz = m.near ? 2.2 : 1;   // nær kameraet: raskere forbi (parallakse)
+    m.x -= (D.speed * 0.2 * (scrolling ? 1 : 0) + m.vx) * nz * dt;
     if (fall) {   // løv, snø og blomsterblader daler og svaier
-      m.y += m.fall * dt; m.x += Math.sin(time * m.f + m.p) * 10 * dt; m.rot += m.vr * dt;
+      m.y += m.fall * nz * dt; m.x += Math.sin(time * m.f + m.p) * 10 * dt; m.rot += m.vr * dt;
       if (m.y > groundY + 4) { m.x = m.px = Math.random() * W; m.y = m.py = -8; }
     } else m.y += Math.sin(time * m.f + m.p) * 6 * dt;
     if (m.x < -10) { m.x = m.px = W + 10; m.y = m.py = fall ? Math.random() * groundY : moteY(groundY); }   // ingen interpolering over skjermen ved omstart

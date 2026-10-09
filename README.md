@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v3.7): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v3.8): en liten blåmeis med lusekofte-skjerf flyr
 gjennom en norsk bjørkeskog. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 søvnig måne. Dag/natt-tema, generert musikk, syntetisert lyd og vibrasjon.
@@ -46,7 +46,7 @@ piksler i stoff**.
 | `icons/` | App-ikoner (192, 512, maskable 512, Apple touch, favicon) + skjermbilde |
 | `fonts/` | Fredoka (woff2, variabel vekt) + lisens (SIL OFL 1.1) |
 | `docs/REVISJON.md` | Første revisjon: funn og plan (fase 1–4, gjennomført) |
-| `docs/REVISJON-2.md` | Andre revisjon: poeng og tiltak mot «AI-stil» (fase A–F) |
+| `docs/REVISJON-2.md` | Andre revisjon: poeng og tiltak mot «AI-stil» (fase A–G) |
 | `.nojekyll` | Sørger for at GitHub Pages serverer alle filer som de er |
 | `make_icons.py` | Regenererer ikonene (blåmeisen foran en bjørkestamme; valgfritt, krever Pillow) |
 
@@ -160,6 +160,26 @@ Landskapet er laget for at øyet ikke skal se gjentakelse:
 - **Sjeldne landemerker** dukker opp omtrent hvert 30.–60. sekund, aldri det samme som de to
   forrige: stavkirke, fyr (med lysstråle om kvelden), seter med kuer, elg i skogkanten, en sau som
   beiter og en postkasse ved stien. Hvert landemerke står plantet på sitt eget parallakse-lag.
+
+## Dybde
+
+Spillet er fortsatt tegnet i lag, men har de signalene øyet bruker for å se dybde i et kamerabilde:
+
+- **Dybdeskarphet:** fuglen, stammene og bakken er skarpe. Bakgrunnen blir gradvis uskarpere
+  jo lenger unna den er (fjell mest, så åser, skog og busker), og skyer og landemerker følger
+  avstanden sin.
+- **Luftperspektiv:** mer dis jo lenger unna.
+- **Forgrunn:** noen få uskarpe gresstuster, bregner og blader nederst, helt nær kameraet.
+  De glir forbi raskere enn alt annet og dekker aldri fuglen eller stammene.
+- **Kameraet følger fuglen litt i høyden** (maks 8 px), og lagene forskyves etter avstand.
+- **Fokustrekk:** i menyen ligger fokus på landskapet, som da er skarpt. Når runden starter,
+  glir fokus over til fuglen.
+- **Partikler og skygge:** noen få partikler ligger helt nær kameraet (store, myke og raske),
+  og fuglen har en skygge på bakken som blir mindre og svakere jo høyere den flyr.
+
+Uskarpheten lages én gang når scenen tegnes, i lav oppløsning, så den koster nesten ingenting
+per bilde og bruker lite minne. Nettlesere uten innebygd uskarphet på lerretet får den laget i
+JavaScript. Med «redusert bevegelse» står kameraet stille, og fokus skifter uten glidning.
 
 ## Hinder: bjørkestammer
 

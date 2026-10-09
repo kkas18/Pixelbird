@@ -6,8 +6,8 @@
 natt, game over og garderobe, og målinger i koden: antall gradienter, sirkler og sinusbevegelser,
 fargepalett og flisbredder.
 
-> **Status:** Fase A (signatur og identitet) er gjennomført i v3.6, og fase B (variasjon uten
-> gjentakelse) i v3.7. Se seksjon 8 og 9.
+> **Status:** Fase A (signatur og identitet) er gjennomført i v3.6, fase B (variasjon uten
+> gjentakelse) i v3.7 og fase G (dybde og kamera, lagt til etter ønske) i v3.8. Se seksjon 8–10.
 
 > Den første revisjonen ([`REVISJON.md`](REVISJON.md)) handlet om å gjøre spillet *ryddig, mykt og
 > koselig*. Det er gjort. Denne revisjonen spør om noe annet: **ser spillet ut som noe et menneske har
@@ -286,6 +286,19 @@ Fasene er ordnet etter **effekt per arbeidsinnsats**. A og B gir mest synlig for
 
 ---
 
+### Fase G: dybde og kamera (lagt til etter ønske)
+
+Målet er at spillet skal se ut som et kamerabilde med dybde, ikke som flate pappfigurer, men uten å gå
+over til ekte 3D (som ville kostet det håndtegnede preget):
+
+1. **Dybdeskarphet** bakt inn i lagene: uskarpere jo lenger unna. Skjøtene skal være sømløse, og det skal
+   finnes en reserveløsning for nettlesere uten filter på lerretet.
+2. **Luftperspektiv:** mer dis jo lenger unna.
+3. **Forgrunn nær kameraet:** sparsomme, uskarpe klynger nederst som aldri dekker spillet.
+4. **Kamera som følger fuglen litt i høyden**, med forskyvning av lagene etter avstand.
+5. **Fokustrekk:** skarpt landskap i menyen og fokus på fuglen i spill.
+6. **Partikler og skygge etter dybde.**
+
 ## 6. Forventet effekt på poengene
 
 | Område | Nå | Etter A–B | Etter A–F |
@@ -391,3 +404,47 @@ Det som gjenstår for å komme forbi «AI-pent» er særlig gjentakelsen og symm
 
 Det tydeligste gjenværende «AI-tegnet» er den jevne sinusvuggingen. Fase C (animasjon med intensjon)
 tar den.
+
+---
+
+## 10. Status: fase G gjennomført (v3.8)
+
+| Tiltak | Hva som ble gjort |
+|---|---|
+| G1 Dybdeskarphet | Fjell (2,2 px), åser (1,4), skog (0,8), busker (0,35), skyer (0,7) og forgrunn (3,2) gjøres uskarpe én gang når scenen tegnes. Landemerkene følger laget sitt. Uskarpheten lages og lagres i lav oppløsning og skaleres opp når den tegnes, så den bruker lite minne og koster nesten ingenting per bilde. Flisene er sømløse, og nettlesere uten filter får uskarpheten laget i JavaScript (samme resultat). |
+| G2 Luftperspektiv | Dis i himmelfarge etter avstand (fjell 20 %, åser 11 %, skog 5 %). |
+| G3 Forgrunn | Fire klynger (høyt gress, bregner, store bjørkeblader, høstfarger om høsten og snø om vinteren) glir forbi med fart 1,45. De starter ved gresskanten og går aldri mer enn 4 px over den. |
+| G4 Kamera | Kameraet følger fuglen i høyden (maks 8 px, kritisk dempet), og lagene forskyves etter avstand. Skogbunnen forlenges, så det aldri blir glipper. Kameraet er av i menyen og ved «redusert bevegelse». |
+| G5 Fokustrekk | Menyen bruker skarpe kopier av lagene (bare for menyens tid på døgnet). Når runden starter, glir fokus til fuglen på cirka et halvt sekund. |
+| G6 Partikler og skygge | Cirka 12 % av partiklene ligger nær kameraet: store, myke og raske. Fuglen har en skygge på bakken som krymper og blekner med høyden. |
+
+**Før og etter:**
+
+- [`revisjon-2/dybde/spill.jpg`](revisjon-2/dybde/spill.jpg): spill før og etter
+- [`revisjon-2/dybde/fokus.jpg`](revisjon-2/dybde/fokus.jpg): fokus på landskapet i menyen og på fuglen i spill
+- [`revisjon-2/dybde/natt.jpg`](revisjon-2/dybde/natt.jpg): kveld
+
+**Verifisering:**
+
+- 25 nye automatiske tester for fase G, blant annet:
+  - at uskarpheten øker med avstanden
+  - sømløse skjøter
+  - lav oppløsning og skarpe kopier bare der de trengs
+  - fokustrekket
+  - at det ikke blir glipper når kameraet er i ytterpunktene
+  - at forgrunnen holder seg nede
+  - bakkeskyggen
+  - reserveløsningen
+  - redusert bevegelse
+  - ingen lange blokkeringer mens scenene bygges i forkant
+- Alle tidligere testpakker består på funksjon (fase 1, 2, 4, 5, A, B og lyd).
+- Å bygge en scene tar cirka 115–165 ms i programvaretegning (fase B: 80–115 ms). Byggingen skjer én scene om gangen med pauser, og ingen blokkering er over cirka 100 ms.
+- Tegnetiden per bilde for fase B og G samlet er mellom −2 % og +10 % mot v3.6 i ulike kjøringer (grense +12 %). Dybdefunksjonene alene står for cirka 3 %.
+
+**Oppdaterte poeng:**
+
+| Område | Etter fase B | Etter fase G |
+|---|:-:|:-:|
+| Grafikk: særpreg og originalitet | 7,5 | **8** |
+| Grafikk: håndverk og ryddighet | 8 | **8,5** |
+| **Menneskelig preg** | **6,5** | **7** |

@@ -200,6 +200,93 @@ function paper(g, alpha) {
   g.restore();
 }
 
+/* ---------- Dybde: dybdeskarphet, dis og fokus ----------
+   Lagene får uskarphet og dis etter avstand, bakt inn én gang når scenen tegnes (ingen kostnad per bilde).
+   Spilleplanet (stammer, fugl, bakke) er skarpt. I menyen ligger fokus på landskapet: da brukes en skarp
+   kopi av lagene, og fokus glir over til fuglen når runden starter (focusK går fra 0 til 1). */
+const DEPTH = {   // blur i logiske px, dis = andel himmelfarge; s = lagets parallakse
+  0.05: { blur: 2.2, haze: 0.2 }, 0.14: { blur: 1.4, haze: 0.11 }, 0.3: { blur: 0.8, haze: 0.05 }, 0.6: { blur: 0.35, haze: 0 },
+  sky: { blur: 0.7, haze: 0 }, fore: { blur: 3.2, haze: 0 }
+};
+// Canvas-filter (blur) finnes ikke i alle nettlesere; da lages uskarpheten i JavaScript (samme resultat, litt tregere)
+const canFilter = (() => { try { const g = document.createElement('canvas').getContext('2d'); g.filter = 'blur(2px)'; return g.filter === 'blur(2px)'; } catch (e) { return false; } })();
+let forceJsBlur = false;   // for testene
+// tre ganger boksuskarphet ≈ gaussisk; på forhåndsmultiplisert alfa, så kantene ikke får mørke render
+function boxBlurCanvas(c, r) {
+  const g = c.getContext('2d'), w = c.width, h = c.height, img = g.getImageData(0, 0, w, h), d = img.data, n = w * h;
+  const f = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) { const a = d[i * 4 + 3] / 255; f[i * 4] = d[i * 4] * a; f[i * 4 + 1] = d[i * 4 + 1] * a; f[i * 4 + 2] = d[i * 4 + 2] * a; f[i * 4 + 3] = d[i * 4 + 3]; }
+  const tmp = new Float32Array(Math.max(w, h) * 4), rad = Math.max(1, Math.round((Math.sqrt(4 * r * r + 1) - 1) / 2));   // tre boksbredder gir sigma ≈ r
+  const pass = (len, stride, start) => {
+    for (let k = 0; k < len; k++) { const o = (start + k * stride) * 4; tmp[k * 4] = f[o]; tmp[k * 4 + 1] = f[o + 1]; tmp[k * 4 + 2] = f[o + 2]; tmp[k * 4 + 3] = f[o + 3]; }
+    const sum = [0, 0, 0, 0], at = (k, ch) => tmp[Math.min(len - 1, Math.max(0, k)) * 4 + ch];
+    for (let ch = 0; ch < 4; ch++) for (let k = -rad; k <= rad; k++) sum[ch] += at(k, ch);
+    for (let k = 0; k < len; k++) {
+      const o = (start + k * stride) * 4;
+      for (let ch = 0; ch < 4; ch++) { f[o + ch] = sum[ch] / (rad * 2 + 1); sum[ch] += at(k + rad + 1, ch) - at(k - rad, ch); }
+    }
+  };
+  for (let it = 0; it < 3; it++) { for (let y = 0; y < h; y++) pass(w, 1, y * w); for (let x = 0; x < w; x++) pass(h, w, x); }
+  for (let i = 0; i < n; i++) { const a = f[i * 4 + 3]; d[i * 4 + 3] = a; const k = a > 0 ? 255 / a : 0; d[i * 4] = f[i * 4] * k; d[i * 4 + 1] = f[i * 4 + 1] * k; d[i * 4 + 2] = f[i * 4 + 2] * k; }
+  g.putImageData(img, 0, 0);
+}
+const copyCanvas = src => { const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; c.getContext('2d').drawImage(src, 0, 0); return c; };
+// Uskarphet i lav oppløsning: laget skaleres ned én gang (med luft rundt), gjøres uskarpt der og beholdes i lav
+// oppløsning – det skaleres opp først når det tegnes. Innholdet er uansett uskarpt, så det ser likt ut, og det er
+// mange ganger billigere (og bruker mye mindre minne) enn i full oppløsning.
+// tiled: luften til venstre/høyre fylles med motsatt kant (sømløs flis), og nederste rad forlenges nedover.
+function lowResBlur(c, r, tiled, haze) {
+  const k = r >= 6 ? 4 : r >= 3 ? 3 : r >= 1.5 ? 2 : 1, pad = Math.ceil(r * 3), cw = c.width, ch = c.height;
+  const tw = cw + pad * 2, th = ch + pad * (tiled ? 1 : 2), oy = tiled ? 0 : pad;
+  const mk = () => { const x = document.createElement('canvas'); x.width = Math.ceil(tw / k); x.height = Math.ceil(th / k); return x; };
+  const A = mk(), ag = A.getContext('2d');
+  ag.imageSmoothingQuality = 'high'; ag.setTransform(1 / k, 0, 0, 1 / k, 0, 0);
+  ag.drawImage(c, pad, oy);
+  if (tiled) {
+    ag.drawImage(c, cw - pad, 0, pad, ch, 0, 0, pad, ch);          // høyre kant til venstre for flisen
+    ag.drawImage(c, 0, 0, pad, ch, pad + cw, 0, pad, ch);          // venstre kant til høyre for flisen
+    ag.drawImage(c, 0, ch - 1, cw, 1, pad, ch, cw, pad);           // nederste rad forlenget
+  }
+  if (haze) hazeOver(A, haze);
+  let B;
+  if (canFilter && !forceJsBlur) { B = mk(); const bg = B.getContext('2d'); bg.filter = `blur(${r / k}px)`; bg.drawImage(A, 0, 0); }
+  else { boxBlurCanvas(A, r / k); B = A; }
+  return { B, k, pad };
+}
+// dis: himmelfarge over det som har farge (ikke over det gjennomsiktige)
+function hazeOver(c, a) {
+  const g = c.getContext('2d'); g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-atop'; g.globalAlpha = a;
+  g.fillStyle = mixHex(T.skyMid, T.skyBot, 0.5); g.fillRect(0, 0, c.width, c.height); g.restore();
+}
+// gi et lag dybde. Etterpå er L.c det uskarpe bildet i lav oppløsning (L.k ganger mindre), L.cw/L.ch lagets størrelse i
+// skjermpiksler, og L.ox/L.oy hvor laget starter i L.c (før nedskalering). tiled = flislag; ellers et frittstående bilde
+// som får luft rundt seg (L.pad i logiske px). keepSharp: behold en skarp kopi (med dis) til menyen.
+function depthify(L, d, { tiled = true, keepSharp = false } = {}) {
+  const R = dpr * scale, c = L.c;
+  if (!d.blur) { if (d.haze) hazeOver(c, d.haze); return L; }
+  const { B, k, pad } = lowResBlur(c, d.blur * R, tiled, d.haze);
+  let sharp = null;
+  if (keepSharp) {
+    sharp = document.createElement('canvas'); sharp.width = c.width + (tiled ? 0 : pad * 2); sharp.height = c.height + (tiled ? 0 : pad * 2);
+    sharp.getContext('2d').drawImage(c, tiled ? 0 : pad, tiled ? 0 : pad);
+    if (d.haze) hazeOver(sharp, d.haze);
+  }
+  if (tiled) Object.assign(L, { c: B, k, ox: pad, oy: 0, cw: c.width, ch: c.height });
+  else { Object.assign(L, { c: B, k, ox: 0, oy: 0, cw: c.width + pad * 2, ch: c.height + pad * 2, pad: pad / R }); L.w += pad * 2 / R; L.h += pad * 2 / R; }
+  if (sharp) L.sharp = sharp;
+  return L;
+}
+// tegn et utsnitt (sx, sy, sw, sh i lagets skjermpiksler) med fokus: skarp kopi i menyen, uskarp i spill, myk overgang imellom
+function blitDepth(L, sx, sy, sw, sh, dx, dy, dw, dh) {
+  const f = L.sharp ? focusK : 1, k = L.k || 1, ox = L.ox || 0, oy = L.oy || 0;
+  if (f < 0.999) { const a = ctx.globalAlpha; ctx.globalAlpha = a * (1 - f * f); ctx.drawImage(L.sharp, sx, sy, sw, sh, dx, dy, dw, dh); ctx.globalAlpha = a; }
+  if (f > 0.001) { const a = ctx.globalAlpha; ctx.globalAlpha = a * f; ctx.drawImage(L.c, (sx + ox) / k, (sy + oy) / k, sw / k, sh / k, dx, dy, dw, dh); ctx.globalAlpha = a; }
+}
+const layerW = L => L.cw || L.c.width, layerH = L => L.ch || L.c.height;
+const blitWhole = (L, x, y, w, h) => blitDepth(L, 0, 0, layerW(L), layerH(L), x, y, w ?? L.w, h ?? L.h);
+// kameraets høydeforskyvning for et lag med parallakse s (fjerne lag flytter seg mest i forhold til spilleplanet)
+const camShift = s => ip(camPrev, cam) * (1 - s);
+
 /* ---------- Offscreen-lag ---------- */
 let scene = null;
 // flislag: bredden rundes til hele skjermpiksler, så flisene møtes uten søm
@@ -381,7 +468,7 @@ function groundSeg(g, w, h, kind, seed) {
 
 // sola står lavt bak fjellene i solnedgang, høyt ellers
 const sunPos = () => ({ sx: W - 64, sy: T.sunLow ? H - GROUND_H - 178 : safeTop + 104 });
-function buildScene() {
+function buildScene(keepSharp = false) {
   const scene = {};
   const TAU = Math.PI * 2;
 
@@ -471,6 +558,19 @@ function buildScene() {
 
   // 5) bakken: ti bakkestykker som settes sammen i tilfeldig rekkefølge (se segAt), så bakken aldri gjentar seg i et fast mønster
   scene.groundSegs = GROUND_KINDS.map((kind, i) => makeLayer(SEG_W, GROUND_H + 10 + SEG_HEAD, (g, w, h) => groundSeg(g, w, h, kind, 71 + i * 13), 0.6));
+  // dybde: dis og uskarphet etter avstand (skarpe kopier bare for scenen menyen bruker)
+  depthify(scene.mountains, DEPTH[0.05], { keepSharp }); depthify(scene.hills, DEPTH[0.14], { keepSharp });
+  depthify(scene.forest, DEPTH[0.3], { keepSharp }); depthify(scene.bushes, DEPTH[0.6], { keepSharp });
+  // forgrunn helt nær kameraet: store, uskarpe bregner, gress og blader nederst (alltid uskarp – nærmere enn fokus)
+  // (klynger med god avstand langs en 864 px lang strekning; bare klyngene tegnes, ikke det tomme imellom)
+  scene.fore = foreClumps();
+  // seilbåten på fjorden (samme avstand som fjellene)
+  scene.boat = depthify(makeSprite(20, 18, g => {
+    g.translate(8, 15); g.lineJoin = 'round'; g.fillStyle = '#FFF8EC'; g.strokeStyle = T.ink; g.lineWidth = 0.9;
+    g.beginPath(); g.moveTo(1, -2); g.lineTo(1, -13); g.lineTo(8, -3); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = tc('#D0583F'); g.beginPath(); g.moveTo(-5, -1.5); g.lineTo(9, -1.5); g.lineTo(6.5, 1.6); g.lineTo(-3, 1.6); g.closePath(); g.fill(); g.stroke();
+  }), DEPTH[0.05], { tiled: false, keepSharp });
+
   // himmel med solglød, og vignett: tegnes én gang i full skjermstørrelse (ugjennomsiktig blit er billigere enn gradienter hvert bilde)
   const groundY = H - GROUND_H, { sx, sy } = sunPos();
   scene.sky = makeSprite(W, groundY, g => {
@@ -511,7 +611,7 @@ function buildScene() {
     tg.globalCompositeOperation = 'destination-out'; for (const [x, y, k] of puffs) circle(tg, x - 2.2, y + 3.2, k);
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-atop'; g.globalAlpha = T.night ? 0.3 : 0.75; g.drawImage(t, 0, 0);
     g.restore();
-  }, 0.4));
+  }, 0.4)).map(L => depthify(L, DEPTH.sky, { tiled: false, keepSharp }));
   scene.balloon = makeSprite(30, 48, g => {
     g.strokeStyle = T.ink; g.lineWidth = 0.8;
     g.beginPath(); g.moveTo(8, 25); g.lineTo(11.5, 37); g.moveTo(22, 25); g.lineTo(18.5, 37); g.stroke();
@@ -527,7 +627,7 @@ function buildScene() {
     gr.addColorStop(0, 'rgba(255,240,150,.95)'); gr.addColorStop(0.4, 'rgba(255,230,120,.35)'); gr.addColorStop(1, 'rgba(255,230,120,0)');
     g.fillStyle = gr; g.fillRect(0, 0, 24, 24);
   });
-  scene.marks = buildLandmarks();
+  scene.marks = buildLandmarks(keepSharp);
   // logoen: «Pixelfugl» brodert i korssting (håndlaget pikselskrift i stedet for en ferdig font)
   scene.logo = buildLogo(5);
   return scene;
@@ -611,9 +711,58 @@ function flower(g, x, y, r, c) {
   g.fillStyle = '#F2B544'; circle(g, x, y, r * 0.6);
 }
 
+// forgrunnen: tuer, bregner og store blader i klynger med god avstand; mørkere og mettere enn resten (nærmest kameraet)
+const FORE_LEN = 864, FORE_W = 84, FORE_H = 84;   // små, sparsomme klynger: synlige som dybde, men billige å tegne
+function foreClumps() {
+  const r = rng(777), out = [];
+  for (let u = 40 + r() * 40; u < FORE_LEN - 60; u += 200 + r() * 140) {
+    const kind = r(), seed = (r() * 1e6) | 0;
+    out.push({ u, L: depthify(makeLayer(FORE_W, FORE_H, (g, w, h) => foreClump(g, w, h, kind, seed)), DEPTH.fore, { tiled: false }) });
+  }
+  return out;
+}
+function foreClump(g, w, h, kind, seed) {
+  const r = rng(seed), TAU = Math.PI * 2, winter = seasonName === 'winter', autumn = seasonName === 'autumn', cx = w / 2;
+  const leaf = winter ? '#E8EEF6' : mixHex(T.grassDark, '#1E3A2A', 0.45), leaf2 = winter ? '#CBD6E4' : mixHex(T.crown, '#2E5A34', 0.4);
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  if (kind < 0.4) {   // høyt gress
+    for (let i = 0; i < 9; i++) {
+      const x = cx + (r() - 0.5) * 30, len = 34 + r() * 40, lean = (r() - 0.5) * 24;
+      g.strokeStyle = r() < 0.5 ? leaf : leaf2; g.lineWidth = 3 + r() * 2.5;
+      g.beginPath(); g.moveTo(x, h + 4); g.quadraticCurveTo(x + lean * 0.3, h - len * 0.6, x + lean, h - len); g.stroke();
+    }
+  } else if (kind < 0.75) {   // bregne: bøyd stilk med småblad
+    for (const side of [-1, 1]) {
+      const x0 = cx + side * 7, len = 52 + r() * 22, tilt = side * (0.45 + r() * 0.25);
+      g.strokeStyle = leaf; g.lineWidth = 2.4; g.beginPath(); g.moveTo(x0, h + 4);
+      const ex = x0 + Math.sin(tilt) * len, ey = h - Math.cos(tilt) * len * 0.9; g.quadraticCurveTo(x0 + Math.sin(tilt) * len * 0.2, h - len * 0.7, ex, ey); g.stroke();
+      g.fillStyle = leaf2;
+      for (let t = 0.2; t < 0.95; t += 0.12) {
+        const px = x0 + (ex - x0) * t, py = h + 4 + (ey - h - 4) * t, sz = 9 * (1 - t * 0.7);
+        for (const sd of [-1, 1]) { g.save(); g.translate(px, py); g.rotate(tilt + sd * 1.1); g.beginPath(); g.ellipse(sz * 0.5, 0, sz * 0.55, 2.4, 0, 0, TAU); g.fill(); g.restore(); }
+      }
+    }
+  } else {   // store blader (bjørk), om høsten gule og oransje
+    for (let i = 0; i < 4; i++) {
+      const x = cx + (r() - 0.5) * 34, y = h - 10 - r() * 30, a = r() * TAU, sz = 12 + r() * 8;
+      g.fillStyle = autumn ? ['#E8963A', '#F2C14E', '#D9663A'][(r() * 3) | 0] : (r() < 0.5 ? leaf : leaf2);
+      g.save(); g.translate(x, y); g.rotate(a); g.beginPath(); g.moveTo(-sz, 0); g.quadraticCurveTo(0, -sz * 0.75, sz, 0); g.quadraticCurveTo(0, sz * 0.75, -sz, 0); g.fill(); g.restore();
+    }
+  }
+}
+// forgrunnsklyngene glir forbi raskest (parallakse 1,45); bunnen ligger under skjermkanten, så kameraet aldri blotter den
+function drawForeground() {
+  const off = wrap(viewScroll * 1.45, FORE_LEN), y0 = H + 4 + camShift(1.45);
+  for (const { u, L } of scene.fore) for (const base of [0, FORE_LEN]) {
+    const x = u + base - off - L.w / 2;
+    if (x > W || x + L.w < 0) continue;
+    blitWhole(L, x, y0 - L.h + L.pad);
+  }
+}
+
 /* ---------- Landemerker ----------
    Forhåndstegnet per tid på døgnet; ankeret er midt nede (der de står på bakken). */
-function buildLandmarks() {
+function buildLandmarks(keepSharp) {
   const out = {}, TAU = Math.PI * 2;
   const sprite = (name, w, h, draw) => { out[name] = makeSprite(w, h, g => { g.lineJoin = 'round'; g.lineCap = 'round'; g.translate(w / 2, h - 2); draw(g); }, 0.4); };
   const ink = (g, lw = 1) => { g.strokeStyle = T.ink; g.lineWidth = lw; };
@@ -697,6 +846,7 @@ function buildLandmarks() {
     g.fillStyle = tc('#FFFFFF'); g.fillRect(-2, -18.2, 4, 1.6);
     g.fillStyle = tc('#3E6E4A'); g.fillRect(-4, -11.5, 8, 3); g.strokeRect(-4, -11.5, 8, 3);   // avisrør
   });
+  for (const k in out) if (DEPTH[LANDMARKS[k]]) depthify(out[k], DEPTH[LANDMARKS[k]], { tiled: false, keepSharp });
   return out;
 }
 // tegn landemerkene som hører til laget med fart «depth», plantet på lagets overflate
@@ -711,7 +861,9 @@ function drawLandmarks(groundY, depth) {
     else if (depth === 0.3) { const L = scene.forest; y = groundY - L.h + L.floor(wrap(x + viewScroll * depth, L.w)) + 3; }
     else if (depth === 0.6) y = groundY - 1;
     else y = groundY + 3;
-    ctx.drawImage(S.c, x - S.w / 2, y - S.h + 2, S.w, S.h);
+    y += camShift(depth);
+    const pad = S.pad || 0;
+    blitWhole(S, x - S.w / 2, y - S.h + 2 + pad);
     if (m.kind === 'sau') sheepHead(x, y, m.seed);
     if (m.kind === 'fyr' && T.windowLit) lighthouseBeam(x, y - 26);
   }
@@ -751,18 +903,25 @@ function initMotes() {
     x: Math.random() * W, y: moteY(groundY), r: k === 'snow' ? 0.8 + Math.random() * 1.6 : 0.8 + Math.random() * 1.2,
     vx: k === 'snow' ? 2 + Math.random() * 6 : 4 + Math.random() * 10, f: 0.5 + Math.random(), p: Math.random() * 6,
     fall: k === 'snow' ? 18 + Math.random() * 22 : 14 + Math.random() * 16, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 3,
-    c: k === 'leaf' ? ['#F2994A', '#F7C548', '#E46B3C', '#D9A85E'][(Math.random() * 4) | 0] : ['#FFC6D6', '#FFE3EC', '#FF9EB5'][(Math.random() * 3) | 0]
+    c: k === 'leaf' ? ['#F2994A', '#F7C548', '#E46B3C', '#D9A85E'][(Math.random() * 4) | 0] : ['#FFC6D6', '#FFE3EC', '#FF9EB5'][(Math.random() * 3) | 0],
+    near: Math.random() < 0.12   // noen få helt nær kameraet: store, uskarpe og raske
   }));
 }
 // tegn et flislag med scroll; snapper til skjermpiksler så flisene aldri får søm
-function drawLayer(L, y, speed, each) {
-  const R = dpr * scale;
+// y forskyves med kameraets høyde etter lagets avstand; extend = forleng nederste rad når laget løftes
+// (skogbunnen og forgrunnen må alltid nå ned til bakken / skjermkanten)
+function drawLayer(L, y, speed, each, extend = false) {
+  const R = dpr * scale, sh = camShift(speed);
+  y = Math.round((y + sh) * R) / R;
   let x = Math.round(-wrap(viewScroll * speed, L.w) * R) / R;
   for (; x < W; x += L.w) {
     // bare den synlige delen av flisen (de lange lagene stikker ofte langt utenfor skjermen)
-    const s0 = Math.max(0, Math.round(-x * R)), s1 = Math.min(L.c.width, Math.round((W - x) * R));
-    if (s1 > s0) ctx.drawImage(L.c, s0, 0, s1 - s0, L.c.height, x + s0 / R, y, (s1 - s0) / R, L.h);
-    if (each) each(x);
+    const s0 = Math.max(0, Math.round(-x * R)), s1 = Math.min(layerW(L), Math.round((W - x) * R)), lh = layerH(L);
+    if (s1 > s0) {
+      blitDepth(L, s0, 0, s1 - s0, lh, x + s0 / R, y, (s1 - s0) / R, L.h);
+      if (extend && sh < 0) blitDepth(L, s0, lh - 1, s1 - s0, 1, x + s0 / R, y + L.h - 0.5, (s1 - s0) / R, -sh + 1);
+    }
+    if (each) each(x, y);
   }
 }
 // bakken: stykkene legges etter hverandre etter rekkefølgen i segAt (snappet til skjermpiksler)
@@ -803,7 +962,8 @@ function drawSky(groundY) {
   for (const c of clouds) {
     const x = wrap(c.x - viewScroll * c.sp - time * c.drift, W + 260) - 130, S = scene.clouds[c.v];   // margen er bredere enn den største skyen, så ingen sky forsvinner synlig
     const bob = reduceMotion ? 0 : Math.sin(time * 0.35 + c.x * 0.05) * 2;   // skyene svever rolig opp og ned
-    ctx.globalAlpha = c.far ? 0.8 : 1; ctx.drawImage(S.c, x, c.y + bob, S.w * c.s, S.h * c.s);
+    const k = c.s, pad = S.pad * k;   // skyene ligger langt unna: følger kameraet nesten fullt
+    ctx.globalAlpha = c.far ? 0.8 : 1; blitWhole(S, x - pad, c.y + bob + camShift(c.far ? 0.03 : 0.07) - pad, S.w * k, S.h * k);
   }
   ctx.globalAlpha = 1;
   if (groundY - safeTop > 400) {
@@ -826,16 +986,14 @@ function drawScenery(groundY) {
   const M = scene.mountains;
   drawLayer(M, groundY - M.h, 0.05);
   // seilbåt på fjorden
-  const bx = wrap(W * 0.3 - viewScroll * 0.05 - time * 2.5, W + 60) - 30, by = groundY - 63 + Math.sin(time * 1.6) * 0.6;
-  ctx.fillStyle = '#FFF8EC'; ctx.strokeStyle = T.ink; ctx.lineWidth = 0.9;
-  ctx.beginPath(); ctx.moveTo(bx + 1, by - 2); ctx.lineTo(bx + 1, by - 13); ctx.lineTo(bx + 8, by - 3); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#D0583F'; ctx.beginPath(); ctx.moveTo(bx - 5, by - 1.5); ctx.lineTo(bx + 9, by - 1.5); ctx.lineTo(bx + 6.5, by + 1.6); ctx.lineTo(bx - 3, by + 1.6); ctx.closePath(); ctx.fill(); ctx.stroke();
+  const bx = wrap(W * 0.3 - viewScroll * 0.05 - time * 2.5, W + 60) - 30, by = groundY - 63 + Math.sin(time * 1.6) * 0.6 + camShift(0.05), Bt = scene.boat;
+  blitWhole(Bt, bx - 8 - Bt.pad, by - 15 - Bt.pad);
   drawLandmarks(groundY, 0.05);
   // åser med hytter + røyk fra pipene
   const Hl = scene.hills, hy = groundY - Hl.h;
-  drawLayer(Hl, hy, 0.14, tx => {
+  drawLayer(Hl, hy, 0.14, (tx, ty) => {
     for (const c of Hl.chimneys) {
-      const cx = tx + c.x, cy = hy + c.y;
+      const cx = tx + c.x, cy = ty + c.y;
       if (cx < -30 || cx > W + 10) continue;
       for (let k = 0; k < 6; k++) {
         const a = wrap(time * 0.32 + k / 6 + c.x * 0.013, 1), al = Math.min(1, a * 6) * (1 - a) * 0.55;
@@ -845,15 +1003,26 @@ function drawScenery(groundY) {
     }
   });
   drawLandmarks(groundY, 0.14);
-  drawLayer(scene.forest, groundY - scene.forest.h, 0.3);
+  drawLayer(scene.forest, groundY - scene.forest.h, 0.3, null, true);
   drawLandmarks(groundY, 0.3);
   drawLayer(scene.bushes, groundY - scene.bushes.h, 0.6);
   drawLandmarks(groundY, 0.6);
 }
+// en partikkel nær kameraet: stor og uskarp (to flate, gjennomsiktige skiver i stedet for et filter)
+function nearMote(x, y, r, c, a = 1) {
+  ctx.fillStyle = c; ctx.globalAlpha = 0.22 * a; circle(ctx, x, y, r * 4.2); ctx.globalAlpha = 0.3 * a; circle(ctx, x, y, r * 2.8);
+  ctx.globalAlpha = 1;
+}
 function drawMotes() {
   const k = moteKind();
+  for (const m of dust) if (m.near) {
+    const x = ip(m.px, m.x), y = ip(m.py, m.y);
+    if (k === 'firefly') { const a = Math.sin(time * m.f * 2 + m.p); if (a > 0.05) nearMote(x, y, m.r, '#FFF2A0', a); }
+    else nearMote(x, y, m.r, k === 'snow' ? (T.night ? '#E1E6FF' : '#FFFFFF') : k === 'pollen' ? '#FFFAEB' : (T.night ? mixHex(m.c, '#2A2C5A', 0.45) : m.c));
+  }
   if (k === 'leaf' || k === 'petal') {   // løv og blomsterblader som snurrer mens de daler
     for (const m of dust) {
+      if (m.near) continue;
       ctx.save(); ctx.translate(ip(m.px, m.x), ip(m.py, m.y)); ctx.rotate(m.rot); ctx.fillStyle = T.night ? mixHex(m.c, '#2A2C5A', 0.45) : m.c;
       ctx.beginPath(); ctx.ellipse(0, 0, m.r * 2.4, m.r * 1.2, 0, 0, 7); ctx.fill();
       if (k === 'leaf') { ctx.strokeStyle = hexA(T.ink, 0.35); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(-m.r * 2.2, 0); ctx.lineTo(m.r * 2.2, 0); ctx.stroke(); }
@@ -863,11 +1032,12 @@ function drawMotes() {
   }
   if (k === 'snow') {
     ctx.fillStyle = T.night ? 'rgba(225,230,255,.85)' : 'rgba(255,255,255,.95)';
-    for (const m of dust) circle(ctx, ip(m.px, m.x), ip(m.py, m.y), m.r);
+    for (const m of dust) if (!m.near) circle(ctx, ip(m.px, m.x), ip(m.py, m.y), m.r);
     return;
   }
   if (k === 'firefly') {   // ildfluer som blinker
     for (const m of dust) {
+      if (m.near) continue;
       const a = Math.sin(time * m.f * 2 + m.p); if (a < 0.05) continue;
       const x = ip(m.px, m.x), y = ip(m.py, m.y);
       ctx.globalAlpha = a; ctx.drawImage(scene.glow.c, x - 7, y - 7, 14, 14);
@@ -876,7 +1046,7 @@ function drawMotes() {
     ctx.globalAlpha = 1;
   } else {
     ctx.fillStyle = 'rgba(255,250,235,.7)';
-    for (const m of dust) circle(ctx, ip(m.px, m.x), ip(m.py, m.y), m.r);
+    for (const m of dust) if (!m.near) circle(ctx, ip(m.px, m.x), ip(m.py, m.y), m.r);
   }
 }
 
@@ -1513,6 +1683,16 @@ function drawWorld(groundY, pv, qv) {
   for (const q of qv) drawPower(q);
   drawGround(groundY);
   drawLandmarks(groundY, 1);
+  drawBirdGroundShadow(groundY);
+  drawForeground();   // forgrunnen: nærmest kameraet, raskest
+}
+// fuglens skygge på bakken: mindre og svakere jo høyere den flyr (et sterkt dybdesignal)
+function drawBirdGroundShadow(groundY) {
+  const bx = ip(bird.px, bird.x), by = ip(bird.py, bird.y), hgt = groundY - by - BODY_R;
+  if (hgt < 0 || hgt > 320) return;
+  const k = 1 - hgt / 320;
+  ctx.fillStyle = hexA(T.ink, 0.22 * k * k);
+  ctx.beginPath(); ctx.ellipse(bx + 2, groundY + 2.5, BODY_R * (0.55 + 0.6 * k), 2.6 * (0.5 + 0.5 * k), 0, 0, 7); ctx.fill();
 }
 let fadeCanvas = null;
 function fadeLayer() {   // offscreen-lerret i full skjermstørrelse for krysstoningen (lages ved behov)
