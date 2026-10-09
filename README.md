@@ -1,7 +1,7 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v4.1): en liten blåmeis med lusekofte-skjerf flyr
-gjennom en norsk bjørkeskog. Varm pastellstil med myke konturer, fjell og fjord,
+Et koselig flakse-spill (v4.2): en liten blåmeis med lusekofte-skjerf flyr
+hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 søvnig måne. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
 vind i bjørk) og vibrasjon.
@@ -85,6 +85,7 @@ også i en undermappe.
 - **Trykk** hvor som helst på skjermen (eller mellomrom / pil opp) for å flakse.
 - **Pause**: knappen øverst til høyre, eller Esc / P. Spillet pauses også automatisk
   når appen legges i bakgrunnen, og lyden stoppes. «Fortsett» gir en kort 3-2-1-nedtelling.
+- **Hjemme:** når fuglen har landet på fuglebrettet ved hytta, hviler den til du trykker. Da flyr den videre.
 - Etter game over: **Spill igjen** eller **Meny** (for å bytte nivå, lyd eller tema).
 - De tre runde trestykkene nede til venstre på startskjermen slår **lydeffekter** (høyttaler) og
   **musikk** (note) av/på og velger om runden starter på **dag** (sol) eller **natt** (måne).
@@ -93,6 +94,34 @@ også i en undermappe.
 - Beste poengsum og samlede poeng lagres lokalt på enheten.
 
 Medaljer (broderte merker med selburose): 10 bronse, 20 sølv, 30 gull, 40 platina.
+
+## Reisen hjem
+
+Hver runde er en reise fra fjellet ned til hytta. Underveis passerer fuglen ti steder:
+
+| Poeng | Sted | I landskapet |
+|:-:|---|---|
+| 0 | Fjellet | start |
+| 5 | Bjørkelia | |
+| 10 | Elgmyra | elgen i skogkanten |
+| 15 | Seterbua | setra med kuene |
+| 20 | Tjernet | et lite tjern med siv |
+| 27 | Sauebeitet | sauen som beiter |
+| 34 | Stavkirka | stavkirka i lia |
+| 42 | Fyrlykta | fyret ute i fjorden |
+| 50 | Postkassa | postkassa ved stien |
+| 60 | Hytta | hjemme |
+
+- **Ved hvert sted** står et veiskilt mellom stammene, og navnet vises kort under poengene. Der stedet
+  har et landemerke, dukker det opp. De tilfeldige landemerkene hører alltid til steder fuglen allerede
+  har passert, så rekkefølgen stemmer.
+- **Hjemkomst ved 60 poeng:** stammene tar slutt, hytta med fuglebrettet glir inn, og verden bremser
+  jevnt til brettet står rett under fuglen. Fuglen lander, pikker i frøene og hviler så lenge du vil.
+  Et trykk sender den videre; stammene kommer tilbake, og poengene teller videre.
+- **Game over forteller hvor langt du kom:** «Du kom forbi Tjernet» og «5 til Sauebeitet», med ruten
+  brodert på skiltet og en liten blåmeis der reisen sluttet. Etter hytta står det «Du kom hjem til
+  hytta!» og hvor langt fuglen fløy videre.
+- **Pause** viser også hvor på veien hjem fuglen er.
 
 ## Vanskelighetsgrader
 
