@@ -164,7 +164,7 @@ function spawnPipe(x) {
 }
 
 /* ---------- Partikler ---------- */
-// shape: dot | puff (voksende røyk) | star | heart | feather (daler og svaier)
+// shape: dot | puff (voksende røyk) | feather (daler og svaier) | seed (bjørkefrø) | leaf | petal | bird (liten meis som flyr)
 function burst(x, y, n, colors, spd, life, grav = 700, size = 3, { shape = 'dot', drag = 1.2, vdrag = 0, spin = 0 } = {}) {
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2, s = spd * (0.4 + Math.random() * 0.8);
@@ -507,10 +507,10 @@ function update(dt) {
         Sound.point(combo++); buzz(12); bird.happy = 0.45;
         if (Math.floor(score / 10) > Math.floor(before / 10)) {   // milepæl hvert 10. poeng: liten fanfare
           Sound.fanfare(); floatText(bird.x + 12, bird.y - 34, `${Math.floor(score / 10) * 10}!`, '#FFD27A', 18, { stroke: true, life: 1.1, vy: -30 });
-          burst(bird.x + 10, bird.y - 10, 10, ['#FFD45C', '#FFF1C4', '#FF9EB5'], 140, 0.8, 120, 2.6, { shape: 'star', spin: 6 });
+          burst(bird.x + 10, bird.y - 10, 10, leafColors(), 110, 1.1, 40, 2.6, { shape: 'leaf', drag: 2, vdrag: 1.5, spin: 5 });   // en virvel av blader
         }
-        burst(bird.x + 14, bird.y - 4, 5, ['#FFD45C', '#FFF1C4'], 80, 0.55, 120, 2.4, { shape: 'star', spin: 6 });
-        burst(bird.x + 10, bird.y - 8, 2, ['#FF9EB5'], 60, 0.6, 60, 2.2, { shape: 'heart' });
+        burst(bird.x + 14, bird.y - 4, 4, ['#C9A06A', '#E8D3A8', '#B88A55'], 70, 0.9, 30, 2, { shape: 'seed', drag: 2.4, vdrag: 2, spin: 7 });   // bjørkefrø som virvler
+        burst(bird.x + 10, bird.y - 8, 1, leafColors(), 50, 0.9, 30, 2.2, { shape: 'leaf', drag: 2, vdrag: 2, spin: 4 });
         if (gain === 2) floatText(bird.x + 4, bird.y - 22, '+2', '#FFD27A', 14, { stroke: true });
         if (!D.zen && score > best) { best = score; newBest = true; store.set(bestKey(), best); }
         const tod = runTimeOfDay(); if (tod !== curTheme) setTimeOfDay(tod);   // tiden glir videre hvert 10. poeng
@@ -539,10 +539,10 @@ function update(dt) {
   }
   if (state === State.OVER) {
     overT = Math.min(3, overT + dt);
-    // poengene telles opp med små klikk; ny rekord feires med blomsterkonfetti når tallet er framme
+    // poengene telles opp med små klikk; ny rekord feires med en meiseflokk når tallet er framme
     const shown = Math.min(score, Math.floor(Math.max(0, overT - 0.55) * 30));
     if (shown !== overShown) { overShown = shown; Sound.count(); }
-    if (newBest && !celebrated && overShown === score) { celebrated = true; Sound.fanfare(); confetti(); }
+    if (newBest && !celebrated && overShown === score) { celebrated = true; Sound.fanfare(); celebrate(); }
     if (unlocked.length && !unlockSounded && overT > 1) { unlockSounded = true; Sound.power(); }
     // fuglen setter seg: rotasjon og «gelé»-klem fjærer tilbake, og den sitter på føttene
     bird.angVel += (-bird.rot * 90 - bird.angVel * 10) * dt; bird.rot += bird.angVel * dt;
@@ -573,7 +573,7 @@ function collect(q) {
   q.taken = true; const P = POWERS[q.kind];
   if (q.kind === 'shield') active.shield = true; else active[q.kind] = P.dur;
   Sound.power(); buzz([10, 20, 10]); bird.happy = 0.6;
-  burst(q.x, q.y, 10, [P.color, '#FFFFFF'], 120, 0.6, 150, 2.6, { shape: 'star', spin: 6 });
+  burst(q.x, q.y, 8, [P.color, '#FFFFFF'], 100, 0.7, 60, 2.2, { shape: 'seed', drag: 2.2, vdrag: 1.6, spin: 6 });
   floatText(bird.x + 4, bird.y - 26, P.label, P.color, 13, { stroke: true });
 }
 const guideY = () => guidePipe ? guidePipe.top + guidePipe.gap / 2 : bird.y;
@@ -581,7 +581,7 @@ function useShield(p) {
   active.shield = false; Sound.shieldPop(); buzz([20, 10, 30]);
   addShake(3, -1, 0); addTint(0.8, '63,169,245');
   burst(bird.x, bird.y, 14, ['#BFEAFB', '#FFFFFF', '#FFC6DD'], 150, 0.5, 120, 2.6);   // boblen spretter
-  floatText(bird.x + 4, bird.y - 24, 'Plopp!', '#BFEAFB', 14, { stroke: true });
+  burst(bird.x, bird.y, 1, ['#FFFFFF'], 0, 0.35, 0, 9, { shape: 'puff', drag: 0 });   // boblens siste «pust» (ingen tekst; lyden sier plopp)
   // ingen teleport: kort usårbarhet, og fuglen glir inn i gapet (se update)
   grace = SHIELD_GRACE; guidePipe = p; p.scored = true;
 }
@@ -591,10 +591,8 @@ function die(onGround, p) {
   active = { shield: false, slow: 0, double: 0 }; grace = 0;
   overTitle = newBest ? 'Ny rekord!' : ['Å nei!', 'Oi da!', 'Uff da!'][(Math.random() * 3) | 0];
   earnPoints();
-  burst(bird.x + 6, bird.y - 6, 6, ['#FFD45C', '#FFF1C4'], 110, 0.6, 200, 2.6, { shape: 'star', spin: 8 });
-  feathers(bird.x, bird.y, 3);
+  feathers(bird.x, bird.y, 5);   // fjær som løsner – ingen stjerner eller tekst; lyden og klemmen sier resten
   if (onGround) {
-    floatText(bird.x + 6, bird.y - 22, 'Plopp!', '#FFD27A', 16, { stroke: true, life: 1 });
     burst(bird.x, bird.y + 8, 6, [T.soil, '#FFFFFF'], 60, 0.6, -20, 4, { shape: 'puff', drag: 3 });
     land(); addShake(4, 0, 1); Sound.sting();
   } else {
@@ -602,23 +600,30 @@ function die(onGround, p) {
     // «Bonk!»: klemmes flatt mot stammen (sidetreff) eller mot snittflaten (ovenfra/nedenfra), så rekyl og en rolig vipp bakover
     const side = !p || bird.x + BIRD_R - 3 < p.x;
     const fromRight = p ? bird.x < p.x + PIPE_W / 2 : true;
-    floatText(bird.x + 8, bird.y - 22, 'Bonk!', '#FF9E85', 17, { stroke: true, life: 1 });
+    burst(bird.x + (fromRight ? 10 : -10), bird.y, 4, ['#FFFFFF', '#F3E6D2'], 50, 0.5, -10, 3.5, { shape: 'puff', drag: 3 });   // en liten sky av barkstøv
     bird.vx = fromRight ? -120 : 80; bird.vy = Math.min(bird.vy, 0) * 0.3 - 150;
     bird.angVel = fromRight ? -4 : 4;
     if (side) { bird.sx = 0.62; bird.sy = 1.3; } else { bird.sx = 1.3; bird.sy = 0.66; }
     addShake(5, fromRight ? -1 : 1, -0.3);
   }
 }
-// blomsterblader som daler ned over hele skjermen
-function confetti() {
-  const cols = ['#FFC6D6', '#FFFFFF', '#FFE27A', '#D9C6F7', '#FF9EB5'];
-  for (let i = 0; i < 30; i++) {
-    const life = 2.6 + Math.random() * 1.2;
-    particles.push({ x: Math.random() * W, y: safeTop - 10 - Math.random() * 60, vx: (Math.random() - 0.5) * 40, vy: 30 + Math.random() * 40,
-      grav: 25, drag: 0.6, vdrag: 0.9, shape: 'petal', rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 4,
-      c: cols[(Math.random() * cols.length) | 0], r: 2.2 + Math.random() * 1.4, life, max: life });
+// ny rekord: en liten flokk meiser letter fra bakken og flyr opp og av gårde, og blader virvler opp etter dem
+function celebrate() {
+  const groundY = H - GROUND_H;
+  for (let i = 0; i < 7; i++) {
+    const life = 3 + Math.random() * 0.8, x = 20 + Math.random() * (W * 0.6);
+    particles.push({ x, y: groundY - 4 - Math.random() * 10, vx: 55 + Math.random() * 40, vy: -120 - Math.random() * 60, grav: 20, drag: 0.15, vdrag: 0.25,
+      shape: 'bird', rot: Math.random() * 6.28, vr: 0, c: Math.random() < 0.7 ? '#4A93DA' : '#F6CF45', r: 2.6 + Math.random() * 0.8, life, max: life, delay: i * 0.12 });
+  }
+  const cols = leafColors();
+  for (let i = 0; i < 16; i++) {
+    const life = 2.2 + Math.random();
+    particles.push({ x: Math.random() * W, y: groundY - Math.random() * 20, vx: (Math.random() - 0.3) * 60, vy: -90 - Math.random() * 90, grav: 60, drag: 0.8, vdrag: 0.6,
+      shape: 'leaf', rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 6, c: cols[(Math.random() * cols.length) | 0], r: 2.4 + Math.random(), life, max: life });
   }
 }
+// bladfarger etter årstiden
+const leafColors = () => ({ spring: ['#B4E39C', '#FFC2D4', '#9FDB78'], summer: ['#A6D68E', '#86C35C', '#C9E6A0'], autumn: ['#F2994A', '#F7C548', '#E46B3C'], winter: ['#FFFFFF', '#DCE6F0', '#C9D7E3'] })[seasonName];
 // landing etter krasj: fuglen blir sittende oppreist og svimmel (ikke opp-ned)
 // poengene fra runden legges til totalen; ny pynt som låses opp vises på game over
 function earnPoints() {
@@ -632,7 +637,7 @@ function zenBump(p) {
   grace = SHIELD_GRACE; guidePipe = p; p.scored = true;
   Sound.shieldPop(); buzz(10);
   burst(bird.x + 8, bird.y, 5, ['#FFFFFF', '#BFE6D9'], 60, 0.5, -20, 3.5, { shape: 'puff', drag: 3 });
-  floatText(bird.x + 8, bird.y - 22, 'Oi!', '#BFE6D9', 14, { stroke: true });
+  feathers(bird.x, bird.y, 1);
 }
 function zenBounce(groundY) {
   bird.y = groundY - BIRD_R - 1; bird.vy = D.flap * 0.85; bird.sy = 0.7; bird.sx = 1.3;

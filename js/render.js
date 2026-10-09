@@ -36,16 +36,6 @@ function blob(g, pts, fill, ink, lw = 1.2, inkAlpha = 1) {
   }
   g.fillStyle = fill; for (const [x, y, r] of pts) circle(g, x, y, r);
 }
-function starPath(x, y, r, rot = 0) {
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) { const k = i % 2 ? r * 0.45 : r, a = rot - Math.PI / 2 + i * Math.PI / 5; ctx.lineTo(x + Math.cos(a) * k, y + Math.sin(a) * k); }
-  ctx.closePath();
-}
-function heartPath(x, y, s) {
-  ctx.beginPath(); ctx.moveTo(x, y + s * 0.9);
-  ctx.bezierCurveTo(x - s * 1.4, y - s * 0.1, x - s * 0.6, y - s * 1.1, x, y - s * 0.35);
-  ctx.bezierCurveTo(x + s * 0.6, y - s * 1.1, x + s * 1.4, y - s * 0.1, x, y + s * 0.9); ctx.closePath();
-}
 function text(txt, x, y, size, opts = {}) {
   const { weight = 700, align = 'center', color = T.text, shadow = true, alpha = 1, baseline = 'middle', stroke = false } = opts;
   ctx.font = `${weight} ${size}px Fredoka, system-ui, sans-serif`;
@@ -140,13 +130,61 @@ const LOGO_GLYPHS = {
   l: ['X.', 'X.', 'X.', 'X.', 'X.', 'X.', '.X', '..', '..'],
   f: ['..XX', '.X..', 'XXX.', '.X..', '.X..', '.X..', '.X..', '....', '....'],
   u: ['.....', '.....', 'X...X', 'X...X', 'X...X', 'X..XX', '.XX.X', '.....', '.....'],
-  g: ['.....', '.....', '.XXXX', 'X...X', 'X...X', '.XXXX', '....X', 'X...X', '.XXX.']
+  g: ['.....', '.....', '.XXXX', 'X...X', 'X...X', '.XXXX', '....X', 'X...X', '.XXX.'],
+  // til overskriftene
+  N: ['X...X', 'XX..X', 'X.X.X', 'X..XX', 'X...X', 'X...X', 'X...X', '.....', '.....'],
+  O: ['.XXX.', 'X...X', 'X...X', 'X...X', 'X...X', 'X...X', '.XXX.', '.....', '.....'],
+  U: ['X...X', 'X...X', 'X...X', 'X...X', 'X...X', 'X...X', '.XXX.', '.....', '.....'],
+  K: ['X...X', 'X..X.', 'X.X..', 'XX...', 'X.X..', 'X..X.', 'X...X', '.....', '.....'],
+  G: ['.XXX.', 'X...X', 'X....', 'X.XXX', 'X...X', 'X...X', '.XXX.', '.....', '.....'],
+  Å: ['..X..', '.X.X.', 'X...X', 'XXXXX', 'X...X', 'X...X', 'X...X', '.....', '.....', '..X..', '.X.X.'],   // to ekstra rader: ringen over
+  y: ['.....', '.....', 'X...X', 'X...X', 'X...X', '.XXXX', '....X', '...X.', 'XXX..'],
+  r: ['....', '....', 'X.XX', 'XX..', 'X...', 'X...', 'X...', '....', '....'],
+  k: ['X...', 'X...', 'X..X', 'X.X.', 'XX..', 'X.X.', 'X..X', '....', '....'],
+  o: ['.....', '.....', '.XXX.', 'X...X', 'X...X', 'X...X', '.XXX.', '.....', '.....'],
+  d: ['....X', '....X', '.XXXX', 'X...X', 'X...X', 'X...X', '.XXXX', '.....', '.....'],
+  n: ['.....', '.....', 'XXXX.', 'X...X', 'X...X', 'X...X', 'X...X', '.....', '.....'],
+  a: ['.....', '.....', '.XXX.', '....X', '.XXXX', 'X...X', '.XXXX', '.....', '.....'],
+  s: ['....', '....', '.XXX', 'X...', '.XX.', '...X', 'XXX.', '....', '....'],
+  b: ['X....', 'X....', 'XXXX.', 'X...X', 'X...X', 'X...X', 'XXXX.', '.....', '.....'],
+  '!': ['X', 'X', 'X', 'X', 'X', '.', 'X', '.', '.'],
+  '?': ['.XXX.', 'X...X', '....X', '..XX.', '..X..', '.....', '..X..', '.....', '.....'],
+  ' ': ['..', '..', '..', '..', '..', '..', '..', '..', '..']
 };
-// sett sammen et ord til ett rutenett med én tom kolonne mellom bokstavene
+// sett sammen et ord til ett rutenett med én tom kolonne mellom bokstavene. Rutenettet har to rader over
+// versalhøyden (til ringen i Å) når ordet trenger dem; ellers 9 rader.
+const glyphRows = ch => { const gl = LOGO_GLYPHS[ch]; return gl.length > 9 ? [...gl.slice(9), ...gl.slice(0, 9)] : ['', ''].map(() => '.'.repeat(gl[0].length)).concat(gl); };
 function logoRows(word) {
-  const rows = Array(9).fill('');
-  [...word].forEach((ch, k) => { const gl = LOGO_GLYPHS[ch]; for (let j = 0; j < 9; j++) rows[j] += (k ? '.' : '') + gl[j]; });
+  const accents = [...word].some(ch => LOGO_GLYPHS[ch] && LOGO_GLYPHS[ch].length > 9), n = accents ? 11 : 9, rows = Array(n).fill('');
+  [...word].forEach((ch, k) => { const gl = glyphRows(ch).slice(11 - n); for (let j = 0; j < n; j++) rows[j] += (k ? '.' : '') + gl[j]; });
   return rows;
+}
+const canStitch = txt => [...txt].every(ch => LOGO_GLYPHS[ch]);
+// broderte overskrifter (samme håndlagde skrift som logoen), ferdig tegnet og hurtigbufret per tekst og stil
+const STITCH_STYLES = {
+  gold: { X: ['#DC952B', '#F4B53F', '#FFDA7E'], B: ['#2C68AC', '#3A8AD6', '#86C4F2'], outline: true },
+  coral: { X: ['#D9573F', '#F07A5F', '#FFB09A'], B: ['#2C68AC', '#3A8AD6', '#86C4F2'], outline: true },
+  ink: { X: ['#4A3628', '#5B4636', '#7A604C'], B: ['#2C68AC', '#3A8AD6', '#86C4F2'], outline: false }
+};
+const stitchCache = new Map();
+function stitchSprite(txt, cell, style) {
+  const key = `${txt}|${cell}|${style}|${dpr * scale}`;
+  if (stitchCache.has(key)) return stitchCache.get(key);
+  const rows = logoRows(txt), st = STITCH_STYLES[style], pad = st.outline ? 3 : 1;
+  const L = makeSprite(rows[0].length * cell + pad * 2, rows.length * cell + pad * 2 + 2, g => {
+    if (st.outline) { g.fillStyle = hexA(UI_INK, 0.3); rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== '.') g.fillRect(pad + i * cell - 1, pad + j * cell + cell * 0.5, cell + 2, cell + 2); })); }
+    stitchGrid(g, rows, pad, pad, cell, st, seedOf(txt), st.outline ? { w: cell * 0.34, color: UI_INK } : null);
+  });
+  L.base = pad + (rows.length - 2) * cell;   // grunnlinjen (bunnen av versalene) fra toppen
+  L.mid = pad + (rows.length - 6) * cell;    // midt på x-høyden
+  stitchCache.set(key, L);
+  return L;
+}
+// tegn en overskrift sentrert på (x, y = midt på teksten); faller tilbake til fonten hvis en bokstav mangler
+function stitchHeading(txt, x, y, cell, style, alpha = 1) {
+  if (!canStitch(txt)) return text(txt, x, y, cell * 9.5, { color: style === 'coral' ? '#FFA28C' : style === 'ink' ? UI_INK : '#FFD27A', stroke: style !== 'ink', shadow: false, alpha });
+  const L = stitchSprite(txt, cell, style), a = ctx.globalAlpha;
+  ctx.globalAlpha = a * alpha; ctx.drawImage(L.c, Math.round(x - L.w / 2), y - L.mid, L.w, L.h); ctx.globalAlpha = a;
 }
 // selburose (åttebladsrose) – det klassiske norske strikkemotivet, brukt på medaljene
 const SELBUROSE = [
@@ -956,7 +994,6 @@ function drawSky(groundY) {
     ctx.restore();
     ctx.strokeStyle = hexA(T.ink, 0.8); ctx.lineWidth = 1.2; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(sx - 9, sy + 1, 2.2, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();   // lukket øye
-    ctx.fillStyle = 'rgba(255,150,170,.5)'; ctx.beginPath(); ctx.ellipse(sx - 11.5, sy + 6, 2.4, 1.4, 0, 0, 7); ctx.fill();
   } else {
     circle(ctx, sx, sy, 20);
     ctx.fillStyle = 'rgba(255,255,255,.45)'; circle(ctx, sx - 6, sy - 6, 6);
@@ -1230,7 +1267,7 @@ function drawPower(q) {
     ctx.fillStyle = '#B9875A'; for (const [dx, dy] of [[-4, -4.5], [0, -5.5], [4, -4.5], [-2, -2.5], [2, -2.5]]) circle(ctx, dx, dy, 0.9);
     ctx.strokeStyle = '#7A5A44'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(0, -7.5); ctx.quadraticCurveTo(1, -10, 3, -10.5); ctx.stroke();
     const tw = beat;   // gnistrer i takt med hjerteslaget
-    ctx.fillStyle = `rgba(255,255,255,${0.4 + tw * 0.6})`; starPath(8, -8, 2.2 + tw, 0); ctx.fill();
+    ctx.fillStyle = `rgba(255,255,255,${0.35 + tw * 0.65})`; circle(ctx, 5.6, -6, 1.1 + tw * 0.9);   // et lite lysglimt i takt med hjerteslaget
   }
   ctx.restore();
 }
@@ -1462,23 +1499,12 @@ function drawScarfTails(ox, oy, a) {
     ctx.stroke();
   }
 }
-function dizzyStars(bx, by, front) {
-  if (state !== State.DEAD && state !== State.OVER) return;
-  for (let i = 0; i < 3; i++) {
-    const a = time * 3.2 + i * Math.PI * 2 / 3;
-    if ((Math.sin(a) > 0) !== front) continue;
-    starPath(bx + Math.cos(a) * 13, by - 16 + Math.sin(a) * 3.2, front ? 3.2 : 2.5, a);
-    ctx.fillStyle = '#FFD45C'; ctx.fill(); ctx.strokeStyle = UI_INK; ctx.lineWidth = 0.9; ctx.stroke();
-  }
-}
 function drawBird() {
   const bx = ip(bird.px, bird.x), by = ip(bird.py, bird.y), br = ip(bird.pr, bird.rot), expr = birdExpr();
   if (grace > 0 && Math.floor(time * 14) % 2) ctx.globalAlpha = 0.45;   // usårbar etter skjoldtreff: rolig blinking
   ctx.fillStyle = hexA(T.ink, 0.12); ctx.beginPath(); ctx.ellipse(bx + 1, by + 4, BODY_R * bird.sx, BODY_R * bird.sy * 0.95, 0, 0, 7); ctx.fill();
-  dizzyStars(bx, by, false);
   drawScarfTails(bx - bird.x, by - bird.y, scarfAnchor(bx, by, br, bird.sx, bird.sy));
   ctx.save(); ctx.translate(bx, by); ctx.rotate(br); ctx.scale(bird.sx, bird.sy); birdShape(expr, wear, br); ctx.restore();
-  dizzyStars(bx, by, true);
   ctx.globalAlpha = 1;
   if (active.shield) {   // såpeboble rundt fuglen, vugger litt
     const wob = Math.sin(time * 5) * 0.04;
@@ -1491,8 +1517,21 @@ function drawParticles() {
     const a = clamp(q.life / q.max, 0, 1), x = ip(q.px, q.x), y = ip(q.py, q.y);
     ctx.globalAlpha = a; ctx.fillStyle = q.c;
     if (q.shape === 'puff') { ctx.globalAlpha = a * 0.75; circle(ctx, x, y, q.r * (1 + (1 - a) * 1.4)); }
-    else if (q.shape === 'star') { starPath(x, y, q.r * 1.5, q.rot); ctx.fill(); }
-    else if (q.shape === 'heart') { heartPath(x, y, q.r * 1.3); ctx.fill(); }
+    else if (q.shape === 'seed') {   // bjørkefrø: liten nøtt med to tynne vinger
+      ctx.save(); ctx.translate(x, y); ctx.rotate(q.rot);
+      ctx.globalAlpha = a * 0.55; ctx.beginPath(); ctx.ellipse(-q.r * 0.9, 0, q.r * 0.9, q.r * 0.5, 0, 0, 7); ctx.ellipse(q.r * 0.9, 0, q.r * 0.9, q.r * 0.5, 0, 0, 7); ctx.fill();
+      ctx.globalAlpha = a; ctx.beginPath(); ctx.ellipse(0, 0, q.r * 0.45, q.r * 0.7, 0, 0, 7); ctx.fill(); ctx.restore();
+    } else if (q.shape === 'leaf') {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(q.rot); ctx.beginPath(); ctx.ellipse(0, 0, q.r * 1.7, q.r * 0.85, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = hexA(T.ink, 0.35); ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(-q.r * 1.5, 0); ctx.lineTo(q.r * 1.5, 0); ctx.stroke(); ctx.restore();
+    } else if (q.shape === 'bird') {   // en liten meis som flakser (først når det er dens tur)
+      const age = q.max - q.life; if (age < (q.delay || 0)) continue;
+      const f = Math.sin((age - (q.delay || 0)) * 22) * q.r * 1.1;
+      ctx.globalAlpha = Math.min(1, q.life / 0.6);
+      ctx.strokeStyle = BIRD.ink; ctx.lineWidth = 1; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x - q.r * 1.8, y - f); ctx.quadraticCurveTo(x - q.r * 0.6, y - q.r * 0.3, x, y); ctx.quadraticCurveTo(x + q.r * 0.6, y - q.r * 0.3, x + q.r * 1.8, y - f); ctx.stroke();
+      circle(ctx, x, y + 0.6, q.r * 0.75); ctx.fillStyle = BIRD.belly; circle(ctx, x + 0.4, y + 1, q.r * 0.38);
+    }
     else if (q.shape === 'feather') {
       const age = q.max - q.life;
       ctx.save(); ctx.translate(x + Math.sin(age * 6 + q.rot) * 3, y); ctx.rotate(Math.sin(age * 5 + q.rot) * 0.8);
@@ -1536,6 +1575,89 @@ function panel(x, y, w, h) {
   ctx.save(); ctx.clip(); paperOn(ctx, 0.55); ctx.restore();
   runningStitch(rrPoints(x + 7, y + 7, w - 14, h - 14, 12, 1), '#E3C99F', Math.round(w + h * 3));
   rosemal(x + w / 2, y + 7);   // rosemaling midt på den sydde kanten
+}
+/* ---------- Paneler som ting i verden ---------- */
+// farger på treskiltet (lys furu); tekst på treet bruker WOOD_TEXT eller UI_INK (kontrast minst 4,5:1)
+const WOOD = { a: '#EDD2A8', b: '#E7C899', seam: 'rgba(120,80,45,.55)', grain: 'rgba(160,110,60,.22)', knot: 'rgba(150,100,55,.35)' };
+const WOOD_TEXT = '#6B4B31';
+function nail(x, y) { ctx.fillStyle = '#6B5A4C'; circle(ctx, x, y, 2.1); ctx.fillStyle = 'rgba(255,255,255,.55)'; circle(ctx, x - 0.6, y - 0.7, 0.8); }
+// skilt av liggende furuplanker med årer, kvister, fuger, spikre i hjørnene og (valgfritt) malt rosemaling
+// skiltet og neveret er like hvert bilde: de tegnes én gang per størrelse og gjenbrukes (som et bilde)
+const surfaceCache = new Map();
+function cachedSurface(kind, w, h, seed, opt, draw) {
+  const R = dpr * scale, key = `${kind}|${w}|${h}|${seed}|${opt}|${R}`, pad = 12;
+  let L = surfaceCache.get(key);
+  if (!L) {
+    L = makeSprite(w + pad * 2, h + pad * 2, g => { const old = ctx; ctx = g; try { draw(pad, pad); } finally { ctx = old; } });
+    L.pad = pad; surfaceCache.set(key, L);
+  }
+  return L;
+}
+function woodSign(x, y, w, h, seed, rose = true) {
+  const L = cachedSurface('wood', w, h, seed, rose, (px, py) => paintWoodSign(px, py, w, h, seed, rose));
+  ctx.drawImage(L.c, x - L.pad, y - L.pad, L.w, L.h);
+}
+function paintWoodSign(x, y, w, h, seed, rose) {
+  const r = rng(seed);
+  ctx.fillStyle = hexA(UI_INK, 0.25); rr(x, y + 6, w, h, 8); ctx.fill();
+  ctx.fillStyle = UI_INK; inkRR(ctx, x, y, w, h, 8, 2, seed, 0.5);
+  ctx.save(); rr(x, y, w, h, 8); ctx.clip();
+  const n = Math.max(2, Math.round(h / 44)), ph = h / n;
+  for (let i = 0; i < n; i++) {
+    const py = y + i * ph;
+    ctx.fillStyle = i % 2 ? WOOD.b : WOOD.a; ctx.fillRect(x, py, w, ph + 1);
+    ctx.strokeStyle = WOOD.grain; ctx.lineWidth = 0.8;   // årer: lange, svakt bølgete streker
+    for (let k = 0; k < 4; k++) {
+      const gy = py + 6 + r() * (ph - 12), f = 0.03 + r() * 0.03, ph0 = r() * 6;
+      ctx.beginPath(); ctx.moveTo(x, gy); for (let xx = x; xx <= x + w + 12; xx += 12) ctx.lineTo(xx, gy + Math.sin(xx * f + ph0) * 1.3); ctx.stroke();
+    }
+    if (r() < 0.65) {   // kvist
+      const kx = x + 24 + r() * (w - 48), ky = py + ph * (0.3 + r() * 0.4);
+      ctx.fillStyle = WOOD.knot; ctx.beginPath(); ctx.ellipse(kx, ky, 4.2, 2.2, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = WOOD.knot; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.ellipse(kx, ky, 7.5, 3.6, 0, 0, 7); ctx.stroke();
+    }
+    if (i) { ctx.fillStyle = WOOD.seam; ctx.fillRect(x, py - 0.8, w, 1.6); ctx.fillStyle = 'rgba(255,240,210,.5)'; ctx.fillRect(x, py + 0.8, w, 1); }
+  }
+  ctx.fillStyle = 'rgba(255,245,220,.45)'; ctx.fillRect(x, y, w, 2);          // flat fas: lys oppe, mørkere nede
+  ctx.fillStyle = 'rgba(120,80,45,.22)'; ctx.fillRect(x, y + h - 3, w, 3);
+  paperOn(ctx, 0.5);
+  ctx.restore();
+  for (const [nx, ny] of [[x + 9, y + 9], [x + w - 9, y + 9], [x + 9, y + h - 9], [x + w - 9, y + h - 9]]) nail(nx, ny);
+  if (rose) rosemal(x + w / 2, y + 11, 0.9, false);   // malt rett på treet, slik rosemaling er
+}
+// tau som skiltet henger i (tvunnet: en lys strek med skrå vridninger)
+function rope(x, y0, y1) {
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#7A5E43'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+  ctx.strokeStyle = '#B99872'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+  ctx.strokeStyle = 'rgba(90,64,44,.55)'; ctx.lineWidth = 0.7; ctx.beginPath();
+  for (let yy = y1 - 3; yy > y0; yy -= 4) { ctx.moveTo(x - 1.1, yy + 1.2); ctx.lineTo(x + 1.1, yy - 1.2); }
+  ctx.stroke();
+}
+// bjørkenever: lys bark med ujevn, revet kant, lenticeller, mørke «øyne» og en krøllet flik i ett hjørne
+function birchBark(x, y, w, h, seed) {
+  const L = cachedSurface('bark', w, h, seed, '', (px, py) => paintBirchBark(px, py, w, h, seed));
+  ctx.drawImage(L.c, x - L.pad, y - L.pad, L.w, L.h);
+}
+function paintBirchBark(x, y, w, h, seed) {
+  const r = rng(seed), pts = rrPoints(x, y, w, h, 8, 3), nz = wobble(seed + 3);
+  const edge = (g, k) => { g.beginPath(); pts.forEach((p, i) => { const d = k * (1 + nz(i / pts.length * 6.283) * 0.8); g.lineTo(p.x + p.nx * d, p.y + p.ny * d); }); g.closePath(); };
+  ctx.fillStyle = hexA(UI_INK, 0.28); ctx.save(); ctx.translate(0, 6); edge(ctx, 0.6); ctx.fill(); ctx.restore();
+  ctx.fillStyle = UI_INK; edge(ctx, 2); ctx.fill();
+  ctx.fillStyle = '#F6F1E7'; edge(ctx, 0.4); ctx.fill();
+  ctx.save(); edge(ctx, 0.4); ctx.clip();
+  ctx.fillStyle = 'rgba(210,198,182,.5)'; ctx.fillRect(x, y, w * 0.16, h);   // skyggeside
+  ctx.fillStyle = 'rgba(60,52,50,.55)';
+  for (let i = 0; i < 46; i++) { const lx = x + 6 + r() * (w - 12), ly = y + 6 + r() * (h - 12), l = 3 + r() * 9; ctx.fillRect(lx, ly, l, 0.9 + r() * 0.9); }
+  ctx.strokeStyle = 'rgba(50,44,42,.8)'; ctx.lineWidth = 2;
+  for (let i = 0; i < 2; i++) { const ex = x + 20 + r() * (w - 40), ey = y + 20 + r() * (h - 40); ctx.beginPath(); ctx.moveTo(ex - 6, ey + 3); ctx.lineTo(ex, ey - 2.5); ctx.lineTo(ex + 6, ey + 3); ctx.stroke(); }
+  paperOn(ctx, 0.5);
+  ctx.restore();
+  // krøllet flik oppe til høyre (barken som skreller seg)
+  const cx = x + w - 6, cy = y + 4;
+  ctx.fillStyle = '#E7D3B4'; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(cx - 22, cy); ctx.quadraticCurveTo(cx - 8, cy + 3, cx, cy + 16); ctx.quadraticCurveTo(cx - 9, cy + 16, cx - 14, cy + 9); ctx.quadraticCurveTo(cx - 17, cy + 5, cx - 22, cy); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(150,110,70,.6)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(cx - 16, cy + 3); ctx.quadraticCurveTo(cx - 9, cy + 6, cx - 4, cy + 13); ctx.stroke();
 }
 // forsting for hånd: sting og mellomrom av litt ulik lengde, med en lys glans på hvert sting
 function runningStitch(pts, color, seed) {
@@ -1631,21 +1753,26 @@ function drawWardrobe(groundY) {
   ctx.fillStyle = 'rgba(40,28,50,.4)'; ctx.fillRect(0, 0, W, H);
   const pages = Math.ceil(COSMETICS.length / WARDROBE_PAGE), page = Math.min(wardrobePage, pages - 1);
   const pw = 256, ph = 274, px = (W - pw) / 2, py = Math.max(safeTop + 110, groundY * 0.52 - ph / 2);
-  panel(px, py, pw, ph);
-  text('Garderobe', W / 2, py + 25, 18, { color: UI_INK, shadow: false });
+  woodSign(px, py, pw, ph, 4711, false);   // en knaggrekke av furu: pynten henger på knagger
+  stitchHeading('Garderobe', W / 2, py + 24, 2.6, 'ink');
   const owned = COSMETICS.filter(isUnlocked).length;
-  text(`${totalPoints} poeng samlet, ${owned} av ${COSMETICS.length} låst opp`, W / 2, py + 44, 10, { color: '#9A7B5E', shadow: false, weight: 600 });
+  text(`${totalPoints} poeng samlet, ${owned} av ${COSMETICS.length} låst opp`, W / 2, py + 44, 10, { color: WOOD_TEXT, shadow: false, weight: 600 });
   const cw = 70, chh = 84, gx = 8, gy = 8, x0 = px + (pw - (cw * 3 + gx * 2)) / 2, y0 = py + 56;
   COSMETICS.slice(page * WARDROBE_PAGE, (page + 1) * WARDROBE_PAGE).forEach((c, i) => {
     const cx = x0 + (i % 3) * (cw + gx), cy = y0 + Math.floor(i / 3) * (chh + gy), ok = isUnlocked(c), on = wear === c.id;
     hud['w_' + c.id] = { x: cx, y: cy, w: cw, h: chh, fn: () => { if (ok) setWear(c.id); } };
-    ctx.fillStyle = on ? '#FFE7A8' : '#FFFDF7'; rr(cx, cy, cw, chh, 12); ctx.fill();
-    ctx.strokeStyle = UI_INK; ctx.lineWidth = on ? 2.2 : 1.2; ctx.stroke();
+    // knagg og hyssing, og en stoffbit (lapp) med sydd kant som pynten ligger på
+    const kx = cx + cw / 2, ky = cy - 3;
+    ctx.strokeStyle = '#9C7A55'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(cx + 12, cy + 3); ctx.moveTo(kx, ky); ctx.lineTo(cx + cw - 12, cy + 3); ctx.stroke();
+    ctx.fillStyle = UI_INK; inkRR(ctx, cx, cy, cw, chh, 10, on ? 2 : 1.3, 300 + i, 0.3);
+    ctx.fillStyle = on ? '#FFE7A8' : '#FFFBF2'; rr(cx, cy, cw, chh, 10); ctx.fill();
+    runningStitch(rrPoints(cx + 4, cy + 4, cw - 8, chh - 8, 7, 1), on ? '#E2B24E' : '#E8D6B8', 77 + i);
+    ctx.fillStyle = '#7A5636'; circle(ctx, kx, ky, 3.4); ctx.fillStyle = '#A57A52'; circle(ctx, kx - 0.6, ky - 0.7, 2); nail(kx, ky);
     ctx.save(); ctx.translate(cx + cw / 2, cy + 36); ctx.scale(1.25, 1.25); if (!ok) ctx.globalAlpha = 0.3;
     birdShape('normal', c.id); ctx.restore(); ctx.globalAlpha = 1;
     if (ok) text(c.label, cx + cw / 2, cy + 73, 9, { color: UI_INK, shadow: false, weight: 600 });
     else {
-      text(c.gold ? 'Gull i én runde' : `${c.need} poeng`, cx + cw / 2, cy + 73, 9, { color: '#9A7B5E', shadow: false, weight: 600 });
+      text(c.gold ? 'Gull i én runde' : `${c.need} poeng`, cx + cw / 2, cy + 73, 9, { color: WOOD_TEXT, shadow: false, weight: 600 });
       ctx.fillStyle = UI_INK; rr(cx + cw - 19, cy + 11, 10, 8, 2); ctx.fill();   // liten hengelås
       ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(cx + cw - 14, cy + 11, 3, Math.PI, 0); ctx.stroke();
     }
@@ -1667,12 +1794,43 @@ function arrowButton(key, x, y, w, h, dir, fn) {
   ctx.moveTo(dir * 5, 0); ctx.lineTo(-dir * 3, -5); ctx.lineTo(-dir * 3, 5); ctx.closePath(); ctx.fill();
   ctx.restore();
 }
+// ikonknapp: et rundt trestykke (som snittflaten på stammene) med bark, årringer og et tegnet ikon
+function logButton(key, cx, cy, r, icon, fn, on = true) {
+  hud[key] = { x: cx - r, y: cy - r, w: r * 2, h: r * 2, fn };
+  const pk = press.key === key ? (time - press.t) / 0.22 : 1, sc = pk < 1 && !reduceMotion ? 1 - 0.1 * Math.sin(Math.PI * pk) : 1;
+  // trestykket er likt hvert bilde (per ikon og av/på): tegnes én gang og gjenbrukes
+  const L = cachedSurface('log', r, r, seedOf(key), `${icon.name}|${on}`, (px, py) => paintLog(px + r, py + r, r, icon, on, seedOf(key)));
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.drawImage(L.c, -r - L.pad, -r - L.pad, L.w, L.h); ctx.restore();
+}
+function paintLog(cx, cy, r, icon, on, seed) {
+  ctx.save(); ctx.translate(cx, cy);
+  ctx.fillStyle = hexA(UI_INK, 0.25); ctx.beginPath(); ctx.ellipse(0, r * 0.25 + 2.5, r, r * 0.95, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = UI_INK; inkCircle(ctx, 0, 0, r, 1.5, seed, 0.35);
+  ctx.fillStyle = '#7A5636'; circle(ctx, 0, 0, r);                       // bark
+  ctx.fillStyle = on ? '#F2D9AE' : '#DCCDB6'; circle(ctx, 0, 0, r - 3.2);  // snittflaten
+  ctx.strokeStyle = on ? 'rgba(176,128,78,.45)' : 'rgba(140,120,100,.35)'; ctx.lineWidth = 0.8;
+  for (const k of [0.78, 0.55, 0.3]) { ctx.beginPath(); ctx.ellipse(0.6, 0.4, (r - 3.2) * k, (r - 3.2) * k * 0.94, 0.3, 0, 7); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(0, 0, r - 3.2, -2.6, -0.8); ctx.arc(0, 0, r - 7, -0.8, -2.6, true); ctx.fill();   // flatt lys oppe til høyre
+  ctx.strokeStyle = on ? UI_INK : hexA(UI_INK, 0.55); ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = 1.8; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  icon(r * 0.5);
+  if (!on) { ctx.strokeStyle = '#B5503C'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(-r * 0.48, r * 0.48); ctx.lineTo(r * 0.48, -r * 0.48); ctx.stroke(); }   // av: en skrå strek over
+  ctx.restore();
+}
+// ikonene (tegnet med streker, ingen tegn): høyttaler, note, sol, måne og pause
+const ICONS = {
+  sound: k => { ctx.beginPath(); ctx.moveTo(-k * 0.9, -k * 0.35); ctx.lineTo(-k * 0.45, -k * 0.35); ctx.lineTo(0, -k * 0.85); ctx.lineTo(0, k * 0.85); ctx.lineTo(-k * 0.45, k * 0.35); ctx.lineTo(-k * 0.9, k * 0.35); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.arc(k * 0.15, 0, k * 0.45, -0.8, 0.8); ctx.stroke(); ctx.beginPath(); ctx.arc(k * 0.15, 0, k * 0.85, -0.8, 0.8); ctx.stroke(); },
+  music: k => { ctx.beginPath(); ctx.ellipse(-k * 0.35, k * 0.55, k * 0.36, k * 0.27, -0.4, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-k * 0.02, k * 0.5); ctx.lineTo(-k * 0.02, -k * 0.85); ctx.quadraticCurveTo(k * 0.35, -k * 0.55, k * 0.7, -k * 0.35); ctx.stroke(); },
+  sun: k => { ctx.beginPath(); ctx.arc(0, 0, k * 0.42, 0, 7); ctx.fill(); ctx.beginPath();
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.moveTo(Math.cos(a) * k * 0.65, Math.sin(a) * k * 0.65); ctx.lineTo(Math.cos(a) * k * 0.92, Math.sin(a) * k * 0.92); } ctx.stroke(); },
+  moon: k => {   // sigd: hel sirkel minus en forskjøvet sirkel, klippet til den første
+    ctx.save(); ctx.beginPath(); ctx.arc(0, 0, k * 0.78, 0, 7); ctx.clip();
+    ctx.beginPath(); ctx.rect(-k, -k, k * 2, k * 2); ctx.arc(k * 0.42, -k * 0.22, k * 0.62, 0, 7); ctx.fill('evenodd'); ctx.restore(); },
+  pause: k => { rr(-k * 0.5, -k * 0.6, k * 0.32, k * 1.2, 1.5); ctx.fill(); rr(k * 0.18, -k * 0.6, k * 0.32, k * 1.2, 1.5); ctx.fill(); }
+};
 function drawPauseButton(x, y, s) {
-  hud.pause = { x, y, w: s, h: s, fn: pauseGame };
-  ctx.fillStyle = hexA(UI_INK, 0.2); rr(x, y + 2, s, s, s / 2); ctx.fill();
-  ctx.fillStyle = UI_INK; inkRR(ctx, x, y, s, s, s / 2, 1.5, 61, 0.3);
-  ctx.fillStyle = '#FFF8EC'; rr(x, y, s, s, s / 2); ctx.fill();
-  ctx.fillStyle = UI_INK; rr(x + s * 0.34, y + s * 0.3, s * 0.11, s * 0.4, 2); ctx.fill(); rr(x + s * 0.55, y + s * 0.3, s * 0.11, s * 0.4, 2); ctx.fill();
+  logButton('pause', x + s / 2, y + s / 2, s / 2, ICONS.pause, pauseGame);
 }
 function drawPauseOverlay(groundY) {
   ctx.fillStyle = 'rgba(40,28,50,.38)'; ctx.fillRect(0, 0, W, H);
@@ -1681,9 +1839,10 @@ function drawPauseOverlay(groundY) {
     ctx.save(); ctx.translate(W / 2, groundY * 0.42); ctx.scale(pop, pop); text(String(n), 0, 0, 56, { color: '#FFD27A', alpha: 0.4 + 0.6 * (1 - f * f), stroke: true }); ctx.restore();
     return;
   }
-  text('Pause', W / 2, groundY * 0.36, 34, { color: '#FFD27A', stroke: true });
-  rosemal(W / 2, groundY * 0.36 + 25, 1.15, false);
-  const bw = 120, bh = 38, y = groundY * 0.36 + 40;
+  const cy = groundY * 0.36, bw = 120, bh = 38, y = cy + 40;
+  birchBark((W - 200) / 2, cy - 38, 200, 190, 8128);   // et stykke bjørkenever bak pausemenyen
+  stitchHeading('Pause', W / 2, cy - 6, 3.6, 'gold');
+  rosemal(W / 2, cy + 22, 1, false);
   button('resume', (W - bw) / 2, y, bw, bh, 'Fortsett', resumeGame, { size: 15 });
   button('pmenu', (W - bw) / 2, y + bh + 14, bw, bh, 'Meny', goMenu, { fill: '#FFF8EC', size: 15 });
 }
@@ -1763,14 +1922,14 @@ function render() {
     let i = 0;
     for (const k in DIFFS) { const on = k === diffName; button('d_' + k, x0 + i * (bw + gapX), y0, bw, bh, DIFFS[k].label, () => setDiff(k), { fill: DIFFS[k].color, active: on, size: 12 }); i++; }
     button('wardrobe', (W - 132) / 2, y0 + bh + 12, 132, 28, 'Garderobe', () => { wardrobe = true; wardrobePage = Math.floor(COSMETICS.findIndex(c => c.id === wear) / WARDROBE_PAGE); }, { fill: '#D9C6F7', size: 12 });
-    const w3 = 80, g3 = 8, x3 = (W - (w3 * 3 + g3 * 2)) / 2, y3 = groundY + 32;
-    button('sound', x3, y3, w3, 30, Sound.sfxMuted ? 'Lyd av' : 'Lyd på', () => Sound.toggleSfx(), { active: !Sound.sfxMuted, size: 12 });
-    button('music', x3 + w3 + g3, y3, w3, 30, Sound.musMuted ? 'Musikk av' : 'Musikk', () => Sound.toggleMusic(), { active: !Sound.musMuted, fill: '#FFB8CB', size: 12 });
-    button('theme', x3 + (w3 + g3) * 2, y3, w3, 30, themeName === 'day' ? 'Dag' : 'Natt', toggleTheme, { fill: themeName === 'day' ? '#FFE08A' : '#CFC6F4', size: 12 });
+    const y3 = groundY + 46;   // tre trestykker nede til venstre, litt forskjøvet i høyden
+    logButton('sound', 34, y3, 19, ICONS.sound, () => Sound.toggleSfx(), !Sound.sfxMuted);
+    logButton('music', 80, y3 + 6, 19, ICONS.music, () => Sound.toggleMusic(), !Sound.musMuted);
+    logButton('theme', 126, y3 - 2, 19, themeName === 'day' ? ICONS.sun : ICONS.moon, toggleTheme);
   }
 
   if (state === State.READY) {
-    text('Klar?', W / 2, topY + 40, 32, { color: '#FFD27A', stroke: true });
+    stitchHeading('Klar?', W / 2, topY + 40, 3.8, 'gold');
     text(D.label, W / 2, topY + 70, 13, { weight: 600, color: D.color, stroke: true, shadow: false });
     const hy = groundY * 0.42 + 30 + (reduceMotion ? 0 : loopKeys([[0, 0], [0.55, 0], [0.64, 4, 'in'], [0.8, 0, 'out'], [1.2, 0]], time));   // trykker, venter, trykker
     ctx.fillStyle = '#FFF8EC'; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.5; rr(W / 2 + 36, hy, 20, 30, 10); ctx.fill(); ctx.stroke();
@@ -1790,10 +1949,14 @@ function render() {
     const pw = 236, ph = 132, pxx = (W - pw) / 2, py = groundY * 0.46 - ph / 2 + (1 - back) * 80;
     ctx.fillStyle = `rgba(40,28,50,${(0.22 * ease).toFixed(3)})`; ctx.fillRect(0, 0, W, H);   // demp bakgrunnen bak panelet
     const tk = Math.min(1, Math.max(0, (overT - 0.1) / 0.45)), ts = reduceMotion ? 1 : easeOutBack(tk);
+    // skiltet henger i to tau og svinger litt etter at det har falt på plass (pendel rundt festet langt oppe)
+    const swing = reduceMotion ? 0 : keyframes([[0.3, 0], [0.55, 0.026, 'out'], [0.85, -0.016, 'inOut'], [1.15, 0.008, 'inOut'], [1.45, 0, 'inOut']], overT);
+    ctx.save(); ctx.translate(W / 2, py - 300); ctx.rotate(swing); ctx.translate(-W / 2, -(py - 300));
+    rope(pxx + 14, -20, py + 4); rope(pxx + pw - 14, -20, py + 4);   // utenfor tittelen
     ctx.save(); ctx.translate(W / 2, py - 34); ctx.scale(ts, ts);
-    text(overTitle, 0, 0, 30, { color: newBest ? '#FFD27A' : '#FFA28C', stroke: true, alpha: Math.min(1, tk * 2) });
+    stitchHeading(overTitle, 0, 0, 3.4, newBest ? 'gold' : 'coral', Math.min(1, tk * 2));
     ctx.restore();
-    panel(pxx, py, pw, ph);
+    woodSign(pxx, py, pw, ph, 2024);
     if (unlocked.length && overT > 1) {   // ny pynt låst opp: et lite bånd over tittelen
       const uk = Math.min(1, (overT - 1) / 0.4), us = reduceMotion ? 1 : easeOutBack(uk), label = `Ny pynt: ${unlocked.map(c => c.label).join(', ')}!`;
       ctx.save(); ctx.translate(W / 2, py - 72); ctx.scale(us, us);
@@ -1813,20 +1976,23 @@ function render() {
       if (m) text(m[2], mx, py + 103, 11, { color: UI_INK, shadow: false, weight: 600, alpha: mk });
       else {
         text('Nesten!', mx, py + 101, 11, { color: UI_INK, shadow: false, weight: 600, alpha: mk });
-        text(`${10 - score} til bronse`, mx, py + 114, 9, { color: '#9A7B5E', shadow: false, weight: 600, alpha: mk });
+        text(`${10 - score} til bronse`, mx, py + 114, 9, { color: WOOD_TEXT, shadow: false, weight: 600, alpha: mk });
       }
+      if (m) nail(mx, py + 41);   // merket er spikret fast på skiltet
       ctx.globalAlpha = 1;
     }
     const shown = overShown;
-    text('Poeng', pxx + pw - 28, py + 30, 12, { align: 'right', color: '#9A7B5E', shadow: false, weight: 600 });
+    text('Poeng', pxx + pw - 28, py + 30, 12, { align: 'right', color: WOOD_TEXT, shadow: false, weight: 600 });
     text(String(shown), pxx + pw - 28, py + 54, 28, { align: 'right', color: UI_INK, shadow: false });
-    text('Beste', pxx + pw - 28, py + 84, 12, { align: 'right', color: '#9A7B5E', shadow: false, weight: 600 });
+    text('Beste', pxx + pw - 28, py + 84, 12, { align: 'right', color: WOOD_TEXT, shadow: false, weight: 600 });
     text(String(best), pxx + pw - 28, py + 108, 28, { align: 'right', color: UI_INK, shadow: false });
     if (newBest && shown === score) {
       ctx.fillStyle = '#FFA28C'; rr(pxx + pw - 120, py + 74, 34, 18, 9); ctx.fill(); ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.4; ctx.stroke();
       text('Ny!', pxx + pw - 103, py + 83.5, 11, { shadow: false, weight: 600, color: '#FFFDF6', stroke: true });
     }
-    text(D.label, pxx + 50, py + 22, 11, { color: D.ink, shadow: false, weight: 600 });
+    ctx.fillStyle = D.color; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(pxx + 30, py + 22, 3.6, 0, 7); ctx.fill(); ctx.stroke();   // malt prikk i nivåets farge
+    text(D.label, pxx + 38, py + 22, 11, { color: UI_INK, shadow: false, weight: 600, align: 'left' });
+    ctx.restore();   // slutt på svingen
     // tydelige valg i stedet for «trykk hvor som helst»: spill igjen, eller tilbake til menyen
     if (overT > 0.9) {
       const k = Math.min(1, (overT - 0.9) / 0.3), slide = (1 - (1 - Math.pow(1 - k, 3))) * 24;
