@@ -559,30 +559,30 @@ function update(dt) {
     if (home && home.phase === 'done' && worldK < 1) worldK = worldK > 0.995 ? 1 : lerp(worldK, 1, 1 - Math.exp(-3.5 * gdt));
     const move = D.speed * gdt * worldK;
     if (!perched) {
-    // tyngdekraft + luftmotstand + terminalfart
-    bird.vy += D.gravity * gdt;
-    bird.vy -= bird.vy * AIR_DRAG * gdt;
-    bird.vy = clamp(bird.vy, -900, TERMINAL);
-    bird.y += bird.vy * gdt;
-    bird.flapT += gdt;
-    // etter skjoldtreff: gli mykt inn mot midten av gapet i stedet for å hoppe dit
-    if (grace > 0) {
-      grace = Math.max(0, grace - gdt);
-      if (grace > SHIELD_GRACE - 0.4) {
-        const k = 1 - Math.exp(-8 * gdt), gy = guideY();
-        bird.y = lerp(bird.y, gy, k); bird.vy = lerp(bird.vy, -40, k);
+      // tyngdekraft + luftmotstand + terminalfart
+      bird.vy += D.gravity * gdt;
+      bird.vy -= bird.vy * AIR_DRAG * gdt;
+      bird.vy = clamp(bird.vy, -900, TERMINAL);
+      bird.y += bird.vy * gdt;
+      bird.flapT += gdt;
+      // etter skjoldtreff: gli mykt inn mot midten av gapet i stedet for å hoppe dit
+      if (grace > 0) {
+        grace = Math.max(0, grace - gdt);
+        if (grace > SHIELD_GRACE - 0.4) {
+          const k = 1 - Math.exp(-8 * gdt), gy = guideY();
+          bird.y = lerp(bird.y, gy, k); bird.vy = lerp(bird.vy, -40, k);
+        }
       }
-    }
-    // rotasjon som fjær mot målvinkel
-    const target = bird.vy < 0 ? -0.45 : clamp((bird.vy - 60) / 380, 0, 1) * 1.4;
-    const k = bird.vy < 0 ? 140 : 40, damp = bird.vy < 0 ? 16 : 10;
-    bird.angVel += ((target - bird.rot) * k - bird.angVel * damp) * gdt;
-    bird.rot += bird.angVel * gdt;
-    // squash & stretch – fjærer tilbake til 1, strekkes litt ved fall
-    const fallStretch = clamp(bird.vy / TERMINAL, 0, 1) * 0.1;
-    bird.sx = lerp(bird.sx, 1 - fallStretch * 0.5, 1 - Math.pow(0.0005, gdt));
-    bird.sy = lerp(bird.sy, 1 + fallStretch, 1 - Math.pow(0.0005, gdt));
-    if (bird.y < safeTop + 6) { bird.y = safeTop + 6; bird.vy = Math.max(bird.vy, 0); }
+      // rotasjon som fjær mot målvinkel
+      const target = bird.vy < 0 ? -0.45 : clamp((bird.vy - 60) / 380, 0, 1) * 1.4;
+      const k = bird.vy < 0 ? 140 : 40, damp = bird.vy < 0 ? 16 : 10;
+      bird.angVel += ((target - bird.rot) * k - bird.angVel * damp) * gdt;
+      bird.rot += bird.angVel * gdt;
+      // squash & stretch – fjærer tilbake til 1, strekkes litt ved fall
+      const fallStretch = clamp(bird.vy / TERMINAL, 0, 1) * 0.1;
+      bird.sx = lerp(bird.sx, 1 - fallStretch * 0.5, 1 - Math.pow(0.0005, gdt));
+      bird.sy = lerp(bird.sy, 1 + fallStretch, 1 - Math.pow(0.0005, gdt));
+      if (bird.y < safeTop + 6) { bird.y = safeTop + 6; bird.vy = Math.max(bird.vy, 0); }
     }
     for (const sg of signs) sg.x -= move;
     signs = signs.filter(sg => sg.x > -90);

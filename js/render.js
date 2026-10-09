@@ -1869,7 +1869,7 @@ function drawPauseOverlay(groundY) {
 function roadSign(x, groundY, name, seed) {
   ctx.font = '700 9px Fredoka, system-ui, sans-serif';
   const bw = Math.ceil(ctx.measureText(name).width) + 20, bh = 15, postH = 36, w = bw + 2, h = postH;
-  const L = cachedSurface('skilt', w, h, seed, `${name}|${curTheme}`, (ox, oy) => paintRoadSign(ox, oy, bw, bh, postH, name, seed));
+  const L = cachedSurface('skilt', w, h, seed, `${name}|${T.skyTop}`, (ox, oy) => paintRoadSign(ox, oy, bw, bh, postH, name, seed));
   ctx.drawImage(L.c, x - w / 2 - L.pad, groundY + 3 - h - L.pad, L.w, L.h);
 }
 function paintRoadSign(ox, oy, bw, bh, postH, name, seed) {
@@ -1889,9 +1889,10 @@ function paintRoadSign(ox, oy, bw, bh, postH, name, seed) {
   ctx.fillStyle = tc('#6B5A4C'); circle(ctx, px, y0 + bh / 2, 1.2);   // spikeren som holder planken
 }
 // hytta med fuglebrettet foran: falurøde tømmervegger, hvite vindskier, torvtak og lys i vinduene om kvelden
+// (bildene hurtigbufres per palett, så den gamle tiden under en krysstoning får sine egne farger)
 const HOME_W = 196, HOME_H = 112, FEEDER_X = 24;   // fuglebrettets stolpe står FEEDER_X fra venstre kant
 function drawHome(x, groundY) {
-  const L = cachedSurface('hjem', HOME_W, HOME_H, 60, curTheme, (ox, oy) => paintHome(ox, oy));
+  const L = cachedSurface('hjem', HOME_W, HOME_H, 60, T.skyTop, (ox, oy) => paintHome(ox, oy));
   ctx.drawImage(L.c, x - FEEDER_X - L.pad, groundY + 3 - HOME_H - L.pad, L.w, L.h);
   // røyk fra pipa: små dotter som stiger og blekner (ingen jevn sinus: hver dott har sin egen fase)
   if (!reduceMotion) for (let i = 0; i < 4; i++) {
