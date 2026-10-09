@@ -309,6 +309,10 @@ const Sound = (() => {
   const ORDER = { night: 0, sunset: 1, day: 2 };
   let timeName = null;
   const now = () => ac.currentTime;
+  // introen: lyd uten trykk er bare lov i den installerte appen (Chrome tillater det der); i nettleseren er introen stille
+  const installed = () => typeof matchMedia === 'function' && ['standalone', 'fullscreen', 'minimal-ui'].some(m => matchMedia(`(display-mode: ${m})`).matches);
+  const live = () => ac && ac.state === 'running';
+  const INTRO_NOTES = [74, 77, 79, 81, 84, 86, 89, 91, 93];   // F-dur pentaton, én tone per bokstav i «Pixelfugl»
   return {
     unlock() { ensure(); if (!Music.playing) Music.start(); },
     // i bakgrunnen: stopp lydklokka helt (sekvenseren står da stille, ac.currentTime fryses)
@@ -322,6 +326,20 @@ const Sound = (() => {
     },
     music: Music,
     get loaded() { return Object.keys(bufs); },
+    introStart() { if (installed()) ensure(); },
+    introNote(k) {   // en stille kalimbatone når nålen har sydd en bokstav (fra venstre mot høyre i lydbildet)
+      if (!live()) return;
+      musicBox(sfxGain, midi(INTRO_NOTES[k] || 93), now(), 0.07, 1.1, (k - 4) * 0.11);
+    },
+    introLand() {   // fuglen lander på logoen: to toner som setter seg, og et kort meisekall
+      if (!live()) return; const t = now();
+      musicBox(sfxGain, midi(84), t, 0.06, 1.4, 0.05); musicBox(sfxGain, midi(89), t + 0.09, 0.05, 1.7, 0.1);
+      clip('meis', 'kall2', { t: t + 0.06, vol: 0.26, pan: -0.1 });
+    },
+    introOpen() {   // lerretet åpner seg: et mykt, luftig sus
+      if (!live()) return;
+      noise(sfxGain, now(), 0.55, 0.05, { bp: 500, sweep: 2400, q: 0.8 });
+    },
     flap() {   // mykt «fwip»: båndpass-støy som glir oppover + et lite pust
       if (!ac) return; const t = now();
       noise(sfxGain, t, 0.11, 0.22, { bp: 700, sweep: 2600, q: 1.2 });

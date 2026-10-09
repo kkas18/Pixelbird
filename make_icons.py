@@ -100,9 +100,9 @@ def icon(size, maskable=False):
     return img.resize((size, size), Image.LANCZOS).convert('RGB')
 
 
-icon(192).save('icons/icon-192.png')
-icon(512).save('icons/icon-512.png')
-icon(512, True).save('icons/icon-maskable-512.png')
+icon(192).save('icons/pixelfugl-192.png')
+icon(512).save('icons/pixelfugl-512.png')
+icon(512, True).save('icons/pixelfugl-maskable-512.png')
 icon(180).save('icons/apple-touch-icon.png')
 icon(32).save('icons/favicon-32.png')
 print('icons written')

@@ -1,20 +1,19 @@
 {
   "name": "Pixelfugl",
   "short_name": "Pixelfugl",
-  "description": "Et koselig flakse-spill med en liten fugl i strikket skjerf. Trykk for å flakse.",
+  "description": "Et koselig flakse-spill: en liten blåmeis i lusekofte-skjerf flyr hjem gjennom bjørkeskogen. Trykk for å flakse.",
   "lang": "nb",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["fullscreen", "standalone"],
   "orientation": "portrait",
-  "background_color": "#8FD3F4",
-  "theme_color": "#8FD3F4",
+  "background_color": "#F1E6D0",
+  "theme_color": "#F1E6D0",
   "categories": ["games", "entertainment"],
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icons/pixelfugl-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/pixelfugl-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/pixelfugl-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "screenshots": [
     { "src": "icons/screenshot-portrait.png", "sizes": "540x1170", "type": "image/png", "form_factor": "narrow", "label": "Pixelfugl i spill" }

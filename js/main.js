@@ -44,8 +44,9 @@ installBtn.addEventListener('click', async () => { if (!deferredPrompt) return; 
 window.addEventListener('appinstalled', () => installBtn.classList.remove('show'));
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 
-document.documentElement.style.setProperty('--sky', T.skyTop);
-document.querySelector('meta[name=theme-color]').content = T.skyTop;
-resize(); goMenu(); Sound.setNight(T.night);
-const start = () => requestAnimationFrame(loop);
-if (document.fonts && document.fonts.load) Promise.all([document.fonts.load("700 20px Fredoka"), document.fonts.load("600 14px Fredoka")]).finally(start); else start();
+// oppstart: lin fra første bilde (samme farge som oppstartsskjermen), så introen. Introen trenger ikke fonten
+// (logoen er brodert), så den starter med en gang; menyen vises først når fonten er lastet (se introStep).
+resize(); startIntro(); goMenu(); Sound.setNight(T.night);
+if (document.fonts && document.fonts.load) Promise.all([document.fonts.load("700 20px Fredoka"), document.fonts.load("600 14px Fredoka")]).finally(() => { fontsReady = true; });
+else fontsReady = true;
+requestAnimationFrame(loop);

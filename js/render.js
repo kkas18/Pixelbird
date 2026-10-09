@@ -109,15 +109,24 @@ function stitchGrid(g, rows, x0, y0, s, colors, seed, outline = null) {
   }
 }
 
-function buildLogo(s) {
-  const rows = logoRows('Pixelfugl'), pad = 4;
-  return makeSprite(rows[0].length * s + pad * 2, rows.length * s + pad * 2 + 2, g => {
-    g.fillStyle = hexA(UI_INK, 0.3);   // myk skygge under broderiet
-    rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== '.') g.fillRect(pad + i * s - 1, pad + j * s + 2.6, s + 2, s + 2); }));
-    stitchGrid(g, rows, pad, pad, s, {
-      X: ['#DC952B', '#F4B53F', '#FFDA7E'],
-      B: ['#2C68AC', '#3A8AD6', '#86C4F2']
-    }, 909, { w: 1.7, color: UI_INK });
+// logoen: hvert sting i tre lag (skygge under alt, så mørk ytterkant, så selve stinget), slik stitchGrid tegner.
+// Introen syr den sting for sting med de samme lagene og den samme ujevnheten, så den ferdige logoen er lik.
+const LOGO_COLORS = { X: ['#DC952B', '#F4B53F', '#FFDA7E'], B: ['#2C68AC', '#3A8AD6', '#86C4F2'] }, LOGO_S = 5, LOGO_PAD = 4;
+function logoCells() {
+  const rows = logoRows('Pixelfugl'), r = rng(909), cells = [];
+  rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== '.') cells.push({ i, j, ch, jit: (r() - 0.5) * LOGO_S * 0.12 }); }));
+  return { rows, cells };
+}
+function paintLogoCell(g, layer, q) {
+  const s = LOGO_S, x = LOGO_PAD + q.i * s, y = LOGO_PAD + q.j * s, o = 1.7;
+  if (layer === 0) { g.fillStyle = hexA(UI_INK, 0.3); g.fillRect(x - 1, y + 2.6, s + 2, s + 2); }   // myk skygge under broderiet
+  else if (layer === 1) { g.fillStyle = UI_INK; g.fillRect(x - o + SHADE_X * o * 0.5, y - o + SHADE_Y * o * 0.5, s + o * 2, s + o * 2); }
+  else { const c = LOGO_COLORS[q.ch] || LOGO_COLORS.X; g.fillStyle = c[0]; g.fillRect(x, y, s, s); stitch(g, x, y, s, c[1], c[2], q.jit); }
+}
+function buildLogo() {
+  const { rows, cells } = logoCells();
+  return makeSprite(rows[0].length * LOGO_S + LOGO_PAD * 2, rows.length * LOGO_S + LOGO_PAD * 2 + 2, g => {
+    for (const layer of [0, 1, 2]) for (const q of cells) paintLogoCell(g, layer, q);
   });
 }
 // håndlaget pikselskrift for logoen: hver rute er ett korssting (9 rader: 2 over x-høyden, 5 x-høyde, 2 under).
@@ -708,7 +717,7 @@ function buildScene(keepSharp = false) {
   });
   scene.marks = buildLandmarks(keepSharp);
   // logoen: «Pixelfugl» brodert i korssting (håndlaget pikselskrift i stedet for en ferdig font)
-  scene.logo = buildLogo(5);
+  scene.logo = buildLogo();
   return scene;
 }
 
@@ -1518,7 +1527,7 @@ const ip = (prev, cur) => prev === undefined ? cur : prev + (cur - prev) * alpha
 
 function birdExpr() {
   if (state === State.DEAD || state === State.OVER) return 'dizzy';
-  if (state === State.MENU && T.night) return 'sleep';
+  if (state === State.MENU && T.night && !intro) return 'sleep';
   if (bird.happy > 0 || bird.preen > 0.5) return 'happy';   // lukker øynene fornøyd når den pirker i fjærene
   if (state === State.PLAY && bird.vy > 330) return 'wide';
   return 'normal';
@@ -2398,10 +2407,183 @@ function fadeLayer() {   // offscreen-lerret i full skjermstørrelse for kryssto
   return fadeCanvas;
 }
 
+/* ---------- Introen «Broderiet» ----------
+   Lin (samme farge som oppstartsskjermen i manifestet) med en oval broderiramme. Inne i rammen er stoffet aida
+   med ruter som går nøyaktig opp med stingene i logoen. En nål syr logoen sting for sting i de samme tre lagene
+   som buildLogo, så den ferdige logoen er den samme som i menyen. Logikken og tidene ligger i game.js (INTRO). */
+const LINEN = '#F1E6D0', HOOP = { rx: 134, ry: 62 };
+// stingrekkefølge og tider: bokstav for bokstav, rad for rad, med et lite opphold når nålen flytter seg
+let introPlanCache = null;
+function introPlan() {
+  if (introPlanCache) return introPlanCache;
+  const word = 'Pixelfugl', { cells } = logoCells(), spans = [];
+  let c = 0;
+  for (const ch of word) { const w = glyphRows(ch)[0].length; spans.push([c, c + w - 1]); c += w + 1; }
+  for (const q of cells) q.g = spans.findIndex(([a, b]) => q.i >= a && q.i <= b);
+  const order = [...cells].sort((a, b) => a.g - b.g || a.j - b.j || a.i - b.i), glyphEnd = [];
+  const [t0, t1] = INTRO.stitch, gap = 0.035, per = (t1 - t0 - gap * (word.length - 1)) / order.length;
+  let t = t0;
+  order.forEach((q, k) => { if (k && q.g !== order[k - 1].g) t += gap; q.t = t; t += per; glyphEnd[q.g] = q.t; });
+  return (introPlanCache = { order, glyphEnd, perch: order.find(q => q.g === 4 && q.j === 0) });   // toppen av den første «l»-en
+}
+// logoen: samme x som i menyen; midt på lerretet mens den sys (ly0), oppe på menyplassen etterpå (lyM)
+function introGeo() {
+  const LG = scene.logo, P = introPlan().perch;
+  return { LG, lx: Math.round(W / 2 - LG.w / 2), ly0: Math.round(H * 0.4 - LG.h / 2), lyM: safeTop + 42,
+    perchX: LOGO_PAD + P.i * LOGO_S + LOGO_S / 2, perchTop: LOGO_PAD + 2 };
+}
+// lin, aida i rammen og de tre lagene logoen sys inn i (lages ved oppstart og ved ny skjermstørrelse)
+let introGfxCache = null;
+function introGfx() {
+  const R = dpr * scale, G = introGeo(), key = `${R}|${W}|${H}`;
+  if (introGfxCache && introGfxCache.key === key) return introGfxCache;
+  const fw = HOOP.rx * 2 + 12, fh = HOOP.ry * 2 + 12;
+  const linen = makeSprite(W, H, (g, w, h) => paintLinen(g, w, h), 0.35);
+  // aida-rutene ligger i forhold til logoen, så de går opp med stingene uansett hvor logoen står
+  const fabric = makeSprite(fw, fh, g => paintAida(g, fw, fh, G.lx + LOGO_PAD - (W / 2 - fw / 2), LOGO_PAD + fh / 2 - G.LG.h / 2 + 1));
+  const layers = [0, 1, 2].map(() => {
+    const c = document.createElement('canvas'); c.width = G.LG.c.width; c.height = G.LG.c.height;
+    const g = c.getContext('2d'); g.setTransform(R, 0, 0, R, 0, 0); return { c, g };
+  });
+  return (introGfxCache = { key, linen, fabric, fw, fh, layers, done: 0 });
+}
+function paintLinen(g, w, h) {
+  const r = rng(5150);
+  g.fillStyle = LINEN; g.fillRect(0, 0, w + 1, h + 1);
+  g.lineWidth = 0.45;   // vev: tynne tråder på langs og tvers, litt ujevne i styrke, som ekte lin
+  for (let y = 0.6; y < h; y += 1.3) { g.strokeStyle = `rgba(150,118,80,${(0.025 + r() * 0.05).toFixed(3)})`; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + (r() - 0.5) * 0.8); g.stroke(); }
+  for (let x = 0.6; x < w; x += 1.3) { g.strokeStyle = `rgba(150,118,80,${(0.02 + r() * 0.04).toFixed(3)})`; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (r() - 0.5) * 0.8, h); g.stroke(); }
+  for (let i = 0; i < w * h / 500; i++) {   // noper: korte, tykkere partier i tråden
+    const x = r() * w, y = r() * h, l = 2 + r() * 8, hor = r() < 0.5;
+    g.strokeStyle = `rgba(140,105,65,${(0.06 + r() * 0.08).toFixed(3)})`; g.lineWidth = 0.7 + r() * 0.5;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(hor ? x + l : x, hor ? y : y + l); g.stroke();
+  }
+  for (let i = 0; i < 5; i++) {   // myke folder: store, svake lys- og skyggeflater
+    const x = r() * w, y = r() * h, rx = 60 + r() * 90, ry = 20 + r() * 40, a = r() * 3, light = i % 2 === 0;
+    g.fillStyle = light ? 'rgba(255,252,242,.008)' : 'rgba(120,85,45,.007)';
+    for (let k = 0; k < 8; k++) { g.beginPath(); g.ellipse(x, y, rx * (1 - k * 0.1), ry * (1 - k * 0.1), a, 0, 7); g.fill(); }
+  }
+  g.lineWidth = 4.5; g.strokeStyle = 'rgba(100,70,40,.009)';   // kantene litt mørkere (stoffet bøyer seg bort fra lyset), uten synlige trinn
+  for (let k = 0; k < 24; k++) g.strokeRect(k * 2, k * 2, w - k * 4, h - k * 4);
+}
+function paintAida(g, w, h, gx, gy) {
+  const cx = w / 2, cy = h / 2, s = LOGO_S;
+  g.save(); g.beginPath(); g.ellipse(cx, cy, HOOP.rx, HOOP.ry, 0, 0, 7); g.clip();
+  g.fillStyle = LINEN; g.fillRect(0, 0, w, h);
+  g.fillStyle = 'rgba(255,252,244,.42)'; g.fillRect(0, 0, w, h);   // strammere og lysere enn linet utenfor
+  const x0 = ((gx % s) + s) % s, y0 = ((gy % s) + s) % s;
+  g.strokeStyle = 'rgba(150,118,80,.08)'; g.lineWidth = 0.6; g.beginPath();   // trådbuntene midt i hver rute
+  for (let x = x0; x < w; x += s) { g.moveTo(x + s / 2, 0); g.lineTo(x + s / 2, h); }
+  for (let y = y0; y < h; y += s) { g.moveTo(0, y + s / 2); g.lineTo(w, y + s / 2); }
+  g.stroke();
+  g.fillStyle = 'rgba(110,84,62,.2)';   // hullene i hjørnene, der nålen går gjennom
+  for (let x = x0; x < w; x += s) for (let y = y0; y < h; y += s) g.fillRect(x - 0.45, y - 0.45, 0.9, 0.9);
+  g.lineWidth = 2;   // stoffet trekkes ned under ringen
+  for (let k = 0; k < 6; k++) { g.strokeStyle = `rgba(110,80,45,${(0.05 - k * 0.007).toFixed(3)})`; g.beginPath(); g.ellipse(cx, cy, HOOP.rx - 1 - k * 2, HOOP.ry - 1 - k * 2, 0, 0, 7); g.stroke(); }
+  g.restore();
+}
+// broderirammen: en ring av bøyd bjørk med blekk-kant, den indre ringen skimtes innenfor, og låsen med messingskrue øverst
+function hoopRing(cx, cy, sc, a) {
+  const { rx, ry } = HOOP;
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.lineCap = 'round';
+  const ring = (dx, dy, w, color, d = 0, a0 = 0, a1 = 7) => { ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); ctx.ellipse(dx, dy, rx + d, ry + d, 0, a0, a1); ctx.stroke(); };
+  ring(1.5, 3.2, 7, 'rgba(90,60,30,.16)');                                       // skygge på stoffet
+  ring(0, 0, 9.6, UI_INK);
+  ring(0, 0, 7, '#D7AE76');
+  ring(0, 0, 2.2, '#E8C792', -1.6);                                              // lysere innerside
+  ring(0, -0.6, 1, 'rgba(255,244,220,.7)', 2.6, Math.PI * 1.05, Math.PI * 1.95);   // lys kant øverst
+  ring(0, 0, 0.7, 'rgba(120,80,40,.35)', 1.2, 0.3, 1.4); ring(0, 0, 0.7, 'rgba(120,80,40,.3)', -0.8, 3.6, 4.4);   // årer
+  ring(0, 0, 1.1, 'rgba(90,60,30,.45)', -5.4);                                   // den indre ringen
+  const ty = -ry - 2;
+  ctx.fillStyle = UI_INK; rr(-7.6, ty - 6.6, 15.2, 12.2, 2.4); ctx.fill();
+  ctx.fillStyle = '#D7AE76'; rr(-6.2, ty - 5.2, 12.4, 9.4, 1.6); ctx.fill();
+  ctx.fillStyle = 'rgba(255,244,220,.6)'; ctx.fillRect(-5.4, ty - 4.6, 10.8, 1.2);
+  ctx.fillStyle = UI_INK; rr(-12, ty - 2.6, 24, 5.2, 2.6); ctx.fill();
+  ctx.fillStyle = '#C9A04B'; rr(-11, ty - 1.8, 22, 3.6, 1.8); ctx.fill();
+  ctx.fillStyle = 'rgba(255,240,190,.75)'; ctx.fillRect(-10, ty - 1.4, 20, 0.9);
+  ctx.fillStyle = UI_INK; circle(ctx, 12.4, ty, 3.2); ctx.fillStyle = '#C9A04B'; circle(ctx, 12.4, ty, 2.3);
+  ctx.strokeStyle = 'rgba(90,60,20,.7)'; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(12.4, ty - 1.6); ctx.lineTo(12.4, ty + 1.6); ctx.stroke();
+  ctx.restore();
+}
+// synål av stål; (tx, ty) er spissen, og tråden går fra det siste stinget (sx, sy) opp gjennom nåløyet
+const NEEDLE = { ang: -0.9, len: 30 };
+function needle(tx, ty, a, thread, sx, sy) {
+  const L = NEEDLE.len, c = Math.cos(NEEDLE.ang), s = Math.sin(NEEDLE.ang), ex = tx + c * L * 0.86, ey = ty + s * L * 0.86;
+  ctx.save(); ctx.globalAlpha *= a; ctx.lineCap = 'round';
+  if (sx !== null) {
+    const qx = (sx + ex) / 2 + 8, qy = Math.min(sy, ey) - 12;
+    ctx.strokeStyle = hexA(UI_INK, 0.3); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(qx, qy, ex, ey); ctx.lineTo(ex + 4, ey + 7); ctx.stroke();
+    ctx.strokeStyle = thread; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(qx, qy, ex, ey); ctx.lineTo(ex + 4, ey + 7); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(70,50,30,.18)'; ctx.lineWidth = 2.4;   // skyggen på stoffet
+  ctx.beginPath(); ctx.moveTo(tx + 2.2, ty + 3); ctx.lineTo(tx + c * L + 2.2, ty + s * L + 3); ctx.stroke();
+  ctx.translate(tx, ty); ctx.rotate(NEEDLE.ang);
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(L * 0.7, -1.15); ctx.quadraticCurveTo(L + 1.2, -1.2, L + 1.2, 0); ctx.quadraticCurveTo(L + 1.2, 1.2, L * 0.7, 1.15); ctx.closePath();
+  ctx.fillStyle = '#C9CED6'; ctx.fill(); ctx.strokeStyle = '#5E6670'; ctx.lineWidth = 0.6; ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 0.45; ctx.beginPath(); ctx.moveTo(2, -0.25); ctx.lineTo(L * 0.8, -0.55); ctx.stroke();
+  ctx.fillStyle = LINEN; ctx.beginPath(); ctx.ellipse(L * 0.86, 0, 1.9, 0.5, 0, 0, 7); ctx.fill();   // nåløyet
+  ctx.restore();
+}
+// hvor nålen er: glir inn fra høyre, hopper fra sting til sting (løfter seg litt imellom) og trekkes ut igjen
+function introNeedle(t, lx, ly) {
+  const { order } = introPlan(), first = order[0], last = order[order.length - 1];
+  const cen = q => ({ x: lx + LOGO_PAD + q.i * LOGO_S + LOGO_S / 2, y: ly + LOGO_PAD + q.j * LOGO_S + LOGO_S / 2 });
+  const off = { x: W + 30, y: ly - 70 }, col = q => (LOGO_COLORS[q.ch] || LOGO_COLORS.X)[1];
+  if (t < first.t - 0.2 || t > last.t + 0.28) return null;
+  if (t < first.t) { const k = EASE.out((t - first.t + 0.2) / 0.2), p = cen(first); return { x: lerp(off.x, p.x, k), y: lerp(off.y, p.y, k), a: 1, from: null, col: col(first) }; }
+  if (t >= last.t) { const k = EASE.in((t - last.t) / 0.28), p = cen(last); return { x: lerp(p.x, off.x, k), y: lerp(p.y, off.y, k), a: 1 - k * k, from: p, col: col(last) }; }
+  const n = introGfx().done, a = order[Math.max(0, n - 1)], b = order[Math.min(order.length - 1, n)];
+  const f = b.t > a.t ? clamp((t - a.t) / (b.t - a.t), 0, 1) : 1, e = EASE.inOut(f), pa = cen(a), pb = cen(b), lift = Math.sin(f * Math.PI) * 2.6;
+  return { x: lerp(pa.x, pb.x, e) + Math.cos(NEEDLE.ang) * lift, y: lerp(pa.y, pb.y, e) + Math.sin(NEEDLE.ang) * lift, a: 1, from: pa, col: col(a) };
+}
+// logoen: stingene som er sydd så langt (tre lag), eller den ferdige logoen når alt er sydd
+function drawIntroLogo(t, lx, ly) {
+  const { order } = introPlan(), gfx = introGfx(), LG = scene.logo;
+  while (gfx.done < order.length && order[gfx.done].t <= t) { const q = order[gfx.done++]; for (const L of [0, 1, 2]) paintLogoCell(gfx.layers[L].g, L, q); }
+  if (gfx.done >= order.length) return ctx.drawImage(LG.c, lx, ly, LG.w, LG.h);
+  for (const L of gfx.layers) ctx.drawImage(L.c, lx, ly, LG.w, LG.h);
+}
+function drawFabric(cx, cy, sc, a = 1) {
+  const gfx = introGfx(), F = gfx.fabric;
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.drawImage(F.c, -gfx.fw / 2, -gfx.fh / 2, F.w, F.h); ctx.restore();
+}
+function drawIntro() {
+  const I = intro, t = I.t, G = introGeo(), gfx = introGfx(), k = introOpenK(), ly = introLogoY();
+  const cx = W / 2, cy = ly + G.LG.h / 2 - 1;
+  if (I.rm) {   // redusert bevegelse: logoen står ferdig sydd, og lin og ramme toner rolig bort
+    const a = 1 - EASE.inOut(k);
+    if (a > 0.002) { ctx.save(); ctx.globalAlpha = a; ctx.drawImage(gfx.linen.c, 0, 0, gfx.linen.w, gfx.linen.h); drawFabric(cx, cy, 1); hoopRing(cx, cy, 1, 1); ctx.restore(); }
+    ctx.drawImage(G.LG.c, G.lx, ly, G.LG.w, G.LG.h);
+    return;
+  }
+  // lerretet åpner seg: rammen vokser forbi kameraet (stor nok til å dekke hele skjermen), stoffet inni toner bort
+  const sMax = Math.hypot(W / 2 / HOOP.rx, (H - G.lyM) / HOOP.ry) * 1.08, sc = 1 + EASE.in(k) * (sMax - 1);
+  const fabA = 1 - EASE.inOut(clamp(k / 0.35, 0, 1)), ringA = 1 - clamp((k - 0.7) / 0.3, 0, 1);
+  if (k <= 0) ctx.drawImage(gfx.linen.c, 0, 0, gfx.linen.w, gfx.linen.h);
+  else {
+    ctx.save(); ctx.beginPath(); ctx.rect(-4, -4, W + 8, H + 8); ctx.ellipse(cx, cy, (HOOP.rx + 4.8) * sc, (HOOP.ry + 4.8) * sc, 0, 0, 7); ctx.clip('evenodd');
+    ctx.drawImage(gfx.linen.c, 0, 0, gfx.linen.w, gfx.linen.h); ctx.restore();
+  }
+  const inK = EASE.out(clamp(t / 0.28, 0, 1)), inS = sc * (0.965 + 0.035 * inK);   // rammen toner inn og setter seg
+  if (fabA > 0.002) drawFabric(cx, cy, inS, fabA * inK);
+  if (ringA > 0.002) hoopRing(cx, cy + (1 - inK) * 6, inS, ringA * inK);
+  drawIntroLogo(t, G.lx, ly);
+  const nd = introNeedle(t, G.lx, ly);
+  if (nd) needle(nd.x, nd.y, nd.a, nd.col, nd.from ? nd.from.x : null, nd.from ? nd.from.y : null);
+  drawBird();
+}
+
 function render() {
   const groundY = H - GROUND_H;
   ctx.save();
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+  if (intro && introOpenK() <= 0) {   // introen: lerretet dekker alt, og verden tegnes ikke
+    // unntak: ett bilde der menyen tegnes ferdig under linet (bilder i hurtigbufferen, lag til skjermkortet), mens
+    // ingenting beveger seg: før nålen kommer inn, eller mens fuglen står på logoen
+    const still = intro.rm || intro.t < INTRO.stitch[0] - 0.2 || intro.t >= INTRO.fly[1];
+    if (!(fontsReady && !intro.warm && still)) { drawIntro(); ctx.restore(); return; }
+    intro.warm = true;
+  }
   // dempet risting langs treffretningen; zoomer litt inn så kantene aldri blottlegges
   const env = shakeEnv();
   if (env > 0.05) {
@@ -2426,15 +2608,16 @@ function render() {
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1 - k; ctx.drawImage(off.c, 0, 0); ctx.restore();
   }
   drawParticles();
-  drawBird();
+  if (!intro || intro.rm) drawBird();   // under introen tegnes fuglen over lerretet (drawIntro)
   for (const k in hud) delete hud[k];
 
   const topY = safeTop + 26;
 
   if (state === State.MENU) {
     const ty = topY + 40 + (reduceMotion ? 0 : keyframes([[0, -22], [0.6, 0, 'back']], menuT));   // faller på plass når menyen åpnes, står så stille
-    const LG = scene.logo; ctx.drawImage(LG.c, Math.round(W / 2 - LG.w / 2), ty - 24, LG.w, LG.h);
-    paperLabel(`${SEASONS[seasonName].label} i bjørkeskogen`, W / 2, ty + 36, { size: 12 });
+    const LG = scene.logo;
+    if (!intro) ctx.drawImage(LG.c, Math.round(W / 2 - LG.w / 2), ty - 24, LG.w, LG.h);   // under introen tegner drawIntro logoen
+    paperLabel(`${SEASONS[seasonName].label} i bjørkeskogen`, W / 2, ty + 36, { size: 12, alpha: intro ? clamp((intro.t - introOpen()[1] + 0.2) / 0.25, 0, 1) : 1 });
     if (wardrobe) { drawWardrobe(groundY); return finishFrame(groundY); }
     // asymmetrisk: hintet til venstre under fuglen, veiviseren med vanskelighetene til høyre
     paperLabel('Trykk for å flakse', 78, groundY * 0.42 + 42, { size: 13 });
@@ -2548,7 +2731,7 @@ function finishFrame(groundY) {
   if (state === State.PLAY && active.slow > 0) edgeTint('180,155,232', 0.3, 0.3);   // lilla kant i sakte film
   if (fx.tint > 0) edgeTint(fx.rgb, fx.tint * 0.45, 0.2);   // myk farget kant ved treff (erstatter hvit fullskjerm-blits)
   if (paused) drawPauseOverlay(groundY);
-  if (transitionT > 0) {   // overgang: en sirkel som åpner seg rundt fuglen (eller en enkel toning ved redusert bevegelse)
+  if (transitionT > 0 && !intro) {   // overgang: en sirkel som åpner seg rundt fuglen (eller en enkel toning ved redusert bevegelse)
     if (reduceMotion) { ctx.fillStyle = `rgba(40,28,50,${transitionT * 0.45})`; ctx.fillRect(0, 0, W, H); }
     else {
       const k = easeOutCubic(1 - transitionT), R = Math.hypot(W, H) * (0.12 + 0.88 * k);
@@ -2556,5 +2739,6 @@ function finishFrame(groundY) {
       ctx.beginPath(); ctx.rect(-20, -20, W + 40, H + 40); ctx.arc(ip(bird.px, bird.x), ip(bird.py, bird.y), R, 0, Math.PI * 2); ctx.fill('evenodd');
     }
   }
+  if (intro) drawIntro();   // introen ligger øverst: lerretet åpner seg over menyen (og er overgangen ved oppstart)
   ctx.restore();
 }
