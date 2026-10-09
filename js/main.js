@@ -4,7 +4,7 @@
 
 /* ---------- Størrelse ---------- */
 function resize() {
-  // maks 2× skjermpiksler: ~42 % færre piksler på 2,6×-telefoner, uten synlig forskjell i den myke tegnestilen
+  // maks 2x skjermpiksler: ~42 % færre piksler på 2,6x-telefoner, uten synlig forskjell i den myke tegnestilen
   dpr = Math.min(window.devicePixelRatio || 1, 2);
   const vw = window.innerWidth, vh = window.innerHeight;
   scale = vw / LOGICAL_W; W = LOGICAL_W; H = Math.round(vh / scale);
