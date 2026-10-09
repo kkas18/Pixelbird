@@ -182,6 +182,8 @@ async function run() {
     await page.evaluate(async () => { await navigator.serviceWorker.ready; });
     await context.setOffline(true); await page.reload(); await page.waitForFunction(() => time > 0.6);
     assert.equal(await page.evaluate(() => document.fonts.check('700 38px Storybook')), true);
+    // v10: introen vises ved hver oppstart, og menyknappene finnes først når den er ferdig
+    await page.waitForFunction(() => !intro);
     assert.equal(await page.getByRole('button', { name: 'Spill', exact: true }).count(), 1);
     assert.equal(await page.evaluate(() => hasPaintedForest() && !!ART.birch && !!ART.foreground && !!ART.panoramaNight && !!ART.panoramaDay && !!ART.woodland), true);
     // A missing painting still permits startup, rendering and actual taps.

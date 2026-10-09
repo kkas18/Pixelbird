@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v9.0): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v10.0): en liten blåmeis med lusekofte-skjerf flyr
 hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Malt eventyrbokstil med fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 månesigd. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
@@ -8,7 +8,9 @@ vind i bjørk) og vibrasjon.
 Bygget som en installerbar PWA, optimalisert for Samsung Galaxy (portrett) og
 andre Android-telefoner.
 
-Høstlandskapet og bjørkestammene bruker lokale WebP-illustrasjoner (`art/`, ca. 3,0 MB). Fuglen, grensesnittet, partiklene og de øvrige årstidene tegnes i Canvas. Lyden
+Landskapet og bjørkestammene bruker lokale WebP-malerier (`art/`, ca. 3,0 MB). Maleriene er høst, og de
+andre årstidene fargelegges i koden, så stilen er den samme hele året. Fuglen, grensesnittet og partiklene
+tegnes i Canvas. Lyden
 er en blanding av syntese og noen få fritt lisensierte opptak (`audio/`, 273 kB
 i alt). Fonten (Fredoka og Fraunces) og opptakene ligger lokalt, så spillet ser og høres
 likt ut også uten nett.
@@ -17,9 +19,23 @@ likt ut også uten nett.
 
 Blåmeisen, lusekofte-skjerfet, bjørkeskogen, dyrene og reisen hjem er beholdt.
 Grensesnittet har én samlet visuell retning: varm elfenben, dempet rustrød,
-elegante serifoverskrifter og mindre papirkorn. Høstens dag- og kveldsmalerier, bjørkebarken, Fraunces-skriften og
-løvdekoren følger den godkjente designreferansen. Knapper, poeng og fuglen
-er fortsatt levende elementer, tegnet separat på Canvas.
+serifoverskrifter og papirkorn. Høstens dag- og kveldsmalerier, bjørkebarken og
+løvdekoren følger den godkjente designreferansen. Materialene er håndarbeid, tre og papir
+(se [revisjon 5](docs/REVISJON-5.md)):
+
+- **Logoen** er «Pixelfugl» brodert i korssting, som et merke på maleriet. Hver piksel er ett sting, og
+  i-prikken er et blått sting. Introen syr den ved oppstart.
+- **Nivåvalget** er en tresprosse av valnøtt, med et rødt innlegg under valgt nivå.
+- **Avkrysningsfeltene** i innstillingene er aida-ruter med et rødt korssting.
+- **Tekst står aldri rett på maleriet:** hint og stedsnavn står på papirlapper, rekorden og power-ups på
+  merkelapper.
+- **Kortene** (pause, innstillinger og resultater) har sydd kant, som broderiet i logoen.
+- **Malt lys:** fuglen får malt korn og varmt kantlys fra sola, og sola og månen er malt med glød og
+  penselstrøk, så de passer til maleriet.
+- **Lesbarhet:** bak selve spillet dempes maleriet (lavere metning og kontrast, et tynt dislag), så fuglen
+  og stammene leses tydelig. Menyen viser maleriet i full styrke.
+
+Strukturen er:
 
 - **Start:** ett samlet nivåvalg og én tydelig «Spill»-knapp.
 - **Innstillinger:** lydeffekter, musikk, dag/kveld og garderoben er samlet.
@@ -55,7 +71,7 @@ stopper parallakse og kameraforskyvning.
 | `js/sound.js` | Musikk, lydeffekter og naturlyder (Web Audio: opptak med syntese som reserve) |
 | `js/game.js` | Spilltilstand, input, fysikk, tid på døgnet og oppdatering |
 | `js/render.js` | Tegning: forhåndstegnede lag, stammer, fugl, partikler og brukergrensesnitt |
-| `js/art.js` | Innlasting og tegning av malte høstlandskap og bjørkegrafikk |
+| `js/art.js` | Innlasting av maleriene, fargelegging per årstid i en egen tråd, og tegning av landskap og bjørk |
 | `art/` | Komprimerte illustrasjoner til dag, kveld og bjørk; kilder i `art/README.md` |
 | `js/ui.js` | Menyer, innstillinger, garderobe, HUD, pause, resultater og tilgjengelige knapper |
 | `js/main.js` | Oppstart: skjermstørrelse, spill-løkke og PWA |
@@ -67,6 +83,8 @@ stopper parallakse og kameraforskyvning.
 | `docs/REVISJON.md` | Første revisjon: funn og plan (fase 1–4, gjennomført) |
 | `docs/REVISJON-2.md` | Andre revisjon: poeng og tiltak mot «AI-stil» (fase A–G) |
 | `docs/REVISJON-3.md` | Tredje revisjon: poeng for design, grafikk, animasjoner og spillfølelse (fase H) |
+| `docs/REVISJON-4.md` | Fjerde revisjon: poeng etter v5.0 med oppstarten fra telefonvideo, og introen (fase I) |
+| `docs/REVISJON-5.md` | Femte revisjon: poeng for designet fra ChatGPT (v9), og det harmoniserte maleriet (fase J) |
 | `.nojekyll` | Sørger for at GitHub Pages serverer alle filer som de er |
 | `make_icons.py` | Regenererer ikonene (blåmeisen foran en bjørkestamme; valgfritt, krever Pillow) |
 | `make_audio.py` | Bygger `audio/` fra originalopptakene: klipper, renser og koder (valgfritt, krever ffmpeg og numpy) |
@@ -88,11 +106,44 @@ også i en undermappe.
 1. Åpne adressen i **Chrome** eller **Samsung Internet**.
 2. Trykk **Installer Pixelfugl**-knappen nederst på startskjermen, eller velg
    *Legg til på startskjermen* / *Installer app* i nettlesermenyen.
-3. Appen åpnes i fullskjerm uten nettleser-linjer, låst til portrett.
+3. Appen åpnes uten nettleser-linjer, låst til portrett. Statuslinjen øverst får himmelens farge
+   (lys blå om dagen, mørk blå om natten), så den glir inn i bildet i stedet for å være en svart stripe.
+
+Hadde du installert en eldre versjon, kan telefonen fortsatt vise det gamle ikonet og en cyan
+oppstartsskjerm. Chrome oppdaterer dette selv etter en stund (ikonene har fått nye filnavn, så endringen
+oppdages), men det går raskest å fjerne appen fra startskjermen og installere den på nytt.
+
+## Oppstart og intro
+
+Fra du trykker på ikonet til menyen er alt i samme materiale:
+
+1. **Oppstartsskjermen** (Android) er lin (`#F1E6D0`) med ikonet: blåmeisen foran en bjørkestamme.
+2. **Siden** er lin fra første bilde, så det kommer ingen tom eller mørk ramme mens spillet lastes.
+3. **Introen «Broderiet»** (cirka 2,7 s):
+   - En oval broderiramme av bjørk med messingskrue settes på linet. Inne i rammen er stoffet aida,
+     med ruter som går nøyaktig opp med stingene.
+   - En synål syr «Pixelfugl» sting for sting, bokstav for bokstav, med tråd i samme farge som
+     stingene (blå for i-prikken). Hver bokstav gir en stille kalimbatone.
+   - Blåmeisen flyr inn og lander på den første «l»-en, med et kort meisekall.
+   - Rammen vokser ut forbi kameraet og åpner seg mot maleriet. Logoen glir opp på plassen sin, og
+     fuglen letter og glir ned til hvileplassen. Den sydde logoen er den samme som i menyen, så det
+     er ingen hopp.
+4. **Mens introen går**, hentes maleriene. De dekodes og fargelegges for årstiden i en egen tråd (Web
+   Worker), så introen aldri hakker. Bildene bak selve spillet gjøres ferdig etter introen.
+5. **Menyen** vises først når fonten og menymaleriet er klare (høyst 2,5 s ventetid ved landingen), så
+   papirlappene aldri lagres med feil skrift. Menyen tegnes én gang skjult under linet mens ingenting
+   beveger seg, så åpningen ikke hakker.
+
+Introen vises hver gang appen startes, men ikke når du går tilbake til menyen fra et spill. Et trykk
+eller en tast hopper over den (og starter ikke spillet). Under introen er knappelaget skjult, så et trykk
+aldri treffer en usynlig knapp. Ved redusert bevegelse står logoen ferdig sydd i rammen, og linet toner
+rolig bort på cirka 1 s. Lyden i introen spilles bare i den installerte appen, der Chrome tillater lyd før
+første trykk; i nettleseren er introen stille.
 
 ## Kontroller
 
-- **Trykk** hvor som helst på skjermen (eller mellomrom / pil opp) for å flakse.
+- **Trykk** hvor som helst på skjermen (eller mellomrom / pil opp) for å flakse. Under introen
+  hopper et trykk over den.
 - **Pause**: knappen øverst til høyre, eller Esc / P. Spillet pauses også automatisk
   når appen legges i bakgrunnen, og lyden stoppes. «Fortsett» gir en kort 3-2-1-nedtelling.
 - **Hjemme:** når fuglen har landet på fuglebrettet ved hytta, hviler den til du trykker. Da flyr den videre.
@@ -162,10 +213,20 @@ Hvert 10. poeng glir tiden videre: **dag → solnedgang → kveld → soloppgang
 
 | Årstid | Måneder | Kjennetegn |
 |--------|---------|------------|
-| Vår | mars–mai | rosa blomstrende bjørker, blomsterblader i lufta (ildfluer om kvelden) |
-| Sommer | juni–august | grønt, pollen i lufta (ildfluer om kvelden) |
-| Høst | september–november | oransje og gule trær, løv som faller |
-| Vinter | desember–februar | snø på trær, bakke, hustak og stammekanter; snøfall |
+| Vår | mars–mai | lyst, friskt grønt løv i maleriet, blomsterblader i lufta (ildfluer om kvelden) |
+| Sommer | juni–august | grønt løv i maleriet, pollen i lufta (ildfluer om kvelden) |
+| Høst | september–november | maleriet slik det er: oransje og gule trær, løv som faller |
+| Vinter | desember–februar | kaldt og blekt maleri med rimfrost på flatene som vender opp; snøfall |
+
+Maleriene er høst. De andre årstidene fargelegges i koden, piksel for piksel, i en egen tråd (Web Worker)
+mens introen går:
+
+- Om sommeren og våren flyttes høstløvet mot grønt. Jorda og de røde bærene holdes utenfor.
+- Om vinteren blir alt kaldt og blekt, og flatene som vender opp får rimfrost.
+- Bjørka beholder barken, og får bare et kaldt skjær om vinteren.
+
+Uten Web Worker gjøres det samme på hovedtråden. Kan ikke maleriene lastes, tegnes landskapet i koden, i den
+eldre pastellstilen (se «Landskapet»).
 
 For å teste en annen årstid: sett `localStorage.setItem('pf.season', 'winter')`
 (`spring`, `summer`, `autumn` eller `winter`) og last siden på nytt.
@@ -197,7 +258,8 @@ og symboler som piler, hjerter og stjerner er tegnet som figurer.
 
 ## Landskapet
 
-Landskapet er laget for at øyet ikke skal se gjentakelse:
+Maleriene er hovedlandskapet. Kan de ikke lastes, tegnes landskapet i koden, laget for at øyet ikke skal se
+gjentakelse:
 
 - **Bakken** er satt sammen av 14 bakkestykker i tilfeldig rekkefølge, og samme stykke kommer
   aldri igjen før minst fire andre har passert. Stykkene har hvert sitt innhold: tuer, en
@@ -287,8 +349,10 @@ merkelapper under poengsummen, med en rød tråd i tråklesting som viser tiden 
 
 - En blåmeis (se «Stil» over). Øynene sitter i den mørke øyestripen, med en lys kant
   så de er lette å lese.
-- Blunker og ser seg rundt i menyen. Om natten sover den med hodet litt ned, lukkede øyne og
-  rolig pust.
+- Blunker og ser seg rundt i menyen. I landskapet tegnet i koden sover den om natten, med hodet
+  litt ned, lukkede øyne og rolig pust.
+- På maleriet får den malt korn i fjærdrakten, varmt kantlys fra sola oppe til høyre og en kjølig refleks
+  nede til venstre.
 - Lukker øynene glad (^ ^) når den får poeng, og sperrer dem opp i fritt fall.
 - Skjerfsnippene er en liten fysikksimulering (Verlet) som blafrer i fartsvinden.
 - Ved krasj: fuglen klemmes flat, mister noen fjær, spretter og blir sittende oppreist og
@@ -301,9 +365,13 @@ bakke), himmelen og vignetten tegnes én gang til offscreen-lerreter og blittes
 hvert bilde. Bare det som beveger seg tegnes live. Tegneoppløsningen er begrenset
 til 2× skjermpiksler. Spillet holder 60 bilder/s på en 2,6×-skjerm, også uten GPU.
 
-Planker, merkelapper, papirlapper, trestykker og veiviseren tegnes én gang (med hellingen innbakt)
-og legges på hele skjermpiksler. Da kan nettleseren kopiere pikslene rett over i stedet for å
-filtrere hvert av dem, og menyen tegnes raskere enn i v4.4.
+Planker, merkelapper, papirlapper, trestykker, kortene, logoen, tresprossen og veiviseren tegnes én gang
+(med hellingen innbakt) og legges på hele skjermpiksler. Da kan nettleseren kopiere pikslene rett over i
+stedet for å filtrere hvert av dem.
+
+Maleriene hentes, dekodes og fargelegges i en egen tråd, som sender ferdige bilder (ImageBitmap) tilbake.
+Hovedtråden stopper derfor ikke mens introen beveger seg. Meny, spill og game over tegnes like raskt som i
+v9 (median av vekselvise målinger).
 
 ## Fysikk
 
@@ -389,7 +457,7 @@ pauser, myk start og stopp, overskyting og forberedelse.
   - Fugleflokken flakser i støt og glir imellom.
   - Bare noen få stjerner blinker om gangen, og ildfluene blinker i små serier med mørke pauser.
 - **Brukergrensesnittet:**
-  - Logoen faller på plass når menyen åpnes og står så stille.
+  - Logoen sys i introen ved oppstart og står så stille.
   - Egget på game over rister i korte støt.
   - En strikket vott trykker på «Klar?».
   - Power-ups står i ro og slår som et hjerte.

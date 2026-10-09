@@ -46,14 +46,17 @@ function loop(t) {
 
 /* ---------- PWA ---------- */
 const installBtn = document.getElementById('install');
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; installBtn.classList.add('show'); });
+// knappen vises først når introen er ferdig (den skal ikke ligge over lerretet)
+const showInstall = () => { if (!deferredPrompt) return; if (intro) setTimeout(showInstall, 300); else installBtn.classList.add('show'); };
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; showInstall(); });
 installBtn.addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; installBtn.classList.remove('show'); });
 window.addEventListener('appinstalled', () => installBtn.classList.remove('show'));
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 
-document.documentElement.style.setProperty('--sky', T.skyTop);
-document.querySelector('meta[name=theme-color]').content = T.skyTop;
-resize(); goMenu(); Sound.setNight(T.night);
-const start = () => requestAnimationFrame(loop);
+// oppstart: lin fra første bilde (samme farge som oppstartsskjermen), så introen. Introen trenger verken fonten
+// eller maleriene (logoen er brodert), så den starter med en gang og dekker innlastingen; lerretet åpner seg
+// mot menyen først når fontene og maleriene er klare (se introStep).
+resize(); startIntro(); goMenu(); Sound.setNight(T.night);
 const fontReady = document.fonts && document.fonts.load ? Promise.all([document.fonts.load("700 20px Fredoka"), document.fonts.load("600 14px Fredoka"), document.fonts.load("700 44px Storybook")]) : Promise.resolve();
-Promise.all([fontReady, loadArtwork()]).finally(start);
+Promise.all([fontReady, loadArtwork().then(prepareSeasonArt)]).finally(() => { fontsReady = true; });
+requestAnimationFrame(loop);

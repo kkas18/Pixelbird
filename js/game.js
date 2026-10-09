@@ -47,6 +47,7 @@ let bird, pipes = [], particles = [], powers = [], floats = [], dust = [], stars
 let overT = 0, transitionT = 0, newBest = false, groundBounced = false, menuT = 0;   // menuT: tid siden menyen åpnet
 let active = { shield: false, slow: 0, double: 0 };
 let timeScale = 1, slowWas = false;
+let intro = null, fontsReady = false; // introen ved oppstart (se «Introen» under); fontene må være lastet før menyen vises
 let hitStop = 0;                     // kort stopp ved treff (alt står stille et øyeblikk, så treffet kjennes)
 let nearMisses = 0;                  // dristige passeringer i denne runden
 let worldK = 1;                      // verdens fart (1 = vanlig); bremser ned til 0 når fuglen lander hjemme
@@ -104,6 +105,10 @@ function setTimeOfDay(name, fade = true) {
   curTheme = name; T = next.T; scene = next.scene;
   if (moteKind() !== kindBefore) initMotes();
   Sound.setNight(T.night); Sound.setTime(name);
+  if (!intro) skyChrome();
+}
+// statuslinjen (theme-color) og bakgrunnen bak lerretet får himmelens farge, så de glir inn i bildet
+function skyChrome() {
   document.querySelector('meta[name=theme-color]').content = T.skyTop; document.documentElement.style.setProperty('--sky', T.skyTop);
 }
 // tiden runden står på nå: starter på valgt tid og går videre hvert 10. poeng
@@ -360,6 +365,7 @@ function flap() {
 }
 function onPointer(e) {
   e.preventDefault();
+  if (intro) { skipIntro(); return; }
   const r = canvas.getBoundingClientRect();
   const x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
   for (const k in hud) {
@@ -370,6 +376,7 @@ function onPointer(e) {
 }
 canvas.addEventListener('pointerdown', onPointer, { passive: false });
 window.addEventListener('keydown', e => {
+  if (intro) { if (['Space', 'ArrowUp', 'Enter', 'Escape'].includes(e.code)) { e.preventDefault(); skipIntro(); } return; }
   if (e.code === 'Space' || e.code === 'ArrowUp') {
     if (e.target instanceof HTMLButtonElement) return;
     e.preventDefault(); if (paused) resumeGame(); else flap();
@@ -601,6 +608,77 @@ function leaveHome() {
   spawnPipe(W + 170);
 }
 
+/* ---------- Introen «Broderiet» (ved hver oppstart) ----------
+   Lin med aida-ruter i en oval broderiramme: en nål syr logoen sting for sting, blåmeisen flyr inn og lander på
+   den første «l»-en, og rammen vokser ut av skjermen mens logoen glir opp på plassen sin i menyen. Fuglen letter
+   og glir ned til hvileplassen midt i menyen. Alt regnes fra introens klokke, så et trykk (hopp over) bare spoler fram. */
+const INTRO = { stitch: [0.3, 1.3], fly: [1.2, 1.75], open: [1.95, 2.55], glide: [2.12, 2.66], end: 2.7 };
+const INTRO_RM = { open: [0.7, 1.1], end: 1.1 };   // redusert bevegelse: logoen står ferdig sydd, og lerretet toner bort
+function startIntro() {
+  intro = { t: 0, speed: 1, wait: 0, glyph: -1, landed: false, opened: false, rm: reduceMotion };
+  Sound.introStart();
+}
+function skipIntro() {
+  const o = intro.rm ? INTRO_RM.open[0] : INTRO.open[0];
+  if (intro.t < o) intro.t = o;
+  intro.speed = 2.6; intro.skipped = true;
+}
+const introOpen = () => intro.rm ? INTRO_RM.open : INTRO.open;
+// hvor langt lerretet har åpnet seg (0–1)
+const introOpenK = () => { const [a, b] = introOpen(); return clamp((intro.t - a) / (b - a), 0, 1); };
+// logoens øvre kant: midt på lerretet mens den sys, oppe på menyplassen når lerretet har åpnet seg
+const introLogoY = () => { const G = introGeo(); return intro.rm ? G.lyM : lerp(G.ly0, G.lyM, EASE.inOut(introOpenK())); };
+// fuglen står på toppen av den første «l»-en (følger logoen når den glir opp)
+const introPerch = () => { const G = introGeo(); return { x: G.lx + G.perchX, y: introLogoY() + G.perchTop - BODY_R + 0.5 }; };
+const bez = (a, c, b, u) => (1 - u) * (1 - u) * a + 2 * (1 - u) * u * c + u * u * b;
+function introStep(dt, idleY) {
+  if (state !== State.MENU) { intro = null; skyChrome(); return; }   // spillet er startet på annen måte: introen gir seg
+  const I = intro, end = I.rm ? INTRO_RM.end : INTRO.end;
+  // menyen tegnes med fonten; lerretet åpner seg ikke før den er lastet (høyst 2,5 s ventetid): klokka stopper like før
+  let nt = I.t + dt * I.speed;
+  const o0 = introOpen()[0];
+  if (!fontsReady && nt >= o0 && (I.wait += dt) < 2.5) nt = Math.max(I.t, o0 - 1e-6);
+  I.t = nt;
+  const t = I.t;
+  if (I.rm) {   // fuglen hviler der den skal være; ingen nål og ingen flukt
+    bird.x = W / 2; bird.y = idleY; bird.flapT += dt;
+    if (t >= end) finishIntro(idleY);
+    return;
+  }
+  // én kalimbatone når hver bokstav er ferdig sydd
+  const ends = introPlan().glyphEnd;
+  while (I.glyph + 1 < ends.length && t >= ends[I.glyph + 1]) Sound.introNote(++I.glyph);
+  const P = introPerch(), [f0, f1] = INTRO.fly, [g0, g1] = INTRO.glide;
+  bird.flapT += dt; bird.hv = 0;
+  if (t < f0) { bird.x = -40; bird.y = P.y + 70; }
+  else if (t < f1) {   // flyr inn fra venstre i en bue i jevn fart, og bremser mykt det siste stykket
+    const k = (t - f0) / (f1 - f0), u = k + k * (1 - k) * 0.6;
+    const x = bez(-30, P.x * 0.42, P.x, u), y = bez(P.y + 70, P.y - 78, P.y, u);
+    bird.rot = lerp(bird.rot, clamp(Math.atan2(y - bird.y, Math.max(1, x - bird.x)) * 0.6, -0.45, 0.3), 1 - Math.exp(-12 * dt));
+    bird.x = x; bird.y = y;
+    if (k < 0.78 && bird.flapT > 0.17) bird.flapT = 0;   // flakser, og glir det siste stykket ned
+  } else if (t < g0) {   // står på logoen
+    if (!I.landed) { I.landed = true; bird.sx = 1.22; bird.sy = 0.74; bird.happy = 1.2; Sound.introLand(); }   // ingen vibrasjon før brukeren har trykket
+    bird.x = P.x; bird.y = P.y; bird.flapT = 9;
+    bird.rot = lerp(bird.rot, -0.05, 1 - Math.exp(-14 * dt));
+  } else if (t < g1) {   // letter og glir ned til hvileplassen
+    if (!I.left) { I.left = true; I.from = { x: bird.x, y: bird.y }; bird.flapT = 0; }
+    const k = (t - g0) / (g1 - g0), u = EASE.inOut(k), F = I.from;
+    const x = bez(F.x, (F.x + W / 2) / 2 - 30, W / 2, u), y = bez(F.y, Math.min(F.y, idleY) - 34, idleY, u);
+    bird.rot = lerp(bird.rot, clamp((y - bird.y) / Math.max(1, Math.abs(x - bird.x)) * 0.5, -0.35, 0.35), 1 - Math.exp(-10 * dt));
+    bird.x = x; bird.y = y;
+    if (k < 0.35 && bird.flapT > 0.17) bird.flapT = 0;
+  } else { bird.x = W / 2; bird.y = idleY; bird.rot = lerp(bird.rot, 0, 1 - Math.exp(-8 * dt)); }
+  if (!I.opened && t >= INTRO.open[0]) { I.opened = true; Sound.introOpen(); }
+  bird.sx = lerp(bird.sx, 1, 1 - Math.exp(-9 * dt)); bird.sy = lerp(bird.sy, 1, 1 - Math.exp(-9 * dt));
+  if (t >= end) finishIntro(idleY);
+}
+function finishIntro(idleY = (H - GROUND_H) * 0.42) {
+  intro = null; menuT = 1;   // logoen står allerede på plass (ingen fall)
+  bird.x = W / 2; bird.y = idleY; bird.hv = 0; bird.sx = bird.sy = 1; bird.hoverT = 0.2;   // hvileplassen i menyen
+  skyChrome();
+}
+
 /* ---------- Fuglen i hvile ----------
    Den svever med små vingeslag: hvert slag gir et lite løft, og den synker litt imellom (bevegelsen
    henger sammen med vingene). Innimellom gjør den én liten handling, med pauser imellom. */
@@ -707,7 +785,8 @@ function update(dt) {
 
   const groundY = H - GROUND_H, idleY = groundY * 0.42;
 
-  if (state === State.MENU || state === State.READY) idleStep(dt, idleY);
+  if (intro) introStep(dt, idleY);
+  else if (state === State.MENU || state === State.READY) idleStep(dt, idleY);
 
   if (state === State.PLAY) {
     const perched = home && (home.phase === 'land' || home.phase === 'rest');

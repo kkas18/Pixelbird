@@ -3,7 +3,7 @@
 'use strict';
 
 /* ============================================================
-   PIXELFUGL v6.0 – koselig bjørkeskog med blåmeis
+   PIXELFUGL v10 – koselig bjørkeskog med blåmeis
    – Tidsbasert fysikk (px/s, px/s²) med fast tidssteg 120 Hz,
      interpolert tegning mellom steg (jevnt på 60/90/120 Hz)
    – Forhåndstegnede parallakse-lag (fjell, fjord, hytter, bjørkeskog), bjørkestammer som hinder,
@@ -15,6 +15,7 @@
    – Rolig eventyrbok-UI: serifoverskrifter, felles paneler, samlet nivåvalg og innstillinger,
      Canvas-kontroller med samsvarende tilgjengelige HTML-knapper (js/ui.js)
    – Spillfølelse: kort treffpause, belønning for å fly tett forbi, brodert poengtall
+   – Oppstart: lin fra oppstartsskjermen, introen «Broderiet» (nålen syr logoen, blåmeisen lander, rammen åpner seg)
    – Koselig musikk på kalimba (32 takter A A' B A'' i F-dur, 88 BPM, bro når tiden på døgnet skifter)
    – Ekte opptak: blåmeis, vind i bjørk, treknakk og knirk (CC0, audio/), med syntese som reserve
    – En liten fortelling: reisen fra fjellet hjem til hytta, med steder, veiskilt og hjemkomst på fuglebrettet

@@ -1,6 +1,6 @@
 /* Pixelfugl service worker – cache-first for appens egne filer (inkludert den
    selvhostede fonten og lydopptakene). Bump VERSION ved hver utgivelse. */
-const VERSION = 'pixelfugl-v9.0.0';
+const VERSION = 'pixelfugl-v10.0.0';
 const CORE = [
   './',
   './index.html',
@@ -21,9 +21,9 @@ const CORE = [
   './js/art.js',
   './js/ui.js',
   './js/main.js',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-maskable-512.png',
+  './icons/pixelfugl-192.png',
+  './icons/pixelfugl-512.png',
+  './icons/pixelfugl-maskable-512.png',
   './icons/apple-touch-icon.png',
   './audio/meis.mp3',
   './audio/vind.mp3',
