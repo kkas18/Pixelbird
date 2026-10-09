@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v3.6): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v3.8): en liten blåmeis med lusekofte-skjerf flyr
 gjennom en norsk bjørkeskog. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 søvnig måne. Dag/natt-tema, generert musikk, syntetisert lyd og vibrasjon.
@@ -46,7 +46,7 @@ piksler i stoff**.
 | `icons/` | App-ikoner (192, 512, maskable 512, Apple touch, favicon) + skjermbilde |
 | `fonts/` | Fredoka (woff2, variabel vekt) + lisens (SIL OFL 1.1) |
 | `docs/REVISJON.md` | Første revisjon: funn og plan (fase 1–4, gjennomført) |
-| `docs/REVISJON-2.md` | Andre revisjon: poeng og tiltak mot «AI-stil» (fase A–F) |
+| `docs/REVISJON-2.md` | Andre revisjon: poeng og tiltak mot «AI-stil» (fase A–G) |
 | `.nojekyll` | Sørger for at GitHub Pages serverer alle filer som de er |
 | `make_icons.py` | Regenererer ikonene (blåmeisen foran en bjørkestamme; valgfritt, krever Pillow) |
 
@@ -143,10 +143,50 @@ game over-skjermen («Ny pynt: …!»).
 Spillet bruker ingen emojier: all tekst er vanlige bokstaver, tall og tegnsetting,
 og symboler som piler, hjerter og stjerner er tegnet som figurer.
 
+## Landskapet
+
+Landskapet er laget for at øyet ikke skal se gjentakelse:
+
+- **Bakken** er satt sammen av 14 bakkestykker i tilfeldig rekkefølge, og samme stykke kommer
+  aldri igjen før minst fire andre har passert. Stykkene har hvert sitt innhold: tuer, en
+  bjørkestubbe, en stor mosegrodd stein, blåbærlyng (bær om sommeren, røde blader om høsten), en
+  tråkket sti, en maurtue, kantareller, og blåklokker med prestekrager. Gresskanten har ujevne buer,
+  og skjøtene er sømløse.
+- **Fjellene** har én tydelig hovedtopp med bratt vegg og lang skulder, et skar, mindre nabotopper
+  og smale snøfonner i søkkene.
+- **Husene i åsen** er forskjellige: en rød hytte med vimpel, et okergult gårdshus med flaggstang,
+  en hvit seterbu med vedstabel og et stabbur på stolper. Åsene er to skjermbredder lange, og skog
+  og busker står i klynger med glenner imellom.
+- **Sjeldne landemerker** dukker opp omtrent hvert 30.–60. sekund, aldri det samme som de to
+  forrige: stavkirke, fyr (med lysstråle om kvelden), seter med kuer, elg i skogkanten, en sau som
+  beiter og en postkasse ved stien. Hvert landemerke står plantet på sitt eget parallakse-lag.
+
+## Dybde
+
+Spillet er fortsatt tegnet i lag, men har de signalene øyet bruker for å se dybde i et kamerabilde:
+
+- **Dybdeskarphet:** fuglen, stammene og bakken er skarpe. Bakgrunnen blir gradvis uskarpere
+  jo lenger unna den er (fjell mest, så åser, skog og busker), og skyer og landemerker følger
+  avstanden sin.
+- **Luftperspektiv:** mer dis jo lenger unna.
+- **Forgrunn:** noen få uskarpe gresstuster, bregner og blader nederst, helt nær kameraet.
+  De glir forbi raskere enn alt annet og dekker aldri fuglen eller stammene.
+- **Kameraet følger fuglen litt i høyden** (maks 8 px), og lagene forskyves etter avstand.
+- **Fokustrekk:** i menyen ligger fokus på landskapet, som da er skarpt. Når runden starter,
+  glir fokus over til fuglen.
+- **Partikler og skygge:** noen få partikler ligger helt nær kameraet (store, myke og raske),
+  og fuglen har en skygge på bakken som blir mindre og svakere jo høyere den flyr.
+
+Uskarpheten lages én gang når scenen tegnes, i lav oppløsning, så den koster nesten ingenting
+per bilde og bruker lite minne. Nettlesere uten innebygd uskarphet på lerretet får den laget i
+JavaScript. Med «redusert bevegelse» står kameraet stille, og fokus skifter uten glidning.
+
 ## Hinder: bjørkestammer
 
 Hver stamme er unik (barkmerker, kjuker, kvister, fluesopp, av og til en ugle
-som titter ut), men ser lik ut hele veien gjennom skjermen.
+som titter ut), men ser lik ut hele veien gjennom skjermen. Barken er som ekte bjørk: merker i
+klynger med bar bark imellom, mørke «belter», «øyne» der greiner har sittet og små lenticeller.
+Alle stammene er like brede og står rett, så treffsonen er rettferdig.
 
 - **Høstløv på kanten** – stammen beveger seg opp og ned.
 - **Lyng i mosen** (lilla blomster) – smalere åpning (20 % mindre gap).
