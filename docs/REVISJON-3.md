@@ -117,3 +117,65 @@ Skala 1–10.
 | Grafikk | 8 | **8,5–9** |
 | Animasjoner | 8 | **8,5** |
 | Spillfølelse | 7,5 | **8,5** |
+
+---
+
+## 5. Status etter fase H (v5.0)
+
+Alle tiltakene H1–H7 er gjennomført. Skjermbildene etter endringene ligger i
+[`revisjon-3/etter/`](revisjon-3/etter/), med samme utsnitt som bildene i `for/`.
+
+| Tiltak | Gjort |
+|---|---|
+| **H1 Materialer** | `button()` tegner nå en treplanke (`plank()`): avfasede, litt skjeve ender, årer, kvist, treplugger og innbrent tekst. Hovedvalget er malt rødt med slitt maling på kantene. Vanskeligheten velges på en veiviser med fire pilplanker til høyre i menyen; den valgte er malt, og rekorden henger på en merkelapp under. Garderoben er et fjerde trestykke (lue), og pilene i garderoben er små trestykker. Power-ups og «Ny pynt» står på pappmerkelapper på hyssing. |
+| **H2 Tekst og poeng** | Poengtallet, milepælene («10!») og «+2» er brodert med korsstingskriften (nye glyfer 0–9 og +). Hint, undertitler, stedsnavn og «Trykk for å fly videre» står med blekk på revne papirlapper. Ingen tekst har tykk kontur lenger. |
+| **H3 Himmel** | Sola har ett mykt, malt lysskjær i himmelbildet i stedet for tre ringer. Månen er en sigd med mørkere flekker (mare) og uten ansikt. Fuglen sover med hodet litt ned og rolig pust, uten «z». |
+| **H4 Bark** | Greinarrene er mørke, avsmalnende kiler («barter») med en kvist i toppen, slik de ser ut på bjørk. |
+| **H5 Bakke og forgrunn** | Jordlaget har lysere leire med striper og ujevne grenser. Steinene er kantete, i ulik størrelse, samlet i grupper og delvis begravd, og røtter stikker fram under gresskanten. Forgrunnen er lysere og mindre uskarp (2,3 mot 3,2), med færre og tydeligere strå. |
+| **H6 Spillfølelse** | Treff gir en treffpause på 70 ms (50 ms i bakken) der verden står helt stille. Å passere en stamme med under 6 px klaring gir et vindsus, en lys klang og fjær som følger fuglen, uten tekst. Begge slås av ved redusert bevegelse (treffpausen) eller er stille (ingen tekst). |
+| **H7 Småfeil** | Ballongen går nå under logoen. «Trykk»-hintet på «Klar?» er en strikket vott som trykker. |
+
+### Poeng etter fase H
+
+| Område | v4.4 | v5.0 | Hva flyttet poengene |
+|---|:-:|:-:|---|
+| **Design og brukergrensesnitt** | 7 | **8,5** | Ett designspråk: tre, papir, papp og broderi. Menyen er asymmetrisk (veiviser til høyre, hint til venstre). |
+| **Grafikk** | 8 | **8,5** | Himmel, bark og bakke har mistet standardgrepene. |
+| **Animasjoner** | 8 | **8,5** | Poengtallet hopper ett hakk i stedet for å vibrere, votten trykker, og fuglen puster når den sover. |
+| **Spillfølelse** | 7,5 | **8,5** | Treffpausen gir treffet tyngde, og tett forbi gir en liten belønning for å ta sjanser. |
+| **Samlet** | 7,6 | **8,5** | |
+
+| Del | v4.4 | v5.0 |
+|---|:-:|:-:|
+| Typografi | 6 | 8 |
+| Knapper og kontroller | 6 | 8,5 |
+| Oppsett (meny) | 6,5 | 8 |
+| Himmel | 6,5 | 8 |
+| Stammer | 7,5 | 8 |
+| Bakke og forgrunn | 6,5 | 8 |
+| Treff og tilbakemelding | 6,5 | 8,5 |
+| Belønning underveis | 7,5 | 8,5 |
+
+**AI-preg:** lavt i både verden og grensesnitt.
+
+### Det som står igjen
+
+- **Skriften.** Planker og lapper bruker fortsatt Fredoka. Uten kontur passer den godt, men en
+  egen håndskrift på papirlappene ville gitt enda mer særpreg.
+- **Lyd ved treffpausen.** Treffet høres med en gang, mens bildet står stille. Det er vanlig i spill
+  og føles naturlig, men lyden kunne vært dempet de første 70 ms.
+- **Liten skjerm.** Under 400 px høyde over bakken vises verken ballong eller veiviser med rekordlapp
+  like luftig som på en vanlig telefon.
+
+### Verifisering
+
+- `phaseH-test.js`: 32 kontroller.
+  - Kontrast (minst 4,5:1) på planker, merkelapper og papirlapper.
+  - Veiviseren, garderobe-trestykket og plankene på pause og game over.
+  - Ingen konturtekst i meny, spill, pause og game over.
+  - Solgløden uten ringer, målt som snittvarme rundt sola (største sprang 2,5 mot 11,4 i v4.4).
+  - Brodert poengtall og milepæl, merkelapper for power-ups og papirlapp for stedsnavn.
+  - Treffpausen (8–9 frosne fysikksteg) og tett forbi (lyd og fjær, ingen tekst).
+  - Ballongen ligger aldri oppå logoen. Alle tider og årstider tegnes uten feil.
+  - Tegnetiden er minst like god som i v4.4 (median av sju vekslende målinger mot main).
+- Alle eldre testsuiter (fase 1–5, A–G, dyrene og lyden) er kjørt på nytt.
