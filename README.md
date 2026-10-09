@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v3.9): en liten blåmeis med lusekofte-skjerf flyr
+Et koselig flakse-spill (v4.0): en liten blåmeis med lusekofte-skjerf flyr
 gjennom en norsk bjørkeskog. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 søvnig måne. Dag/natt-tema, generert musikk, syntetisert lyd og vibrasjon.
@@ -23,8 +23,15 @@ piksler i stoff**.
 - **Fuglen er en blåmeis**: blå hette, hvitt ansikt med mørk øyestripe og halsring,
   gul buk, gulgrønn rygg og blå vinger med hvitt vingebånd.
 - **Skjerfet** er en lusekofte: rødt med hvite «lus» i korssting.
-- **Rosemaling** pynter panelene og pauseskjermen, og panelenes søm er sydd for hånd
-  (ujevne sting).
+- **Overskriftene** («Klar?», «Pause», «Garderobe», «Ny rekord!», «Å nei!» og de andre) er
+  brodert i den samme håndlagde skriften som logoen.
+- **Panelene er ting i verden:**
+  - Game over er et treskilt av furuplanker med spikre og malt rosemaling. Det henger i to tau
+    og svinger litt når det faller på plass.
+  - Garderoben er en knaggrekke der pynten henger på lapper med sydd kant.
+  - Pausemenyen ligger på et stykke bjørkenever.
+- **Ikonknapper:** lyd, musikk og dag/natt er runde trestykker (som snittflaten på stammene) med
+  tegnede ikoner, plassert nede til venstre. Pauseknappen er av samme slag.
 - **Håndtegnet strek:** konturene er litt ujevne og tykkest på skyggesiden (lyset
   kommer fra sola oppe til høyre). Ujevnheten er frøstyrt, så ingenting flimrer.
 - **Papirkorn** er bakt inn i himmel, landskap og paneler.
@@ -75,8 +82,9 @@ også i en undermappe.
 - **Pause**: knappen øverst til høyre, eller Esc / P. Spillet pauses også automatisk
   når appen legges i bakgrunnen, og lyden stoppes. «Fortsett» gir en kort 3-2-1-nedtelling.
 - Etter game over: **Spill igjen** eller **Meny** (for å bytte nivå, lyd eller tema).
-- Knappene på startskjermen slår **lydeffekter** og **musikk** av/på og velger om
-  runden starter på **dag** eller **natt**.
+- De tre runde trestykkene nede til venstre på startskjermen slår **lydeffekter** (høyttaler) og
+  **musikk** (note) av/på og velger om runden starter på **dag** (sol) eller **natt** (måne).
+  Av vises med en skrå strek over ikonet.
 - **Garderobe** på startskjermen: velg pynt til fuglen (se under).
 - Beste poengsum og samlede poeng lagres lokalt på enheten.
 
@@ -209,8 +217,8 @@ Aktive effekter vises som striper under poengsummen.
 - Blunker, ser seg rundt i menyen og sover (med «z») i menyen om natten.
 - Lukker øynene glad (^ ^) når den får poeng, og sperrer dem opp i fritt fall.
 - Skjerfsnippene er en liten fysikksimulering (Verlet) som blafrer i fartsvinden.
-- Ved krasj: «Bonk!», fuglen klemmes flat, spretter og blir sittende oppreist og
-  svimmel, med stjerner som går rundt hodet.
+- Ved krasj: fuglen klemmes flat, mister noen fjær, spretter og blir sittende oppreist og
+  svimmel (spiraløyne).
 
 ## Grafikk og ytelse
 
@@ -283,7 +291,9 @@ pauser, myk start og stopp, overskyting og forberedelse.
 - Knapper klemmes litt når du trykker.
 - Poengtallet spretter som en fjær; game over-panelet og tittelen spretter inn,
   og medaljen (eller egget) snurrer inn når poengene er talt opp.
-- Ny rekord: «Ny rekord!» og blomsterblader som daler ned.
+- Ny rekord: «Ny rekord!» og en liten flokk meiser som letter, med blader som virvler opp etter dem.
+- Poeng gir bjørkefrø og et blad som virvler; et krasj gir fjær og barkstøv. Det er ingen
+  stjerner, hjerter eller utropsord som «Bonk!»; lyden og bevegelsen sier det.
 - Alt respekterer «redusert bevegelse» i systemet.
 
 ## Oppdatere

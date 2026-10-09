@@ -3,7 +3,7 @@
 'use strict';
 
 /* ============================================================
-   PIXELFUGL v3.9 – koselig bjørkeskog med blåmeis
+   PIXELFUGL v4.0 – koselig bjørkeskog med blåmeis
    – Tidsbasert fysikk (px/s, px/s²) med fast tidssteg 120 Hz,
      interpolert tegning mellom steg (jevnt på 60/90/120 Hz)
    – Forhåndstegnede parallakse-lag (fjell, fjord, hytter, bjørkeskog), bjørkestammer som hinder,
@@ -12,6 +12,7 @@
    – Landskap uten gjentakelse: bakkestykker i tilfeldig rekkefølge, unike hus, fjell med karakter, sjeldne landemerker
    – Dybde som et kamerabilde: dybdeskarphet, dis, forgrunn, kamera som følger fuglen og fokustrekk
    – Animasjon med intensjon: nøkkelbilder med pauser, vingeslag som gir løft, småhandlinger i hvile
+   – UI i verden: treskilt i tau, knaggrekke, bjørkenever, ikonknapper av trestykker, broderte overskrifter
    – Generert koselig musikk (spilledåse, pad, F-dur 88 BPM), myke lydeffekter og naturlyder (Web Audio)
    Logisk bredde 288 px, høyde følger skjermen.
    ============================================================ */

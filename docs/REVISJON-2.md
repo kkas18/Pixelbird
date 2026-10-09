@@ -8,7 +8,7 @@ fargepalett og flisbredder.
 
 > **Status:** Fase A (signatur og identitet) er gjennomført i v3.6, fase B (variasjon uten
 > gjentakelse) i v3.7, fase G (dybde og kamera, lagt til etter ønske) i v3.8 og fase C (animasjon
-> med intensjon) i v3.9. Se seksjon 8–11.
+> med intensjon) i v3.9 og fase D (UI i verden og færre klisjeer) i v4.0. Se seksjon 8–12.
 
 > Den første revisjonen ([`REVISJON.md`](REVISJON.md)) handlet om å gjøre spillet *ryddig, mykt og
 > koselig*. Det er gjort. Denne revisjonen spør om noe annet: **ser spillet ut som noe et menneske har
@@ -490,3 +490,50 @@ Alt følger «redusert bevegelse»: ingen småhandlinger, logo og egg står stil
 
 Det som gjenstår fra planen: fase D (UI i verden og færre klisjeer), fase E (lyd med ekte opptak) og
 fase F (en liten fortelling).
+
+---
+
+## 12. Status: fase D gjennomført (v4.0)
+
+| Tiltak | Hva som ble gjort |
+|---|---|
+| D1 Paneler i verden | Game over er et treskilt av furuplanker med årer, kvister, spikre og malt rosemaling. Det henger i to tau og svinger litt (pendel) når det har falt på plass. Medaljemerket er spikret fast. Garderoben er en knaggrekke der hver pynt henger fra en knagg på en lapp med sydd kant. Pause ligger på et stykke bjørkenever med revet kant, lenticeller, «øyne» og en krøllet flik. Flatene tegnes én gang og gjenbrukes. |
+| D2 Ikoner | Lyd, musikk og dag/natt er runde trestykker med tegnede ikoner (høyttaler, note, sol, måne), plassert asymmetrisk nede til venstre. «Av» vises med en skrå strek. Pauseknappen er i samme stil. |
+| D3 Færre klisjeer | Stjerner og hjerter ved poeng er byttet ut med bjørkefrø og blader. «Bonk!», «Plopp!» og «Oi!» er fjernet; fjær, barkstøv og lyden bærer øyeblikket. Konfetti ved ny rekord er byttet ut med en meiseflokk som letter og blader som virvler. Stjernene rundt hodet etter krasj er fjernet (spiraløynene sier nok), og månen har ikke lenger rosa kinn. |
+| D4 Medalje | Allerede et brodert merke med selburose (fase A). Nå er det spikret fast på skiltet. |
+| D5 Overskrifter | «Klar?», «Pause», «Garderobe», «Ny rekord!», «Å nei!», «Oi da!» og «Uff da!» er brodert i logoens håndlagde pikselskrift, som er utvidet med de bokstavene som trengs (også Å med ring). Brødtekst er fortsatt Fredoka. |
+
+Tekst på treskiltet har kontrast på minst 4,9:1 (krav 4,5:1).
+
+**Før og etter:**
+
+- [`revisjon-2/fase-d/over.jpg`](revisjon-2/fase-d/over.jpg): game over
+- [`revisjon-2/fase-d/garderobe.jpg`](revisjon-2/fase-d/garderobe.jpg): garderoben
+- [`revisjon-2/fase-d/pause.jpg`](revisjon-2/fase-d/pause.jpg): pause
+- [`revisjon-2/fase-d/meny.jpg`](revisjon-2/fase-d/meny.jpg): meny med ikonknapper
+
+**Verifisering:**
+
+- 27 nye automatiske tester for fase D, blant annet:
+  - ingen utropsord, stjerner, hjerter eller rosa kinn
+  - broderte overskrifter i stedet for fonten
+  - ikonknappene virker
+  - garderoben virker
+  - kontrast
+  - frø og blader ved poeng
+  - skiltets sving
+  - meiseflokken
+  - pause på never
+  - alle årstider og tider
+- Alle tidligere testpakker består på funksjon. Tegnetiden (median av seks vekselvise runder) er +1 % i menyen og −8 % på game over mot `main`, siden skiltet nå er et ferdig bilde.
+
+**Oppdaterte poeng:**
+
+| Område | Etter fase C | Etter fase D |
+|---|:-:|:-:|
+| UI og UX | 8 | **8,5** |
+| Tekst og tone | 7 | **8** |
+| Grafikk: særpreg og originalitet | 8 | **8,5** |
+| **Menneskelig preg** | **7,5** | **8** |
+
+Det som gjenstår fra planen: fase E (lyd med ekte opptak) og fase F (en liten fortelling).
