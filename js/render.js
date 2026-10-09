@@ -147,6 +147,9 @@ const LOGO_GLYPHS = {
   a: ['.....', '.....', '.XXX.', '....X', '.XXXX', 'X...X', '.XXXX', '.....', '.....'],
   s: ['....', '....', '.XXX', 'X...', '.XX.', '...X', 'XXX.', '....', '....'],
   b: ['X....', 'X....', 'XXXX.', 'X...X', 'X...X', 'X...X', 'XXXX.', '.....', '.....'],
+  H: ['X...X', 'X...X', 'X...X', 'XXXXX', 'X...X', 'X...X', 'X...X', '.....', '.....'],
+  j: ['.B', '..', '.X', '.X', '.X', '.X', '.X', '.X', 'X.'],
+  m: ['.....', '.....', 'XX.X.', 'X.X.X', 'X.X.X', 'X.X.X', 'X.X.X', '.....', '.....'],
   '!': ['X', 'X', 'X', 'X', 'X', '.', 'X', '.', '.'],
   '?': ['.XXX.', 'X...X', '....X', '..XX.', '..X..', '.....', '..X..', '.....', '.....'],
   ' ': ['..', '..', '..', '..', '..', '..', '..', '..', '..']
@@ -875,6 +878,17 @@ function buildLandmarks(keepSharp) {
     ink(g, 0.8); g.strokeStyle = tc('#2E2A30'); g.lineWidth = 1.3;
     for (const x of [-4.5, -2, 2.5, 4.8]) { g.beginPath(); g.moveTo(x, -3.5); g.lineTo(x, 0); g.stroke(); }
     blob(g, [[-4, -6.5, 3.2], [-1, -8, 3.4], [2.6, -7.5, 3.3], [4.8, -6, 2.8], [0.5, -5, 3.6], [-3, -4.8, 2.8]], tc('#FBF8F2'), T.ink, 0.8, 0.8);
+  });
+  sprite('tjern', 72, 18, g => {   // lite tjern i lyngen: blankt vann, siv i kanten og et nøkkerosblad
+    ink(g, 0.9);
+    g.fillStyle = mixHex(T.fjord, T.grassDark, 0.2); g.beginPath(); g.ellipse(0, -7, 31, 6.5, 0, 0, TAU); g.fill(); g.stroke();
+    g.fillStyle = hexA(T.fjordLight, 0.8); g.beginPath(); g.ellipse(-8, -9, 13, 1.6, 0, 0, TAU); g.fill(); g.beginPath(); g.ellipse(6, -5, 6, 0.9, 0, 0, TAU); g.fill();   // lys refleks
+    g.fillStyle = tc('#6FAE5A'); g.beginPath(); g.ellipse(13, -6, 3.4, 1.5, 0, 0.4, TAU - 0.2); g.lineTo(13, -6); g.closePath(); g.fill();
+    g.fillStyle = tc('#FBF6EE'); circle(g, 13.8, -6.8, 1.2);
+    g.strokeStyle = tc('#6E8A4A'); g.lineWidth = 1; g.beginPath();   // siv
+    for (const [x, hh] of [[-30, 11], [-27.5, 8], [-25.5, 13], [-23, 9], [25, 10], [27.5, 14], [30, 9]]) { g.moveTo(x, -4); g.quadraticCurveTo(x + 0.6, -4 - hh * 0.6, x + 1.4, -4 - hh); }
+    g.stroke();
+    g.fillStyle = tc('#7A5A3A'); for (const [x, y] of [[-24.6, -15.5], [28.4, -16.5]]) { g.beginPath(); g.ellipse(x, y, 1.1, 2.6, 0, 0, TAU); g.fill(); }   // dunkjevle
   });
   sprite('postkasse', 16, 26, g => {   // postkasse på en stolpe ved stien, med avisrør
     ink(g, 0.9);
@@ -1840,12 +1854,127 @@ function drawPauseOverlay(groundY) {
     return;
   }
   const cy = groundY * 0.36, bw = 120, bh = 38, y = cy + 40;
-  birchBark((W - 200) / 2, cy - 38, 200, 190, 8128);   // et stykke bjørkenever bak pausemenyen
+  birchBark((W - 200) / 2, cy - 38, 200, 212, 8128);   // et stykke bjørkenever bak pausemenyen
   stitchHeading('Pause', W / 2, cy - 6, 3.6, 'gold');
   rosemal(W / 2, cy + 22, 1, false);
   button('resume', (W - bw) / 2, y, bw, bh, 'Fortsett', resumeGame, { size: 15 });
   button('pmenu', (W - bw) / 2, y + bh + 14, bw, bh, 'Meny', goMenu, { fill: '#FFF8EC', size: 15 });
+  const jl = journeyLines(score, homeReached());   // hvor på veien hjem fuglen er
+  text(jl.line.replace('Du kom', 'Du er kommet'), W / 2, y + bh * 2 + 34, 11, { color: UI_INK, shadow: false, weight: 600 });
+  if (jl.next) text(jl.next, W / 2, y + bh * 2 + 49, 10, { color: WOOD_TEXT, shadow: false, weight: 600 });
 }
+
+/* ---------- Reisen hjem: veiskilt, hytta og fuglebrettet ---------- */
+// veiskilt ved stien: en stolpe med en pilformet planke og stedsnavnet malt på
+function roadSign(x, groundY, name, seed) {
+  ctx.font = '700 9px Fredoka, system-ui, sans-serif';
+  const bw = Math.ceil(ctx.measureText(name).width) + 20, bh = 15, postH = 36, w = bw + 2, h = postH;
+  const L = cachedSurface('skilt', w, h, seed, `${name}|${curTheme}`, (ox, oy) => paintRoadSign(ox, oy, bw, bh, postH, name, seed));
+  ctx.drawImage(L.c, x - w / 2 - L.pad, groundY + 3 - h - L.pad, L.w, L.h);
+}
+function paintRoadSign(ox, oy, bw, bh, postH, name, seed) {
+  const r = rng(seed), px = ox + bw * 0.42;
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.fillStyle = tc('#8A6A4A'); ctx.strokeStyle = T.ink; ctx.lineWidth = 1;
+  ctx.fillRect(px - 1.8, oy + 4, 3.6, postH - 4); ctx.strokeRect(px - 1.8, oy + 4, 3.6, postH - 4);
+  ctx.fillStyle = hexA(T.ink, 0.25); ctx.beginPath(); ctx.ellipse(px, oy + postH, 6, 1.6, 0, 0, 7); ctx.fill();   // tue rundt foten
+  const y0 = oy + 2 + (r() - 0.5) * 1.2, tip = ox + bw;   // planken heller en anelse, som ekte skilt
+  ctx.save(); ctx.translate(ox + bw / 2, y0 + bh / 2); ctx.rotate((r() - 0.5) * 0.06); ctx.translate(-(ox + bw / 2), -(y0 + bh / 2));
+  ctx.beginPath(); ctx.moveTo(ox + 1, y0); ctx.lineTo(tip - 7, y0); ctx.lineTo(tip, y0 + bh / 2); ctx.lineTo(tip - 7, y0 + bh); ctx.lineTo(ox + 1, y0 + bh); ctx.closePath();
+  ctx.fillStyle = tc(WOOD.a); ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = T.ink; ctx.stroke();
+  ctx.strokeStyle = WOOD.grain; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(ox + 3, y0 + 3.5); ctx.lineTo(tip - 9, y0 + 3 + r()); ctx.moveTo(ox + 4, y0 + bh - 3); ctx.lineTo(tip - 10, y0 + bh - 3.5); ctx.stroke();
+  ctx.font = '700 9px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = tc(WOOD_TEXT); ctx.fillText(name, ox + (bw - 6) / 2 + 1, y0 + bh / 2 + 0.5);
+  ctx.restore();
+  ctx.fillStyle = tc('#6B5A4C'); circle(ctx, px, y0 + bh / 2, 1.2);   // spikeren som holder planken
+}
+// hytta med fuglebrettet foran: falurøde tømmervegger, hvite vindskier, torvtak og lys i vinduene om kvelden
+const HOME_W = 196, HOME_H = 112, FEEDER_X = 24;   // fuglebrettets stolpe står FEEDER_X fra venstre kant
+function drawHome(x, groundY) {
+  const L = cachedSurface('hjem', HOME_W, HOME_H, 60, curTheme, (ox, oy) => paintHome(ox, oy));
+  ctx.drawImage(L.c, x - FEEDER_X - L.pad, groundY + 3 - HOME_H - L.pad, L.w, L.h);
+  // røyk fra pipa: små dotter som stiger og blekner (ingen jevn sinus: hver dott har sin egen fase)
+  if (!reduceMotion) for (let i = 0; i < 4; i++) {
+    const k = ((time * 0.35 + i / 4) % 1), sx = x - FEEDER_X + 148 + k * 10 + Math.sin(i * 2.1) * 2, sy = groundY + 3 - HOME_H + 4 - k * 34;
+    ctx.fillStyle = hexA(T.night ? '#B9B4D8' : '#FFFFFF', 0.45 * (1 - k)); circle(ctx, sx, sy, 2.5 + k * 4);
+  }
+}
+function paintHome(ox, oy) {
+  const gy = oy + HOME_H - 3, r = rng(60), fx = ox + FEEDER_X;
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const ink = (lw = 1.2) => { ctx.strokeStyle = T.ink; ctx.lineWidth = lw; };
+  // hytta
+  const cx = ox + 62, cw = 124, wallH = 44, wy = gy - wallH;
+  ctx.fillStyle = hexA(T.ink, 0.2); ctx.beginPath(); ctx.ellipse(cx + cw / 2, gy, cw * 0.58, 4, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = T.cabin; ctx.fillRect(cx, wy, cw, wallH); ink(); ctx.strokeRect(cx, wy, cw, wallH);
+  ctx.strokeStyle = T.cabinDark; ctx.lineWidth = 0.8; ctx.beginPath();
+  for (let y = wy + 5; y < gy - 1; y += 5) { ctx.moveTo(cx + 1, y + (r() - 0.5) * 0.6); ctx.lineTo(cx + cw - 1, y + (r() - 0.5) * 0.6); }
+  ctx.stroke();
+  ctx.fillStyle = tc('#FBF6EE'); ctx.fillRect(cx, wy, 4, wallH); ctx.fillRect(cx + cw - 4, wy, 4, wallH);   // hvite hjørnebord
+  ink(0.8); ctx.strokeRect(cx, wy, 4, wallH); ctx.strokeRect(cx + cw - 4, wy, 4, wallH);
+  const win = (x, y) => {
+    ctx.fillStyle = tc('#FBF6EE'); ctx.fillRect(x - 2, y - 2, 22, 20); ink(0.9); ctx.strokeRect(x - 2, y - 2, 22, 20);
+    ctx.fillStyle = T.windowLit ? '#FFD47E' : T.window; ctx.fillRect(x, y, 18, 16);
+    if (T.windowLit) { ctx.fillStyle = 'rgba(255,236,170,.5)'; ctx.fillRect(x + 1, y + 1, 7, 6); }
+    ctx.fillStyle = tc('#FBF6EE'); ctx.fillRect(x + 8, y, 2, 16); ctx.fillRect(x, y + 7, 18, 2);
+    ink(0.8); ctx.strokeRect(x, y, 18, 16);
+  };
+  win(cx + 14, wy + 10); win(cx + 88, wy + 10);
+  ctx.fillStyle = tc('#7A4A32'); ctx.fillRect(cx + 50, wy + 8, 20, wallH - 8); ink(0.9); ctx.strokeRect(cx + 50, wy + 8, 20, wallH - 8);   // dør
+  ctx.strokeStyle = hexA(T.ink, 0.5); ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(cx + 56.5, wy + 10); ctx.lineTo(cx + 56.5, gy - 1); ctx.moveTo(cx + 63.5, wy + 10); ctx.lineTo(cx + 63.5, gy - 1); ctx.stroke();
+  ctx.fillStyle = tc('#E8C46A'); circle(ctx, cx + 66, wy + 28, 1.2);
+  ctx.fillStyle = tc('#9C8A76'); ctx.fillRect(cx + 46, gy - 3, 28, 3); ink(0.8); ctx.strokeRect(cx + 46, gy - 3, 28, 3);   // steinhelle foran døra
+  // torvtak: mørke bord, så en tykk grønn kant med gress og noen blomster
+  const ry = wy - 2, top = wy - 24;
+  ctx.fillStyle = T.roof; ctx.beginPath(); ctx.moveTo(cx - 8, ry); ctx.lineTo(cx + 10, top); ctx.lineTo(cx + cw - 10, top); ctx.lineTo(cx + cw + 8, ry); ctx.closePath(); ctx.fill(); ink(); ctx.stroke();
+  ctx.fillStyle = tc('#FBF6EE'); ctx.beginPath(); ctx.moveTo(cx - 8, ry); ctx.lineTo(cx + 10, top); ctx.lineTo(cx + 13, top); ctx.lineTo(cx - 4, ry); ctx.closePath(); ctx.fill(); ink(0.8); ctx.stroke();   // vindski
+  ctx.fillStyle = T.moss; ctx.beginPath(); ctx.moveTo(cx + 8, top + 2);
+  for (let x = cx + 8; x <= cx + cw - 8; x += 4) ctx.lineTo(x, top - 1.5 - r() * 2.5);
+  ctx.lineTo(cx + cw - 8, top + 3); ctx.closePath(); ctx.fill(); ink(0.9); ctx.stroke();
+  ctx.strokeStyle = T.grassDark; ctx.lineWidth = 0.8; ctx.beginPath();
+  for (let x = cx + 12; x < cx + cw - 10; x += 5 + r() * 4) { ctx.moveTo(x, top - 1); ctx.lineTo(x + (r() - 0.5) * 2, top - 5 - r() * 3); }
+  ctx.stroke();
+  for (let i = 0; i < 6; i++) { ctx.fillStyle = tc(['#FFFDF6', '#F6CF45', '#E58BB0'][i % 3]); circle(ctx, cx + 18 + r() * (cw - 36), top - 3 - r() * 3, 1.2); }
+  const chx = cx + 84;   // pipe av stein
+  ctx.fillStyle = tc('#BDB3A6'); ctx.fillRect(chx, top - 14, 11, 14); ink(0.9); ctx.strokeRect(chx, top - 14, 11, 14);
+  ctx.strokeStyle = hexA(T.ink, 0.45); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(chx, top - 9); ctx.lineTo(chx + 11, top - 9); ctx.moveTo(chx + 5, top - 9); ctx.lineTo(chx + 5, top - 4); ctx.stroke();
+  // fuglebrettet: stolpe, brett med kant og frø, og et lite saltak på to stolper
+  const tray = FEEDER.tray, ty = gy - FEEDER.pole - 4;
+  ctx.fillStyle = tc('#8A6A4A'); ctx.fillRect(fx - 2.2, ty + 4, 4.4, FEEDER.pole); ink(1); ctx.strokeRect(fx - 2.2, ty + 4, 4.4, FEEDER.pole);
+  ctx.strokeStyle = tc('#8A6A4A'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(fx - 1, ty + 18); ctx.lineTo(fx - 9, ty + 5); ctx.moveTo(fx + 1, ty + 18); ctx.lineTo(fx + 9, ty + 5); ctx.stroke();   // skråstivere
+  ctx.fillStyle = tc(WOOD.a); ctx.fillRect(fx - tray / 2, ty, tray, 4); ink(1); ctx.strokeRect(fx - tray / 2, ty, tray, 4);
+  ctx.fillStyle = tc('#C9A06A'); for (let i = 0; i < 9; i++) circle(ctx, fx - tray / 2 + 3 + r() * (tray - 6), ty - 0.6, 0.9);   // frø på brettet
+  const postTop = ty - 36;
+  ctx.strokeStyle = tc('#8A6A4A'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(fx - tray / 2 + 1.5, ty); ctx.lineTo(fx - tray / 2 + 1.5, postTop + 3); ctx.moveTo(fx + tray / 2 - 1.5, ty); ctx.lineTo(fx + tray / 2 - 1.5, postTop + 3); ctx.stroke();
+  ctx.fillStyle = T.cabin; ctx.beginPath(); ctx.moveTo(fx - tray / 2 - 5, postTop + 6); ctx.lineTo(fx, postTop - 6); ctx.lineTo(fx + tray / 2 + 5, postTop + 6); ctx.lineTo(fx + tray / 2 + 2, postTop + 8); ctx.lineTo(fx, postTop - 2); ctx.lineTo(fx - tray / 2 - 2, postTop + 8); ctx.closePath(); ctx.fill(); ink(1); ctx.stroke();
+  paperOn(ctx, 0.35);
+}
+function drawJourney(groundY) {
+  for (const sg of signs) {
+    const x = ip(sg.px, sg.x);
+    if (x > -60 && x < W + 60) roadSign(x, groundY, sg.name, sg.seed);
+  }
+  if (home) { const x = ip(home.px, home.x); if (x - FEEDER_X < W + 10 && x - FEEDER_X + HOME_W > -10) drawHome(x, groundY); }
+}
+// den broderte ruten hjem på treskiltet: en sting-sti med et merke per sted, hytta i enden og fuglen der den kom
+function drawRoute(x0, x1, y, reached, homeNow) {
+  const px = at => x0 + (x1 - x0) * at / HOME, pts = [];
+  for (let x = x0; x <= x1 + 0.1; x += 3) pts.push({ x, y: y + Math.sin((x - x0) * 0.09) * 1.3 });
+  runningStitch(pts, '#9C7A55', 77);
+  for (const pl of ROUTE.slice(0, -1)) {
+    const on = homeNow || pl.at <= reached, x = px(pl.at), yy = y + Math.sin((x - x0) * 0.09) * 1.3;
+    ctx.fillStyle = on ? '#E9A23B' : WOOD.a; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, yy, on ? 2.6 : 2.2, 0, 7); ctx.fill(); ctx.stroke();
+  }
+  // hytta i enden
+  ctx.fillStyle = '#C9503B'; ctx.fillRect(x1 - 4, y - 3, 8, 6); ctx.strokeStyle = UI_INK; ctx.lineWidth = 1; ctx.strokeRect(x1 - 4, y - 3, 8, 6);
+  ctx.fillStyle = '#86C35C'; ctx.beginPath(); ctx.moveTo(x1 - 6, y - 2.5); ctx.lineTo(x1, y - 7.5); ctx.lineTo(x1 + 6, y - 2.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // fuglen: en liten blåmeis-prikk som står der reisen sluttet
+  const bx = px(homeNow ? HOME : Math.min(reached, HOME)), by = y - 7;
+  ctx.fillStyle = '#F6CF45'; circle(ctx, bx, by, 3.4); ctx.fillStyle = '#4A93DA'; ctx.beginPath(); ctx.arc(bx, by, 3.4, Math.PI, 0); ctx.fill();
+  ctx.strokeStyle = UI_INK; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(bx, by, 3.4, 0, 7); ctx.stroke();
+}
+const homeReached = () => !!home && (home.phase === 'rest' || home.phase === 'done');
 
 function drawWorld(groundY, pv, qv) {
   drawSky(groundY);
@@ -1856,6 +1985,7 @@ function drawWorld(groundY, pv, qv) {
   for (const q of qv) drawPower(q);
   drawGround(groundY);
   drawLandmarks(groundY, 1);
+  drawJourney(groundY);
   drawBirdGroundShadow(groundY);
   drawForeground();   // forgrunnen: nærmest kameraet, raskest
 }
@@ -1931,6 +2061,7 @@ function render() {
   if (state === State.READY) {
     stitchHeading('Klar?', W / 2, topY + 40, 3.8, 'gold');
     text(D.label, W / 2, topY + 70, 13, { weight: 600, color: D.color, stroke: true, shadow: false });
+    text('Fra fjellet hjem til hytta', W / 2, topY + 90, 12, { weight: 600, color: '#FFF1D6', stroke: true, shadow: false });
     const hy = groundY * 0.42 + 30 + (reduceMotion ? 0 : loopKeys([[0, 0], [0.55, 0], [0.64, 4, 'in'], [0.8, 0, 'out'], [1.2, 0]], time));   // trykker, venter, trykker
     ctx.fillStyle = '#FFF8EC'; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.5; rr(W / 2 + 36, hy, 20, 30, 10); ctx.fill(); ctx.stroke();
     ctx.fillStyle = UI_INK; rr(W / 2 + 44, hy + 5, 4, 10, 2); ctx.fill();
@@ -1940,13 +2071,21 @@ function render() {
   if (state === State.PLAY || state === State.DEAD) {
     const ds = time - scoreT, pop = ds < 0.8 && !reduceMotion ? 1 + 0.45 * Math.exp(-ds * 7) * Math.cos(ds * 22) : 1;
     ctx.save(); ctx.translate(W / 2, topY + 16); ctx.scale(pop, pop); text(String(score), 0, 0, 40, { stroke: true }); ctx.restore();
-    drawActiveHud(topY + 46);
+    // et nytt sted på veien hjem: navnet står kort under poengene (skiltet står i verden)
+    const pk = time - placeT, showPlace = placeIdx > 0 && pk < 3 && !home;
+    if (showPlace) text(ROUTE[placeIdx].name, W / 2, topY + 46, 13, { weight: 600, stroke: true, shadow: false, color: '#FFF1D6', alpha: Math.min(1, pk * 4, (3 - pk) * 2) });
+    drawActiveHud(topY + 46 + (showPlace ? 18 : 0));
+    if (home && home.phase === 'rest') {
+      const hy = Math.max(topY + 90, groundY * 0.32);   // under månen og sola
+      stitchHeading('Hjemme!', W / 2, hy, 3.4, 'gold', Math.min(1, home.t * 3));
+      if (home.t > 0.9) text('Trykk for å fly videre', W / 2, hy + 34, 14, { weight: 600, stroke: true, alpha: Math.min(1, (home.t - 0.9) * 3) });
+    }
     if (state === State.PLAY && !paused) drawPauseButton(W - 46, safeTop + 12, 34);
   }
 
   if (state === State.OVER) {
     const e = Math.min(1, overT / 0.55), ease = easeOutCubic(e), back = reduceMotion ? ease : easeOutBack(e);
-    const pw = 236, ph = 132, pxx = (W - pw) / 2, py = groundY * 0.46 - ph / 2 + (1 - back) * 80;
+    const pw = 236, ph = 172, pxx = (W - pw) / 2, py = groundY * 0.46 - ph / 2 + (1 - back) * 80;
     ctx.fillStyle = `rgba(40,28,50,${(0.22 * ease).toFixed(3)})`; ctx.fillRect(0, 0, W, H);   // demp bakgrunnen bak panelet
     const tk = Math.min(1, Math.max(0, (overT - 0.1) / 0.45)), ts = reduceMotion ? 1 : easeOutBack(tk);
     // skiltet henger i to tau og svinger litt etter at det har falt på plass (pendel rundt festet langt oppe)
@@ -1992,6 +2131,12 @@ function render() {
     }
     ctx.fillStyle = D.color; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(pxx + 30, py + 22, 3.6, 0, 7); ctx.fill(); ctx.stroke();   // malt prikk i nivåets farge
     text(D.label, pxx + 38, py + 22, 11, { color: UI_INK, shadow: false, weight: 600, align: 'left' });
+    // reisen: hvor langt fuglen kom, og ruten hjem brodert på skiltet (fuglen flytter seg mens poengene telles)
+    const wasHome = homeReached(), jl = journeyLines(score, wasHome);
+    runningStitch([{ x: pxx + 18, y: py + 122 }, { x: pxx + pw - 18, y: py + 122 }], 'rgba(156,122,85,.55)', 12);
+    text(jl.line, W / 2, py + 135, 12, { color: UI_INK, shadow: false, weight: 600 });
+    drawRoute(pxx + 26, pxx + pw - 26, py + 154, Math.min(shown, score), wasHome && shown >= HOME);
+    if (jl.next) text(jl.next, W / 2, py + 165, 9.5, { color: WOOD_TEXT, shadow: false, weight: 600 });
     ctx.restore();   // slutt på svingen
     // tydelige valg i stedet for «trykk hvor som helst»: spill igjen, eller tilbake til menyen
     if (overT > 0.9) {

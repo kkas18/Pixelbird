@@ -47,6 +47,7 @@ let bird, pipes = [], particles = [], powers = [], floats = [], dust = [], stars
 let overT = 0, transitionT = 0, newBest = false, groundBounced = false, menuT = 0;   // menuT: tid siden menyen åpnet
 let active = { shield: false, slow: 0, double: 0 };
 let timeScale = 1, slowWas = false;
+let worldK = 1;                      // verdens fart (1 = vanlig); bremser ned til 0 når fuglen lander hjemme
 let paused = false, resumeT = 0;      // pause + nedtelling før spillet fortsetter
 let grace = 0, guidePipe = null;     // usårbarhet og glidemål (røret) etter skjoldtreff
 let alpha = 1, viewScroll = 0;        // interpolasjonsfaktor mellom forrige og nåværende fysikk-steg + interpolert scroll
@@ -120,6 +121,7 @@ function resetRun() {
   resetBird(); pipes = []; particles = []; powers = []; floats = []; score = 0;
   active = { shield: false, slow: 0, double: 0 }; timeScale = 1; paused = false; resumeT = 0; grace = 0;
   combo = 0; overShown = 0; celebrated = false;
+  placeIdx = 0; placeT = -9; signs = []; home = null; worldK = 1;
 }
 function goMenu() { state = State.MENU; menuT = 0; resetRun(); wardrobe = false; transitionT = 1; Sound.music.setMode('menu'); setTimeOfDay(themeName); }
 function goReady() {
@@ -191,6 +193,8 @@ function flap() {
   if (state === State.READY) goPlay();
   if (state === State.PLAY) {
     if (paused) return;
+    if (home && (home.phase === 'land' || (home.phase === 'rest' && home.t < 0.9))) return;   // lander: vent til den står
+    if (home && home.phase === 'rest') leaveHome();
     // fast impuls: hvert flaks gir nøyaktig samme løft, uansett hvor raskt man trykker
     bird.vy = D.flap;
     bird.flapT = 0; bird.sy = 1.22; bird.sx = 0.84;
@@ -339,12 +343,18 @@ const moteY = groundY => moteKind() === 'firefly' ? groundY - 25 - Math.random()
 /* ---------- Landemerker: sjeldne ting i landskapet ----------
    Dukker opp omtrent hvert 30.–60. sekund (målt i rullet avstand), aldri samme som de to forrige.
    Hvert landemerke hører til et parallakse-lag (depth = lagets fart) og står plantet på det laget. */
-const LANDMARKS = { stavkirke: 0.14, seter: 0.14, fyr: 0.05, elg: 0.3, sau: 0.6, postkasse: 1 };
+const LANDMARKS = { stavkirke: 0.14, seter: 0.14, fyr: 0.05, elg: 0.3, sau: 0.6, tjern: 0.6, postkasse: 1 };
 const LM_SPEED = 118;                  // px/s som avstandene regnes i (fart på «lett»)
 let landmarks = [], lmNext = -1, lmRecent = [];
 const lmX = (m, s) => m.x0 - (s - m.at) * LANDMARKS[m.kind];
 function spawnLandmark(kind) {
-  if (!kind) { const free = Object.keys(LANDMARKS).filter(k => !lmRecent.includes(k)); kind = free[(Math.random() * free.length) | 0]; }
+  if (!kind) {
+    // i en runde: bare landemerker fra steder fuglen alt har passert (eller som ikke hører til noe sted)
+    const ahead = k => state === State.PLAY && ROUTE.some(r => r.lm === k && r.at > score);
+    const free = Object.keys(LANDMARKS).filter(k => !lmRecent.includes(k) && !ahead(k));
+    if (!free.length) return null;
+    kind = free[(Math.random() * free.length) | 0];
+  }
   lmRecent = [kind, ...lmRecent].slice(0, 2);
   landmarks.push({ kind, at: scroll, x0: W + 50, seed: (Math.random() * 1e6) | 0 });
   return kind;
@@ -353,6 +363,90 @@ function landmarkStep() {
   if (lmNext < 0) lmNext = scroll + (10 + Math.random() * 8) * LM_SPEED;   // det første kommer etter 10–18 s
   if (scroll >= lmNext) { spawnLandmark(); lmNext = scroll + (30 + Math.random() * 30) * LM_SPEED; }
   landmarks = landmarks.filter(m => lmX(m, scroll) > -90);
+}
+
+/* ---------- Reisen hjem ----------
+   Hver runde er en reise fra fjellet ned til hytta. Stedene passeres ved faste poeng: et veiskilt
+   dukker opp mellom stammene, og noen steder har sitt eget landemerke. Ved HOME poeng er fuglen
+   hjemme: stammene tar slutt, hytta med fuglebrettet glir inn, og fuglen lander og hviler seg.
+   Et trykk sender den videre, og runden fortsetter som før. */
+const ROUTE = [
+  { at: 0, name: 'Fjellet' },
+  { at: 5, name: 'Bjørkelia' },
+  { at: 10, name: 'Elgmyra', lm: 'elg' },
+  { at: 15, name: 'Seterbua', lm: 'seter' },
+  { at: 20, name: 'Tjernet', lm: 'tjern' },
+  { at: 27, name: 'Sauebeitet', lm: 'sau' },
+  { at: 34, name: 'Stavkirka', lm: 'stavkirke' },
+  { at: 42, name: 'Fyrlykta', lm: 'fyr' },
+  { at: 50, name: 'Postkassa', lm: 'postkasse' },
+  { at: 60, name: 'Hytta' }
+];
+const HOME = ROUTE[ROUTE.length - 1].at;
+const FEEDER = { pole: 50, tray: 34 };   // fuglebrettet: høyden på stolpen og bredden på brettet
+let placeIdx = 0, placeT = -9, signs = [], home = null;
+const placeAt = s => { let i = 0; while (i + 1 < ROUTE.length && ROUTE[i + 1].at <= s) i++; return i; };
+const perchY = groundY => groundY - FEEDER.pole - 4 - BODY_R + 1.5;   // fuglen står på brettet
+// hvor langt kom fuglen? brukes på game over og pause
+function journeyLines(s, wasHome) {
+  if (wasHome) return { line: 'Du kom hjem til hytta!', next: s > HOME ? `og fløy ${s - HOME} videre` : '' };
+  if (s >= HOME) return { line: 'Hytta var rett der framme!', next: '' };
+  const i = placeAt(s), nx = ROUTE[i + 1];
+  return { line: i ? `Du kom forbi ${ROUTE[i].name}` : 'Du flakset ut fra fjellet', next: `${nx.at - s} til ${nx.name}` };
+}
+function reachPlace(i) {
+  placeIdx = i; placeT = time;
+  const pl = ROUTE[i];
+  if (pl.at >= HOME) { startHome(); return; }
+  // skiltet står midt i luka etter den nyeste stammen, så det aldri står inni en stamme
+  const last = pipes[pipes.length - 1];
+  const x = last ? Math.max(W + 30, last.x + PIPE_W + (D.spacing - PIPE_W) / 2) : W + 30;
+  signs.push({ x, px: x, name: pl.name, seed: seedOfName(pl.name) });
+  if (pl.lm) { spawnLandmark(pl.lm); lmNext = scroll + 20 * LM_SPEED; }
+}
+const seedOfName = n => [...n].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7);
+function startHome() {
+  const last = pipes[pipes.length - 1];
+  home = { phase: 'approach', t: 0, x: (last ? last.x : W) + D.spacing + 120 };
+  home.px = home.x;
+}
+// landing og hvile på fuglebrettet (fuglens vanlige fysikk står stille imens)
+function homeStep(dt, groundY) {
+  const h = home, py = perchY(groundY), d = h.x - bird.x;
+  h.t += dt;
+  if (h.phase === 'approach') {
+    const clear = pipes.every(p => p.x + PIPE_W < bird.x - BIRD_R - 6);
+    if (clear && d < 240) { h.phase = 'land'; h.t = 0; Sound.swoosh(); }
+    return;
+  }
+  if (h.phase === 'land') {
+    // verden bremser jevnt (fart ~ kvadratroten av avstanden) så brettet stopper rett under fuglen;
+    // fuglen glir ned og flakser litt for å bremse
+    worldK = d > 0.5 ? clamp(Math.sqrt(d / 150), 0.03, 1) : 0;
+    if (d <= 0.5) { worldK = 0; h.x = bird.x; }
+    bird.vy += ((py - bird.y) * 16 - bird.vy * 8) * dt;
+    bird.y += bird.vy * dt;
+    if (bird.flapT > 0.32 && d > 30) { bird.flapT = 0; } else bird.flapT += dt;
+    bird.rot = lerp(bird.rot, d > 30 ? 0.08 : -0.22, 1 - Math.exp(-6 * dt));
+    if (!worldK && Math.abs(bird.y - py) < 1.5 && Math.abs(bird.vy) < 25) {
+      h.phase = 'rest'; h.t = 0; bird.y = py; bird.vy = 0; bird.sy = 0.74; bird.sx = 1.22; bird.happy = 1.2;
+      Sound.cheer(); buzz([15, 30, 15]);
+      burst(bird.x, py + BODY_R, 5, ['#C9A06A', '#E8D3A8', '#B88A55'], 60, 0.8, 300, 1.8, { shape: 'seed', drag: 2, spin: 6 });
+    }
+  } else if (h.phase === 'rest') {
+    // pikker i frøene på brettet: to raske hakk, så en pause (nøkkelbilder, ikke jevn vugging)
+    bird.y = py; bird.vy = 0; worldK = 0; bird.flapT = 9;
+    const peck = reduceMotion ? 0 : loopKeys([[0, 0], [1.4, 0], [1.52, 0.5, 'in'], [1.64, 0.1, 'out'], [1.76, 0.48, 'in'], [1.92, 0, 'out'], [3.4, 0]], h.t);
+    bird.rot = lerp(bird.rot, -0.05 + peck, 1 - Math.exp(-30 * dt));
+    if (peck > 0.45 && !h.pecked) { h.pecked = true; burst(bird.x + 10, py + BODY_R - 1, 1, ['#C9A06A', '#B88A55'], 30, 0.7, 300, 1.6, { shape: 'seed', drag: 2, spin: 6 }); }
+    if (peck < 0.2) h.pecked = false;
+  }
+  bird.sx = lerp(bird.sx, 1, 1 - Math.exp(-8 * dt)); bird.sy = lerp(bird.sy, 1, 1 - Math.exp(-8 * dt));
+}
+// et trykk på brettet: fuglen letter, verden kommer i gang igjen, og stammene fortsetter
+function leaveHome() {
+  home.phase = 'done'; home.t = 0;
+  spawnPipe(W + 170);
 }
 
 /* ---------- Fuglen i hvile ----------
@@ -431,6 +525,8 @@ function snapshot() {
   for (const q of powers) { q.px = q.x; q.py = q.y; }
   for (const q of particles) { q.px = q.x; q.py = q.y; }
   for (const m of dust) { m.px = m.x; m.py = m.y; }
+  for (const sg of signs) sg.px = sg.x;
+  if (home) home.px = home.x;
 }
 
 function update(dt) {
@@ -445,7 +541,7 @@ function update(dt) {
   if (wantSlow !== slowWas) { Sound.music.slowmo(wantSlow); slowWas = wantSlow; }
   const gdt = dt * timeScale;      // spilltid
   const scrolling = state !== State.DEAD && state !== State.OVER;
-  if (scrolling) { scroll += D.speed * gdt; landmarkStep(); }
+  if (scrolling) { scroll += D.speed * gdt * worldK; landmarkStep(); }
 
   transitionT = Math.max(0, transitionT - dt * 2.4); menuT += dt;
   if (worldFade && (worldFade.k += dt / 1.8) >= 1) worldFade = null;   // krysstoning over 1,8 s
@@ -458,6 +554,11 @@ function update(dt) {
   if (state === State.MENU || state === State.READY) idleStep(dt, idleY);
 
   if (state === State.PLAY) {
+    const perched = home && (home.phase === 'land' || home.phase === 'rest');
+    if (home) homeStep(gdt, groundY);
+    if (home && home.phase === 'done' && worldK < 1) worldK = worldK > 0.995 ? 1 : lerp(worldK, 1, 1 - Math.exp(-3.5 * gdt));
+    const move = D.speed * gdt * worldK;
+    if (!perched) {
     // tyngdekraft + luftmotstand + terminalfart
     bird.vy += D.gravity * gdt;
     bird.vy -= bird.vy * AIR_DRAG * gdt;
@@ -482,19 +583,24 @@ function update(dt) {
     bird.sx = lerp(bird.sx, 1 - fallStretch * 0.5, 1 - Math.pow(0.0005, gdt));
     bird.sy = lerp(bird.sy, 1 + fallStretch, 1 - Math.pow(0.0005, gdt));
     if (bird.y < safeTop + 6) { bird.y = safeTop + 6; bird.vy = Math.max(bird.vy, 0); }
+    }
+    for (const sg of signs) sg.x -= move;
+    signs = signs.filter(sg => sg.x > -90);
+    if (home) home.x -= move;
     for (const p of pipes) {
-      p.x -= D.speed * gdt;
+      p.x -= move;
       if (p.variant === 'moving') { p.phase += p.freq * gdt; p.top = p.baseTop + Math.sin(p.phase) * p.amp; }
       p.glow = Math.max(0, p.glow - dt * 2.5);
     }
     const last = pipes[pipes.length - 1];
-    if (last && last.x < W - D.spacing) spawnPipe(last.x + D.spacing);
+    const holdPipes = home && home.phase !== 'done';   // på vei inn til hytta: ingen nye stammer
+    if (last && last.x < W - D.spacing && !holdPipes) spawnPipe(last.x + D.spacing);
     if (pipes.length && pipes[0].x < -PIPE_W - 20) pipes.shift();
 
     active.slow = Math.max(0, active.slow - dt); active.double = Math.max(0, active.double - dt);
 
     for (const q of powers) {
-      q.x -= D.speed * gdt; q.t += dt;
+      q.x -= move; q.t += dt;
       q.y = q.pipe.top + q.pipe.gap / 2;   // står i ro midt i gapet: lettere å sikte på
       if (!q.taken && Math.hypot(q.x - bird.x, q.y - bird.y) < POWER_R + BIRD_R - 2) collect(q);
     }
@@ -514,12 +620,13 @@ function update(dt) {
         if (gain === 2) floatText(bird.x + 4, bird.y - 22, '+2', '#FFD27A', 14, { stroke: true });
         if (!D.zen && score > best) { best = score; newBest = true; store.set(bestKey(), best); }
         const tod = runTimeOfDay(); if (tod !== curTheme) setTimeOfDay(tod);   // tiden glir videre hvert 10. poeng
+        if (!home) { const pi = placeAt(score); if (pi > placeIdx) reachPlace(pi); }   // et nytt sted på veien hjem
       }
       if (grace <= 0 && p.x < bird.x + BIRD_R + 6 && p.x + PIPE_W > bird.x - BIRD_R - 6 && hitsPipe(p, groundY)) {
         if (D.zen) zenBump(p); else if (active.shield) useShield(p); else { die(false, p); break; }
       }
     }
-    if (state === State.PLAY && bird.y + BIRD_R >= groundY) { bird.y = groundY - BIRD_R; if (D.zen) zenBounce(groundY); else die(true); }
+    if (state === State.PLAY && !perched && bird.y + BIRD_R >= groundY) { bird.y = groundY - BIRD_R; if (D.zen) zenBounce(groundY); else die(true); }
   }
 
   if (state === State.DEAD) {

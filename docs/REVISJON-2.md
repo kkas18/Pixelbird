@@ -8,8 +8,8 @@ fargepalett og flisbredder.
 
 > **Status:** Fase A (signatur og identitet) er gjennomført i v3.6, fase B (variasjon uten
 > gjentakelse) i v3.7, fase G (dybde og kamera, lagt til etter ønske) i v3.8 og fase C (animasjon
-> med intensjon) i v3.9, fase D (UI i verden og færre klisjeer) i v4.0 og fase E (lyd med ekte
-> opptak) i v4.1. Se seksjon 8–13.
+> med intensjon) i v3.9, fase D (UI i verden og færre klisjeer) i v4.0, fase E (lyd med ekte
+> opptak) i v4.1 og fase F (en liten fortelling) i v4.2. Alle fasene er gjennomført; se seksjon 8–14.
 
 > Den første revisjonen ([`REVISJON.md`](REVISJON.md)) handlet om å gjøre spillet *ryddig, mykt og
 > koselig*. Det er gjort. Denne revisjonen spør om noe annet: **ser spillet ut som noe et menneske har
@@ -582,4 +582,48 @@ ikke med CC0; det står i kildelisten.
 | Lyd og musikk | 6,5 | **8** |
 | **Menneskelig preg** | **8** | **8,5** |
 
-Det som gjenstår fra planen: fase F (en liten fortelling).
+Det som gjenstår fra planen etter fase E: fase F (en liten fortelling).
+
+---
+
+## 14. Status: fase F gjennomført (v4.2)
+
+| Tiltak | Hva som ble gjort |
+|---|---|
+| F1 Reisen hjem | Hver runde er en reise fra fjellet ned til hytta, med ti navngitte steder: Fjellet, Bjørkelia, Elgmyra, Seterbua, Tjernet, Sauebeitet, Stavkirka, Fyrlykta, Postkassa og Hytta. Ved hvert sted står et veiskilt (en pilformet planke på en stolpe) i luka mellom to stammer, og navnet vises kort under poengene. «Klar?»-skjermen sier «Fra fjellet hjem til hytta», og pausen viser hvor på veien fuglen er. |
+| F2 Landskapet følger reisen | Stedene har sine landemerker: elgen ved Elgmyra, setra ved Seterbua, et nytt tjern med siv ved Tjernet, sauen, stavkirka, fyret og postkassa. De tilfeldige landemerkene hører alltid til steder fuglen allerede har passert, så rekkefølgen i landskapet stemmer med fortellingen. |
+| F3 Game over forteller | «Du kom forbi Tjernet» og «5 til Sauebeitet» står på treskiltet, med ruten brodert som sting, et merke per sted, hytta i enden og en liten blåmeis som flytter seg mens poengene telles. Ved død rett før hytta står det «Hytta var rett der framme!». |
+| F4 Hjemkomst | Ved 60 poeng tar stammene slutt, og den falurøde hytta med torvtak, røyk fra pipa og et fuglebrett glir inn. Verden bremser jevnt til brettet står rett under fuglen. Fuglen lander med et lite klem, pikker i frøene (to raske hakk, så en pause) og hviler under «Hjemme!» så lenge spilleren vil. Et trykk sender den videre; stammene kommer tilbake, og poengene teller videre. Etter hytta sier game over «Du kom hjem til hytta!» og hvor langt den fløy videre. |
+
+Hjemkomsten avslutter ikke runden. Det var et bevisst valg, så poengjakten er som før, og hytta blir en
+belønning underveis. Med tiden på døgnet kommer man hjem om kvelden, med lys i vinduene. Lengden på
+reisen (60 poeng) er valgt for at hjemkomsten skal være sjelden.
+
+**Før og etter:**
+
+- [`revisjon-2/fase-f/over.jpg`](revisjon-2/fase-f/over.jpg): game over forteller hvor langt du kom
+- [`revisjon-2/fase-f/reise.jpg`](revisjon-2/fase-f/reise.jpg): «Klar?», et veiskilt på veien og pausen
+- [`revisjon-2/fase-f/hjemme.jpg`](revisjon-2/fase-f/hjemme.jpg): landingen, hvilen på fuglebrettet og avreisen
+
+**Verifisering:**
+
+- 43 nye automatiske tester for fase F, blant annet:
+  - rute og tekster
+  - skilt som aldri står inni en stamme
+  - landemerker i riktig rekkefølge
+  - teksten på game over og i pausen
+  - hjemkomst på Lett og i Zen: stammene slutter, presis landing, verden står stille, ingen død under hvilen, pause, avreise og poeng videre
+  - død rett før hytta
+  - ny runde nullstiller reisen
+  - redusert bevegelse
+- Tegnetiden er som før: −6 % med to veiskilt og +3 % med hytta på skjermen mot `main` (median av fem vekselvise runder). Skiltene og hytta er ferdige bilder.
+
+**Oppdaterte poeng:**
+
+| Område | Etter fase E | Etter fase F |
+|---|:-:|:-:|
+| Tekst og tone | 8 | **8,5** |
+| Innhold og variasjon | 7,5 | **8,5** |
+| **Menneskelig preg** | **8,5** | **9** |
+
+Alle fasene i planen (A–G) er nå gjennomført.
