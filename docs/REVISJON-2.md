@@ -6,6 +6,8 @@
 natt, game over og garderobe, og målinger i koden: antall gradienter, sirkler og sinusbevegelser,
 fargepalett og flisbredder.
 
+> **Status:** Fase A (signatur og identitet) er gjennomført i v3.6. Se seksjon 8.
+
 > Den første revisjonen ([`REVISJON.md`](REVISJON.md)) handlet om å gjøre spillet *ryddig, mykt og
 > koselig*. Det er gjort. Denne revisjonen spør om noe annet: **ser spillet ut som noe et menneske har
 > laget med vilje, eller som «typisk AI-generert»?** Den gir poeng per område, viser hva som avslører
@@ -306,3 +308,44 @@ Fasene er ordnet etter **effekt per arbeidsinnsats**. A og B gir mest synlig for
 4. **Fase E og F** til slutt, fordi de bygger videre på den nye identiteten.
 
 Hver fase leveres som en egen PR med automatiske tester og skjermbilder før og etter, som før.
+
+---
+
+## 8. Status: fase A gjennomført (v3.6)
+
+| Tiltak | Hva som ble gjort |
+|---|---|
+| A1 Blåmeis | Fuglen er nå en blåmeis: blå hette med hvit ring, hvitt ansikt, mørk øyestripe og halsring, gul buk, gulgrønn rygg, blå vinger og hale med hvite fjærspisser, lite mørkt nebb og blågrå føtter. De rosa kinnene er fjernet. Øynene har en lys kant så de leses i øyestripen. All pynt i garderoben passer uten endringer. |
+| A2 Lusekofte og rosemaling | Skjerfet har hvite «lus» i korssting i forskjøvne rader, både rundt halsen og på snippene. Panelene og pauseskjermen har et lite rosemalingsornament (rose, C-snirkler, blad og prikker). Sømmen i panelene er sydd for hånd, med ujevne sting. |
+| A3 Korssting-logo | «Pixelfugl» er en egen pikselskrift der hver piksel er ett korssting; i-prikken er et blått sting. Navnet og stilen henger nå sammen: korssting er piksler i stoff. Medaljene er broderte merker med en selburose i korssting og kant i plattsøm. |
+| A4 Håndtegnet strek | Konturene på fugl, paneler, knapper, busker, trær og stammer er litt ujevne og tykkest på skyggesiden. Ujevnheten er frøstyrt, så den er lik i hvert bilde (testet). |
+| A5 Papirkorn | Et mykt papirmønster (marmorering, fint korn og fibre) er bakt inn i himmel, landskap og skyer, og legges over panelene. Det koster ingenting ekstra per bilde. |
+| A6 Færre gradienter | Fra 18 til 9 gradienter. Fugl, stammer, skyer, jord, sol, hyttevindu, power-ups og medaljer bruker nå flate tonetrinn med fast lysretning (sola oppe til høyre). Knappene har en flat underkant i stedet for blank glans. |
+
+Ikonene er tegnet på nytt med blåmeisen og lusekofte-skjerfet.
+
+**Før og etter:**
+
+- [`revisjon-2/fase-a/fugl.jpg`](revisjon-2/fase-a/fugl.jpg): fuglen og pynten
+- [`revisjon-2/fase-a/meny.jpg`](revisjon-2/fase-a/meny.jpg): menyen med korssting-logoen
+- [`revisjon-2/fase-a/over.jpg`](revisjon-2/fase-a/over.jpg): game over med brodert medalje og rosemaling
+- [`revisjon-2/fase-a/garderobe.jpg`](revisjon-2/fase-a/garderobe.jpg): garderoben
+- [`revisjon-2/fase-a/natt.jpg`](revisjon-2/fase-a/natt.jpg): kveld
+
+**Verifisering:**
+
+- 22 nye automatiske tester for fase A, blant annet palett, logo uten font, selburose og stabil strek.
+- Alle tidligere testpakker består (fase 1, 2, 4, 5 og lyd).
+- Bildefrekvensen i spill er like god som i v3.5, målt vekselvis mot `main` på samme maskin.
+
+**Oppdaterte poeng:**
+
+| Område | Før fase A | Etter fase A |
+|---|:-:|:-:|
+| Grafikk: særpreg og originalitet | 4,5 | **6,5** |
+| Grafikk: håndverk og ryddighet | 7,5 | **8** |
+| UI og UX | 7,5 | **7,5** |
+| **Menneskelig preg** | **3,5** | **5,5** |
+
+Det som gjenstår for å komme forbi «AI-pent» er særlig gjentakelsen og symmetrien i bakgrunnen
+(fase B) og den jevne vuggingen (fase C).

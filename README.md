@@ -1,6 +1,6 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v3.2): en liten blå fugl med strikket skjerf flyr
+Et koselig flakse-spill (v3.6): en liten blåmeis med lusekofte-skjerf flyr
 gjennom en norsk bjørkeskog. Varm pastellstil med myke konturer, fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 søvnig måne. Dag/natt-tema, generert musikk, syntetisert lyd og vibrasjon.
@@ -10,6 +10,26 @@ andre Android-telefoner.
 All grafikk og lyd er generert i koden – ingen bildefiler eller lydfiler
 trengs utover ikonene. Fonten (Fredoka) er selvhostet, så spillet ser likt ut
 også uten nett.
+
+## Stil: håndlaget og norsk
+
+Navnet «Pixelfugl» er tatt bokstavelig på norsk-håndarbeidsvis: **korssting er
+piksler i stoff**.
+
+- **Logoen** er en egen pikselskrift der hver piksel er ett korssting (i-prikken er
+  et blått sting). Den bruker ikke fonten.
+- **Medaljene** er broderte merker med en **selburose** (åttebladsrose) i korssting
+  og kant i plattsøm.
+- **Fuglen er en blåmeis**: blå hette, hvitt ansikt med mørk øyestripe og halsring,
+  gul buk, gulgrønn rygg og blå vinger med hvitt vingebånd.
+- **Skjerfet** er en lusekofte: rødt med hvite «lus» i korssting.
+- **Rosemaling** pynter panelene og pauseskjermen, og panelenes søm er sydd for hånd
+  (ujevne sting).
+- **Håndtegnet strek:** konturene er litt ujevne og tykkest på skyggesiden (lyset
+  kommer fra sola oppe til høyre). Ujevnheten er frøstyrt, så ingenting flimrer.
+- **Papirkorn** er bakt inn i himmel, landskap og paneler.
+- **Flate tonetrinn** (cel-skygge) i stedet for gradienter på fugl, stammer, skyer,
+  jord og sol.
 
 ## Filer
 
@@ -25,9 +45,10 @@ også uten nett.
 | `sw.js` | Service worker – spillet fungerer offline etter første besøk |
 | `icons/` | App-ikoner (192, 512, maskable 512, Apple touch, favicon) + skjermbilde |
 | `fonts/` | Fredoka (woff2, variabel vekt) + lisens (SIL OFL 1.1) |
-| `docs/REVISJON.md` | Revisjon av spillet med funn og plan for forbedringer |
+| `docs/REVISJON.md` | Første revisjon: funn og plan (fase 1–4, gjennomført) |
+| `docs/REVISJON-2.md` | Andre revisjon: poeng og tiltak mot «AI-stil» (fase A–F) |
 | `.nojekyll` | Sørger for at GitHub Pages serverer alle filer som de er |
-| `make_icons.py` | Regenererer ikonene fra sprite-kartet (valgfritt, krever Pillow) |
+| `make_icons.py` | Regenererer ikonene (blåmeisen foran en bjørkestamme; valgfritt, krever Pillow) |
 
 ## Publisering på GitHub Pages
 
@@ -59,7 +80,7 @@ også i en undermappe.
 - **Garderobe** på startskjermen: velg pynt til fuglen (se under).
 - Beste poengsum og samlede poeng lagres lokalt på enheten.
 
-Medaljer: 10 bronse, 20 sølv, 30 gull, 40 platina.
+Medaljer (broderte merker med selburose): 10 bronse, 20 sølv, 30 gull, 40 platina.
 
 ## Vanskelighetsgrader
 
@@ -107,7 +128,7 @@ Poeng fra alle vanlige runder samles (Zen teller ikke) og låser opp pynt:
 | Rosa sløyfe | 10 poeng totalt |
 | Strikkelue | 25 poeng totalt |
 | Fluesopphatt | 45 poeng totalt |
-| Blomst i fjærtoppen | 60 poeng totalt |
+| Blomst i hetta | 60 poeng totalt |
 | Solbriller | 80 poeng totalt |
 | Blomsterkrans | 100 poeng totalt |
 | Runde briller | 120 poeng totalt |
@@ -143,6 +164,8 @@ Aktive effekter vises som striper under poengsummen.
 
 ## Fuglen
 
+- En blåmeis (se «Stil» over). Øynene sitter i den mørke øyestripen, med en lys kant
+  så de er lette å lese.
 - Blunker, ser seg rundt i menyen og sover (med «z») i menyen om natten.
 - Lukker øynene glad (^ ^) når den får poeng, og sperrer dem opp i fritt fall.
 - Skjerfsnippene er en liten fysikksimulering (Verlet) som blafrer i fartsvinden.
