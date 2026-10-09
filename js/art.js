@@ -252,6 +252,10 @@ const birchImage = () => birchFor(T.night ? 'night' : T.sunLow ? 'sunset' : 'day
 function prewarmPainted(name) {
   if (!hasPaintedForest()) return;
   birchFor(name === 'night' ? 'night' : name === 'sunset' ? 'sunset' : 'day');
+  // lagene i panoramaet og skogslaget for denne tiden (ellers lages de i bildet der kvelden kommer)
+  const pano = seasonImage(name === 'night' ? 'panoramaNight' : 'panoramaDay');
+  if (pano) paintedDepthLayers(pano);
+  if (ART.woodland) paintedWoodlandLayer(name === 'night');
   const entry = sceneCache[name];
   if (!entry || entry.scene.painted) return;
   const pT = T, pS = scene; T = entry.T; scene = entry.scene;
