@@ -2535,21 +2535,18 @@ function render() {
 
   finishFrame(groundY);
 }
+// farget kant rundt skjermen: klar i midten (innenfor inner × H), fargen kommer mot kantene
+function edgeTint(rgb, a, inner) {
+  const g = ctx.createRadialGradient(W / 2, H / 2, H * inner, W / 2, H / 2, H * 0.75);
+  g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(1, `rgba(${rgb},${a.toFixed(3)})`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
 // felles avslutning av bildet: vignett, effekter, pause og overgang
 function finishFrame(groundY) {
   // vignett: varm og lys om dagen, mørkeblå om natten
   ctx.drawImage(scene.vignette.c, 0, 0, scene.vignette.w, scene.vignette.h);
-  if (state === State.PLAY && active.slow > 0) {
-    const sg = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
-    sg.addColorStop(0, 'rgba(180,155,232,0)'); sg.addColorStop(1, 'rgba(180,155,232,.3)');
-    ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H);
-  }
-  // myk farget kant ved treff (erstatter hvit fullskjerm-blits)
-  if (fx.tint > 0) {
-    const tg = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.75);
-    tg.addColorStop(0, `rgba(${fx.rgb},0)`); tg.addColorStop(1, `rgba(${fx.rgb},${(fx.tint * 0.45).toFixed(3)})`);
-    ctx.fillStyle = tg; ctx.fillRect(0, 0, W, H);
-  }
+  if (state === State.PLAY && active.slow > 0) edgeTint('180,155,232', 0.3, 0.3);   // lilla kant i sakte film
+  if (fx.tint > 0) edgeTint(fx.rgb, fx.tint * 0.45, 0.2);   // myk farget kant ved treff (erstatter hvit fullskjerm-blits)
   if (paused) drawPauseOverlay(groundY);
   if (transitionT > 0) {   // overgang: en sirkel som åpner seg rundt fuglen (eller en enkel toning ved redusert bevegelse)
     if (reduceMotion) { ctx.fillStyle = `rgba(40,28,50,${transitionT * 0.45})`; ctx.fillRect(0, 0, W, H); }
