@@ -117,11 +117,33 @@ bevegelsen er jevn på 60, 90 og 120 Hz-skjermer:
 
 ## Musikk
 
-Alt er generert i Web Audio – ingen lydfiler. En 8-takters loop i C-dur på
-128 BPM med bass, akkord-arpeggio, lead med chorus, og trommer. På menyen
-spilles en rolig, filtrert versjon; i spill åpnes filteret og trommene
-kommer inn. Sakte film demper filteret, game over gir en kort sting.
-Musikken starter ved første trykk (nettlesere krever brukerhandling).
+Alt er generert i Web Audio – ingen lydfiler. En rolig 8-takters loop i F-dur
+på 88 BPM med lett swing: spilledåse-melodi, myk pad (Fmaj7 – Dm7 – B♭maj7 –
+Csus4 …) og etterklang. På menyen spilles en enklere, varmere versjon; i spill
+kommer rund bass, kalimba-glimt, en myk shaker og et rolig «hjerteslag» inn i
+stedet for trommer. Om kvelden spilles en vuggevise-variant uten rytme, en
+oktav lavere. Sakte film demper lyden. Musikken starter ved første trykk
+(nettlesere krever brukerhandling).
+
+**Lydeffekter:** mykt «fwip» når fuglen flakser, bjelle som stiger i skala for
+hvert poeng på rad, liten fanfare hvert 10. poeng og ved ny rekord, «plopp» når
+såpeboblen sprekker, tegneserie-«bonk/boing» ved krasj, og en liten «å nei»-
+melodi i dur på game over. Poengene telles opp med små klikk.
+
+**Naturlyder:** svak vind og fuglekvitter om dagen, sirisser og en ugle innimellom
+om kvelden. «Musikk av» slår av både musikk og naturlyder.
+
+Felles romklang og en begrenser (kompressor) på slutten hindrer klipping når
+mange lyder overlapper.
+
+## Animasjoner
+
+- Overgang mellom skjermer: en sirkel som åpner seg rundt fuglen.
+- Knapper klemmes litt når du trykker.
+- Poengtallet spretter som en fjær; game over-panelet og tittelen spretter inn,
+  og medaljen (eller egget) snurrer inn når poengene er talt opp.
+- Ny rekord: «Ny rekord!» og blomsterblader som daler ned.
+- Alt respekterer «redusert bevegelse» i systemet.
 
 ## Oppdatere
 

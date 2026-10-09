@@ -49,12 +49,12 @@
 <script>
 'use strict';
 /* ============================================================
-   PIXELFUGL v3.2 – koselig bjørkeskog
+   PIXELFUGL v3.3 – koselig bjørkeskog
    – Tidsbasert fysikk (px/s, px/s²) med fast tidssteg 120 Hz,
      interpolert tegning mellom steg (jevnt på 60/90/120 Hz)
    – Forhåndstegnede parallakse-lag (fjell, fjord, hytter, bjørkeskog), bjørkestammer som hinder,
      fugl med strikket skjerf (Verlet-fysikk), ansiktsuttrykk og myke partikler
-   – Generert chiptune-musikk (Web Audio)
+   – Generert koselig musikk (spilledåse, pad, F-dur 88 BPM), myke lydeffekter og naturlyder (Web Audio)
    Logisk bredde 288 px, høyde følger skjermen.
    ============================================================ */
 
@@ -129,125 +129,236 @@ let T = THEMES[themeName];
 
 /* ============================================================
    LYD + MUSIKK (Web Audio, alt syntetisert)
+   Koselig lydbilde: spilledåse, myk pad og rund bass i F-dur (88 BPM),
+   myke lydeffekter, og naturlyder (fuglekvitter/vind om dagen,
+   sirisser/ugle om kvelden). Felles etterklang og en begrenser
+   (kompressor) på slutten hindrer klipping når mange lyder overlapper.
    ============================================================ */
 const Sound = (() => {
-  let ac = null, master, sfxGain, musGain, musFilter;
+  let ac = null, master, sfxGain, musGain, musFilter, ambGain, reverb, musSend, sfxSend, noiseBuf;
   let sfxMuted = store.get('pf.muted') === '1';
   let musMuted = store.get('pf.music') === '1';
+  let night = false;
+  const MUS_VOL = 0.5, AMB_VOL = 0.55;
   const midi = n => 440 * Math.pow(2, (n - 69) / 12);
 
+  // syntetisk romklang: stereo støy som dør ut eksponentielt (~2 s), litt mørkere mot slutten
+  function makeReverb() {
+    const len = Math.floor(ac.sampleRate * 2.2), buf = ac.createBuffer(2, len, ac.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch); let lp = 0;
+      for (let i = 0; i < len; i++) { const t = i / len; lp += ((Math.random() * 2 - 1) - lp) * (0.9 - t * 0.6); d[i] = lp * Math.pow(1 - t, 3.2); }
+    }
+    const c = ac.createConvolver(); c.buffer = buf; return c;
+  }
   function ensure() {
     if (!ac) {
       ac = new (window.AudioContext || window.webkitAudioContext)();
-      master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination);
+      const limiter = ac.createDynamicsCompressor();
+      limiter.threshold.value = -10; limiter.knee.value = 6; limiter.ratio.value = 12; limiter.attack.value = 0.003; limiter.release.value = 0.2;
+      master = ac.createGain(); master.gain.value = 1; master.connect(limiter).connect(ac.destination);
+      reverb = makeReverb(); const wet = ac.createGain(); wet.gain.value = 0.5; reverb.connect(wet).connect(master);
       sfxGain = ac.createGain(); sfxGain.gain.value = sfxMuted ? 0 : 1; sfxGain.connect(master);
-      musFilter = ac.createBiquadFilter(); musFilter.type = 'lowpass'; musFilter.frequency.value = 900; musFilter.Q.value = 0.7;
-      musGain = ac.createGain(); musGain.gain.value = musMuted ? 0 : 0.55;
+      sfxSend = ac.createGain(); sfxSend.gain.value = 0.18; sfxGain.connect(sfxSend).connect(reverb);
+      musFilter = ac.createBiquadFilter(); musFilter.type = 'lowpass'; musFilter.frequency.value = 2400; musFilter.Q.value = 0.5;
+      musGain = ac.createGain(); musGain.gain.value = musMuted ? 0 : MUS_VOL;
       musGain.connect(musFilter).connect(master);
-      Music.init();
+      musSend = ac.createGain(); musSend.gain.value = 0.35; musFilter.connect(musSend).connect(reverb);
+      ambGain = ac.createGain(); ambGain.gain.value = musMuted ? 0 : AMB_VOL; ambGain.connect(master);
+      const as = ac.createGain(); as.gain.value = 0.3; ambGain.connect(as).connect(reverb);
+      noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+      const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+      Ambience.start();
     }
     if (ac.state === 'suspended') ac.resume();
   }
-  // generiske stemmer
-  function voice(dest, freq, t0, dur, type, vol, opts = {}) {
+
+  /* ---------- Instrumenter ---------- */
+  // enkel stemme med attack/decay-kurve (eksponentiell, ingen klikk)
+  function tone(dest, freq, t0, dur, type, vol, { attack = 0.005, slide = 0, lp = 0, pan = 0 } = {}) {
     const o = ac.createOscillator(), g = ac.createGain();
     o.type = type; o.frequency.setValueAtTime(freq, t0);
-    if (opts.slide) o.frequency.exponentialRampToValueAtTime(opts.slide, t0 + dur);
-    const a = opts.attack || 0.005, r = opts.release || dur * 0.6;
-    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + a);
-    g.gain.setValueAtTime(vol, Math.max(t0 + a, t0 + dur - r)); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     let node = o;
-    if (opts.lp) { const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = opts.lp; o.connect(f); node = f; }
-    node.connect(g).connect(dest); o.start(t0); o.stop(t0 + dur + 0.02);
+    if (lp) { const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; node.connect(f); node = f; }
+    if (pan) { const p = ac.createStereoPanner(); p.pan.value = pan; node.connect(p); node = p; }
+    node.connect(g).connect(dest); o.start(t0); o.stop(t0 + dur + 0.05);
   }
-  function noise(dest, t0, dur, vol, hp = 3000, lp = 12000) {
-    const n = Math.floor(ac.sampleRate * dur), buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2);
-    const s = ac.createBufferSource(), h = ac.createBiquadFilter(), l = ac.createBiquadFilter(), g = ac.createGain();
-    s.buffer = buf; h.type = 'highpass'; h.frequency.value = hp; l.type = 'lowpass'; l.frequency.value = lp; g.gain.value = vol;
-    s.connect(h).connect(l).connect(g).connect(dest); s.start(t0);
+  // spilledåse/kalimba: grunntone + svakere overtoner som dør raskere ut
+  function musicBox(dest, freq, t0, vol, dur = 1.5, pan = 0) {
+    tone(dest, freq, t0, dur, 'sine', vol, { attack: 0.004, pan });
+    tone(dest, freq * 2.003, t0, dur * 0.45, 'sine', vol * 0.28, { attack: 0.003, pan });
+    tone(dest, freq * 4.21, t0, dur * 0.14, 'sine', vol * 0.1, { attack: 0.002, pan });
   }
-  function kick(t0) {
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.type = 'sine'; o.frequency.setValueAtTime(150, t0); o.frequency.exponentialRampToValueAtTime(42, t0 + 0.12);
-    g.gain.setValueAtTime(0.7, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
-    o.connect(g).connect(musGain); o.start(t0); o.stop(t0 + 0.22);
+  // myk pad: to svakt forstemte triangelbølger per tone, langsom inn/ut
+  function pad(dest, notes, t0, dur, vol) {
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900; f.Q.value = 0.3;
+    const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.7); g.gain.setValueAtTime(vol, t0 + dur - 0.6);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.4);
+    f.connect(g).connect(dest);
+    for (const n of notes) for (const det of [-5, 5]) {
+      const o = ac.createOscillator(); o.type = 'triangle'; o.frequency.value = midi(n); o.detune.value = det;
+      o.connect(f); o.start(t0); o.stop(t0 + dur + 0.5);
+    }
+  }
+  function noise(dest, t0, dur, vol, { hp = 0, lp = 0, bp = 0, q = 1, sweep = 0, pan = 0 } = {}) {
+    const s = ac.createBufferSource(); s.buffer = noiseBuf; s.playbackRate.value = 1;
+    const g = ac.createGain(); let node = s;
+    const filt = (type, f) => { const b = ac.createBiquadFilter(); b.type = type; b.frequency.setValueAtTime(f, t0); b.Q.value = q; node.connect(b); node = b; return b; };
+    if (hp) filt('highpass', hp);
+    if (lp) filt('lowpass', lp);
+    if (bp) { const b = filt('bandpass', bp); if (sweep) b.frequency.exponentialRampToValueAtTime(sweep, t0 + dur); }
+    if (pan) { const p = ac.createStereoPanner(); p.pan.value = pan; node.connect(p); node = p; }
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + Math.min(0.01, dur * 0.3));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    node.connect(g).connect(dest);
+    s.start(t0, Math.random() * 1.5); s.stop(t0 + dur + 0.05);
   }
 
-  /* ---------- Sequencer: 8 takter, 128 BPM, C-dur ---------- */
+  /* ---------- Musikk: 8 takter i F-dur, 88 BPM, svak swing ---------- */
   const Music = (() => {
-    const BPM = 128, STEPS = 64;           // 8 takter × 8 åttendedeler
-    const eighth = 60 / BPM / 2;
-    // Akkorder per takt: C  G  Am  F  C  G  F  G
-    const CHORDS = [[48, 52, 55], [43, 47, 50], [45, 48, 52], [41, 45, 48], [48, 52, 55], [43, 47, 50], [41, 45, 48], [43, 47, 50]];
-    const BASS = [48, 48, 55, 48,  43, 43, 50, 43,  45, 45, 52, 45,  41, 41, 48, 41,  48, 48, 55, 48,  43, 43, 50, 43,  41, 41, 48, 41,  43, 47, 50, 55];
-    // Lead (0 = pause), to fraser à 4 takter
+    const BPM = 88, STEPS = 64, eighth = 60 / BPM / 2, SWING = 0.16;
+    // Fmaj7 – Dm7 – B♭maj7 – Csus4 | Fmaj7 – Am7 – B♭add9 – C7
+    const CHORDS = [[53, 57, 60, 64], [50, 57, 60, 65], [46, 53, 57, 62], [48, 53, 55, 60], [53, 57, 60, 64], [45, 52, 55, 60], [46, 53, 57, 60], [48, 52, 55, 58]];
+    const ROOTS = [41, 38, 46, 48, 41, 45, 46, 48];
+    // melodi for spilledåse (0 = pause), to fraser à 4 takter
     const LEAD = [
-      72, 0, 76, 79, 76, 72, 79, 0,   74, 0, 79, 74, 71, 74, 79, 0,   69, 0, 72, 76, 72, 69, 76, 0,   77, 76, 74, 72, 74, 0, 0, 0,
-      72, 0, 76, 79, 81, 79, 76, 72,  74, 0, 79, 83, 81, 79, 74, 0,   69, 72, 76, 81, 79, 76, 72, 69, 77, 79, 81, 83, 84, 0, 0, 0
+      81, 0, 84, 0, 81, 79, 77, 0,   74, 0, 77, 0, 81, 0, 79, 0,   77, 0, 74, 0, 77, 79, 81, 0,   79, 0, 0, 0, 72, 0, 0, 0,
+      81, 0, 84, 0, 86, 0, 84, 81,   84, 0, 81, 0, 79, 0, 76, 0,   77, 0, 74, 77, 81, 0, 79, 77,  79, 0, 0, 0, 0, 0, 0, 0
     ];
-    const KICK  = [1, 0, 0, 0, 1, 0, 1, 0];
-    const SNARE = [0, 0, 1, 0, 0, 0, 1, 0];
-    let step = 0, nextTime = 0, timer = null, playing = false, mode = 'menu', energy = 0;
+    let step = 0, nextTime = 0, timer = null, playing = false, mode = 'menu';
 
     function schedule(i, t) {
-      const bar = (i >> 3) % 8, sub = i & 7;
-      const chord = CHORDS[bar];
-      // bass – triangel, hver åttendedel i to-noters puls
-      const b = BASS[(i >> 1) % 32];
-      voice(musGain, midi(b), t, eighth * 0.9, 'triangle', 0.32, { lp: 800, release: eighth * 0.4 });
-      // arpeggio-pad – myk sag
-      const an = chord[(sub + (bar & 1)) % 3] + 12 + (sub >= 4 ? 12 : 0);
-      voice(musGain, midi(an), t, eighth * 0.85, 'sawtooth', 0.045, { lp: 1800, attack: 0.02, release: eighth * 0.5 });
-      // lead – pulsbølge lengre nede i miksen
+      const bar = (i >> 3) % 8, sub = i & 7, play = mode === 'play';
+      if (sub & 1) t += eighth * SWING;   // lett swing på åttendedelene
+      if (sub === 0) pad(musGain, CHORDS[bar], t, eighth * 8, night ? 0.05 : 0.04);
+      // melodi: full i spill, bare på slagene i menyen; en oktav lavere og roligere om kvelden
       const ln = LEAD[i % STEPS];
-      if (ln) {
-        voice(musGain, midi(ln), t, eighth * 0.95, 'square', 0.085, { lp: 2600, release: eighth * 0.35 });
-        voice(musGain, midi(ln) * 1.003, t + 0.012, eighth * 0.9, 'triangle', 0.05, { release: eighth * 0.35 }); // lett chorus
-      }
-      // trommer bare i "play"-modus
-      if (mode === 'play') {
-        if (KICK[sub]) kick(t);
-        if (SNARE[sub]) noise(musGain, t, 0.12, 0.28, 1500, 7000);
-        noise(musGain, t, 0.03, sub & 1 ? 0.06 : 0.1, 6000, 14000); // hi-hat
+      if (ln && (play || sub % 2 === 0)) musicBox(musGain, midi(ln - (night ? 12 : 0)), t, play ? 0.13 : 0.1, night ? 2 : 1.5, (sub % 4 - 1.5) * 0.12);
+      if (play) {
+        if (sub === 0 || sub === 4) tone(musGain, midi(ROOTS[bar]), t, eighth * 3.2, 'triangle', 0.22, { attack: 0.01, lp: 520 });
+        if (sub === 3 || sub === 7) musicBox(musGain, midi(CHORDS[bar][(bar + sub) % 4] + 24), t, 0.035, 0.9, sub === 3 ? -0.4 : 0.4);   // kalimba-glimt
+        if (!night) {
+          noise(musGain, t, 0.05, sub & 1 ? 0.035 : 0.055, { hp: 5500, pan: 0.25 });   // myk shaker
+          if (sub === 0 || sub === 4) tone(musGain, 110, t, 0.2, 'sine', 0.22, { slide: 52 });   // rolig «hjerteslag»
+        }
       }
     }
     function tick() {
-      while (nextTime < ac.currentTime + 0.15) { schedule(step, nextTime); step++; nextTime += eighth; }
+      while (nextTime < ac.currentTime + 0.2) { schedule(step, nextTime); step++; nextTime += eighth; }
+      Ambience.tick();
     }
     return {
-      init() {},
-      start() { if (playing || !ac) return; playing = true; step = 0; nextTime = ac.currentTime + 0.05; timer = setInterval(tick, 40); },
+      start() { if (playing || !ac) return; playing = true; step = 0; nextTime = ac.currentTime + 0.08; timer = setInterval(tick, 40); },
       stop() { playing = false; clearInterval(timer); timer = null; },
       setMode(m) {
         mode = m; if (!ac) return;
-        const t = ac.currentTime;
-        musFilter.frequency.cancelScheduledValues(t);
-        musFilter.frequency.setTargetAtTime(m === 'play' ? 9000 : 900, t, 0.35);
+        musFilter.frequency.cancelScheduledValues(ac.currentTime);
+        musFilter.frequency.setTargetAtTime(m === 'play' ? 7000 : 2400, ac.currentTime, 0.35);
       },
-      slowmo(on) { if (!ac) return; musFilter.frequency.setTargetAtTime(on ? 500 : (mode === 'play' ? 9000 : 900), ac.currentTime, 0.25); },
+      slowmo(on) { if (ac) musFilter.frequency.setTargetAtTime(on ? 700 : (mode === 'play' ? 7000 : 2400), ac.currentTime, 0.25); },
       get playing() { return playing; }
     };
   })();
 
+  /* ---------- Naturlyder ---------- */
+  const Ambience = (() => {
+    let windGain = null, nextBird = 0, nextCricket = 0, nextOwl = 0;
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    function bird(t) {   // en liten kvitrefrase: 2–4 raske glidetoner, tilfeldig plassert i stereo
+      const pan = rnd(-0.7, 0.7), n = 2 + ((Math.random() * 3) | 0), base = rnd(2600, 3600);
+      for (let k = 0; k < n; k++) {
+        const t0 = t + k * rnd(0.09, 0.14), f = base * rnd(0.9, 1.25);
+        tone(ambGain, f, t0, rnd(0.06, 0.1), 'sine', 0.05, { attack: 0.01, slide: f * rnd(1.15, 1.5), pan });
+      }
+    }
+    function cricket(t) {   // sirisser: korte pulser rundt 4,4 kHz
+      const pan = rnd(-0.8, 0.8), f = rnd(4200, 4700);
+      for (let k = 0; k < 4; k++) tone(ambGain, f, t + k * 0.04, 0.025, 'sine', 0.018, { attack: 0.004, pan });
+    }
+    function owl(t) {   // «hoo … hoo-hoo»
+      const pan = rnd(-0.5, 0.5);
+      [[0, 0.4], [0.62, 0.22], [0.9, 0.38]].forEach(([dt, d]) => tone(ambGain, 392, t + dt, d, 'sine', 0.06, { attack: 0.06, slide: 360, lp: 900, pan }));
+    }
+    return {
+      start() {   // svak vind: støy gjennom båndpass, langsomt pulserende
+        const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+        const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 420; f.Q.value = 0.6;
+        windGain = ac.createGain(); windGain.gain.value = 0.05;
+        const lfo = ac.createOscillator(), depth = ac.createGain(); lfo.frequency.value = 0.09; depth.gain.value = 0.035;
+        lfo.connect(depth).connect(windGain.gain); lfo.start();
+        s.connect(f).connect(windGain).connect(ambGain); s.start();
+        const t = ac.currentTime; nextBird = t + 1.5; nextCricket = t + 1; nextOwl = t + rnd(8, 14);
+        this.setNight(night);
+      },
+      setNight(on) { if (windGain) windGain.gain.setTargetAtTime(on ? 0.03 : 0.05, ac.currentTime, 1); },
+      tick() {
+        const t = ac.currentTime + 0.1;
+        if (!night && t > nextBird) { bird(t); nextBird = t + rnd(3, 8); }
+        if (night && t > nextCricket) { cricket(t); nextCricket = t + rnd(0.8, 2.2); }
+        if (night && t > nextOwl) { owl(t); nextOwl = t + rnd(18, 32); }
+      }
+    };
+  })();
+
+  /* ---------- Lydeffekter ---------- */
+  const SCALE = [0, 2, 4, 7, 9, 12, 14, 16];   // pentaton (F-dur): poengtonen stiger for hvert poeng på rad
+  const now = () => ac.currentTime;
   return {
     unlock() { ensure(); if (!Music.playing) Music.start(); },
     // i bakgrunnen: stopp lydklokka helt (sekvenseren står da stille, ac.currentTime fryses)
     suspend() { if (ac && ac.state === 'running') ac.suspend(); },
     resume() { if (ac && ac.state === 'suspended') ac.resume(); },
+    setNight(on) { night = on; if (ac) Ambience.setNight(on); },
     music: Music,
-    flap() { if (!ac) return; voice(sfxGain, 540, ac.currentTime, 0.09, 'triangle', 0.18, { slide: 860 }); },
-    point() { if (!ac) return; const t = ac.currentTime; voice(sfxGain, 880, t, 0.07, 'sine', 0.18); voice(sfxGain, 1320, t + 0.07, 0.14, 'sine', 0.18); },
-    power() { if (!ac) return; const t = ac.currentTime; [660, 990, 1320].forEach((f, i) => voice(sfxGain, f, t + i * 0.08, 0.16, 'triangle', 0.16)); },
-    shieldPop() { if (!ac) return; noise(sfxGain, ac.currentTime, 0.12, 0.2, 1000, 5000); voice(sfxGain, 1200, ac.currentTime, 0.2, 'sine', 0.14, { slide: 300 }); },
-    hit() { if (!ac) return; noise(sfxGain, ac.currentTime, 0.2, 0.4, 100, 1200); voice(sfxGain, 160, ac.currentTime, 0.22, 'sawtooth', 0.16, { slide: 60 }); },
-    die() { if (!ac) return; voice(sfxGain, 440, ac.currentTime + 0.15, 0.5, 'triangle', 0.14, { slide: 110 }); },
-    thud() { if (!ac) return; noise(sfxGain, ac.currentTime, 0.1, 0.3, 60, 500); },
-    sting() { if (!ac) return; const t = ac.currentTime; [67, 63, 60, 55].forEach((n, i) => voice(musGain, midi(n), t + i * 0.16, 0.3, 'square', 0.1, { lp: 2000 })); },
-    swoosh() { if (!ac) return; noise(sfxGain, ac.currentTime, 0.16, 0.1, 1500, 6000); },
-    tick() { if (!ac) return; voice(sfxGain, 1500, ac.currentTime, 0.03, 'square', 0.05); },
+    flap() {   // mykt «fwip»: båndpass-støy som glir oppover + et lite pust
+      if (!ac) return; const t = now();
+      noise(sfxGain, t, 0.11, 0.22, { bp: 700, sweep: 2600, q: 1.2 });
+      tone(sfxGain, 260, t, 0.09, 'sine', 0.08, { slide: 380 });
+    },
+    point(combo = 0) {   // bjelle/xylofon som stiger i skala
+      if (!ac) return; const t = now(), n = 77 + SCALE[combo % SCALE.length];
+      musicBox(sfxGain, midi(n), t, 0.2, 0.9);
+      tone(sfxGain, midi(n) * 2.76, t, 0.12, 'sine', 0.035);
+    },
+    fanfare() {   // liten spilledåse-arpeggio (hvert 10. poeng og ny rekord)
+      if (!ac) return; const t = now();
+      [77, 81, 84, 89].forEach((n, i) => musicBox(sfxGain, midi(n), t + i * 0.09, 0.15, 1.2, (i - 1.5) * 0.2));
+    },
+    power() { if (!ac) return; const t = now(); [84, 88, 91, 96].forEach((n, i) => musicBox(sfxGain, midi(n), t + i * 0.06, 0.13, 0.8)); },
+    shieldPop() {   // såpeboblen sier «plopp»
+      if (!ac) return; const t = now();
+      tone(sfxGain, 520, t, 0.12, 'sine', 0.3, { slide: 1250 });
+      noise(sfxGain, t, 0.04, 0.12, { bp: 3000, q: 2 });
+    },
+    hit() {   // tegneserie-«bonk»: hult tre-dunk + en liten fjær-«boing»
+      if (!ac) return; const t = now();
+      tone(sfxGain, 420, t, 0.16, 'triangle', 0.32, { slide: 190, lp: 1600 });
+      noise(sfxGain, t, 0.06, 0.18, { bp: 900, q: 3 });
+      const o = ac.createOscillator(), g = ac.createGain(), v = ac.createOscillator(), vd = ac.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(330, t + 0.05); o.frequency.exponentialRampToValueAtTime(210, t + 0.45);
+      v.frequency.value = 22; vd.gain.setValueAtTime(40, t + 0.05); vd.gain.exponentialRampToValueAtTime(2, t + 0.45);
+      v.connect(vd).connect(o.frequency);
+      g.gain.setValueAtTime(0.0001, t + 0.05); g.gain.exponentialRampToValueAtTime(0.14, t + 0.07); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.47);
+      o.connect(g).connect(sfxGain); o.start(t + 0.05); v.start(t + 0.05); o.stop(t + 0.5); v.stop(t + 0.5);
+    },
+    die() { if (!ac) return; const t = now() + 0.18; musicBox(sfxGain, midi(81), t, 0.12, 0.6); musicBox(sfxGain, midi(77), t + 0.16, 0.12, 0.9); },   // «å-nei»
+    thud() { if (!ac) return; const t = now(); tone(sfxGain, 150, t, 0.16, 'sine', 0.3, { slide: 70 }); noise(sfxGain, t, 0.09, 0.14, { lp: 600 }); },   // mykt «plopp»
+    sting() {   // liten «å nei»-melodi i dur som ender med et sukk
+      if (!ac) return; const t = now() + 0.25;
+      [[84, 0], [81, 0.2], [77, 0.4], [79, 0.75], [77, 1.0]].forEach(([n, dt]) => musicBox(musGain, midi(n), t + dt, 0.12, 1.4));
+    },
+    swoosh() { if (!ac) return; noise(sfxGain, now(), 0.22, 0.07, { bp: 600, sweep: 1800, q: 0.7 }); },
+    tick() { if (!ac) return; const t = now(); noise(sfxGain, t, 0.025, 0.12, { bp: 2400, q: 4 }); tone(sfxGain, 1250, t, 0.04, 'sine', 0.04); },   // mykt treklikk
+    count() { if (!ac) return; tone(sfxGain, 1500, now(), 0.035, 'sine', 0.03); },   // poengtelling på game over
     toggleSfx() { sfxMuted = !sfxMuted; store.set('pf.muted', sfxMuted ? '1' : '0'); if (sfxGain) sfxGain.gain.setTargetAtTime(sfxMuted ? 0 : 1, ac.currentTime, 0.02); },
-    toggleMusic() { musMuted = !musMuted; store.set('pf.music', musMuted ? '1' : '0'); if (musGain) musGain.gain.setTargetAtTime(musMuted ? 0 : 0.55, ac.currentTime, 0.1); },
+    toggleMusic() {
+      musMuted = !musMuted; store.set('pf.music', musMuted ? '1' : '0');
+      if (musGain) { musGain.gain.setTargetAtTime(musMuted ? 0 : MUS_VOL, ac.currentTime, 0.1); ambGain.gain.setTargetAtTime(musMuted ? 0 : AMB_VOL, ac.currentTime, 0.1); }
+    },
     get sfxMuted() { return sfxMuted; }, get musMuted() { return musMuted; }
   };
 })();
@@ -262,7 +373,11 @@ let dpr = 1, scale = 1, W = LOGICAL_W, H = 560, safeTop = 0;
 /* ---------- Tilstand ---------- */
 const State = { MENU: 0, READY: 1, PLAY: 2, DEAD: 3, OVER: 4 };
 let state = State.MENU;
-let score = 0, time = 0, scorePop = 0;
+let score = 0, time = 0, scoreT = -9;           // scoreT: tidspunkt for siste poeng (driver «sprett» på tallet)
+let combo = 0, overShown = 0, overTitle = 'Å nei!', celebrated = false;
+let press = { key: null, t: -9 };                // sist trykte knapp (klem-animasjon)
+const easeOutCubic = k => 1 - Math.pow(1 - k, 3);
+const easeOutBack = k => 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);
 let scroll = 0, prevScroll = 0;      // total avstand rullet (px) – driver alle parallakse-lag
 let bird, pipes = [], particles = [], powers = [], floats = [], dust = [], stars = [], clouds = [];
 let overT = 0, transitionT = 0, newBest = false, groundBounced = false;
@@ -297,6 +412,7 @@ function resetBird() {
 function resetRun() {
   resetBird(); pipes = []; particles = []; powers = []; floats = []; score = 0;
   active = { shield: false, slow: 0, double: 0 }; timeScale = 1; paused = false; resumeT = 0; grace = 0;
+  combo = 0; overShown = 0; celebrated = false;
 }
 function goMenu() { state = State.MENU; resetRun(); transitionT = 1; Sound.music.setMode('menu'); }
 function goReady() {
@@ -381,7 +497,7 @@ function onPointer(e) {
   const x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
   for (const k in hud) {
     const b = hud[k];
-    if (x >= b.x - 4 && x <= b.x + b.w + 4 && y >= b.y - 4 && y <= b.y + b.h + 4) { Sound.unlock(); b.fn(); Sound.tick(); buzz(6); return; }
+    if (x >= b.x - 4 && x <= b.x + b.w + 4 && y >= b.y - 4 && y <= b.y + b.h + 4) { press = { key: k, t: time }; Sound.unlock(); b.fn(); Sound.tick(); buzz(6); return; }
   }
   flap();
 }
@@ -404,7 +520,7 @@ function setDiff(name) { diffName = name; D = DIFFS[name]; store.set('pf.diff', 
 function toggleTheme() {
   themeName = themeName === 'day' ? 'night' : 'day'; T = THEMES[themeName]; store.set('pf.theme', themeName);
   document.querySelector('meta[name=theme-color]').content = T.skyTop; document.documentElement.style.setProperty('--sky', T.skyTop);
-  buildScene(); initAmbient();
+  buildScene(); initAmbient(); Sound.setNight(T.night);
 }
 
 /* ---------- Kollisjon: sirkel mot avrundet rektangel ---------- */
@@ -512,9 +628,8 @@ function update(dt) {
   const scrolling = state !== State.DEAD && state !== State.OVER;
   if (scrolling) scroll += D.speed * gdt;
 
-  transitionT = Math.max(0, transitionT - dt * 3.5);
+  transitionT = Math.max(0, transitionT - dt * 2.4);
   fx.t += dt; fx.tint = Math.max(0, fx.tint - dt * 2.2);
-  scorePop = Math.max(0, scorePop - dt * 5);
   animateBird(dt);
 
   const groundY = H - GROUND_H, idleY = groundY * 0.42;
@@ -569,9 +684,13 @@ function update(dt) {
 
     for (const p of pipes) {
       if (!p.scored && p.x + PIPE_W / 2 < bird.x) {
-        p.scored = true; p.glow = 1; scorePop = 1;
-        const gain = active.double > 0 ? 2 : 1; score += gain;
-        Sound.point(); buzz(12); bird.happy = 0.45;
+        p.scored = true; p.glow = 1; scoreT = time;
+        const gain = active.double > 0 ? 2 : 1, before = score; score += gain;
+        Sound.point(combo++); buzz(12); bird.happy = 0.45;
+        if (Math.floor(score / 10) > Math.floor(before / 10)) {   // milepæl hvert 10. poeng: liten fanfare
+          Sound.fanfare(); floatText(bird.x + 12, bird.y - 34, `${Math.floor(score / 10) * 10}!`, '#FFD27A', 18, { stroke: true, life: 1.1, vy: -30 });
+          burst(bird.x + 10, bird.y - 10, 10, ['#FFD45C', '#FFF1C4', '#FF9EB5'], 140, 0.8, 120, 2.6, { shape: 'star', spin: 6 });
+        }
         burst(bird.x + 14, bird.y - 4, 5, ['#FFD45C', '#FFF1C4'], 80, 0.55, 120, 2.4, { shape: 'star', spin: 6 });
         burst(bird.x + 10, bird.y - 8, 2, ['#FF9EB5'], 60, 0.6, 60, 2.2, { shape: 'heart' });
         if (gain === 2) floatText(bird.x + 4, bird.y - 22, '+2', '#FFD27A', 14, { stroke: true });
@@ -601,6 +720,10 @@ function update(dt) {
   }
   if (state === State.OVER) {
     overT = Math.min(3, overT + dt);
+    // poengene telles opp med små klikk; ny rekord feires med blomsterkonfetti når tallet er framme
+    const shown = Math.min(score, Math.floor(Math.max(0, overT - 0.55) * 30));
+    if (shown !== overShown) { overShown = shown; Sound.count(); }
+    if (newBest && !celebrated && overShown === score) { celebrated = true; Sound.fanfare(); confetti(); }
     // fuglen setter seg: rotasjon og «gelé»-klem fjærer tilbake, og den sitter på føttene
     bird.angVel += (-bird.rot * 90 - bird.angVel * 10) * dt; bird.rot += bird.angVel * dt;
     bird.sv += ((1 - bird.sy) * 220 - bird.sv * 9) * dt; bird.sy += bird.sv * dt; bird.sx = 2 - bird.sy;
@@ -640,6 +763,7 @@ function die(onGround, p) {
   Sound.hit(); if (!onGround) Sound.die();
   buzz([40, 20, 60]); addTint(1, '255,110,90');
   active = { shield: false, slow: 0, double: 0 }; grace = 0;
+  overTitle = newBest ? 'Ny rekord!' : ['Å nei!', 'Oi da!', 'Uff da!'][(Math.random() * 3) | 0];
   burst(bird.x + 6, bird.y - 6, 6, ['#FFD45C', '#FFF1C4'], 110, 0.6, 200, 2.6, { shape: 'star', spin: 8 });
   feathers(bird.x, bird.y, 3);
   if (onGround) {
@@ -656,6 +780,16 @@ function die(onGround, p) {
     bird.angVel = fromRight ? -4 : 4;
     if (side) { bird.sx = 0.62; bird.sy = 1.3; } else { bird.sx = 1.3; bird.sy = 0.66; }
     addShake(5, fromRight ? -1 : 1, -0.3);
+  }
+}
+// blomsterblader som daler ned over hele skjermen
+function confetti() {
+  const cols = ['#FFC6D6', '#FFFFFF', '#FFE27A', '#D9C6F7', '#FF9EB5'];
+  for (let i = 0; i < 30; i++) {
+    const life = 2.6 + Math.random() * 1.2;
+    particles.push({ x: Math.random() * W, y: safeTop - 10 - Math.random() * 60, vx: (Math.random() - 0.5) * 40, vy: 30 + Math.random() * 40,
+      grav: 25, drag: 0.6, vdrag: 0.9, shape: 'petal', rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 4,
+      c: cols[(Math.random() * cols.length) | 0], r: 2.2 + Math.random() * 1.4, life, max: life });
   }
 }
 // landing etter krasj: fuglen blir sittende oppreist og svimmel (ikke opp-ned)
@@ -1319,6 +1453,11 @@ function drawParticles() {
       ctx.beginPath(); ctx.ellipse(0, 0, q.r * 1.8, q.r * 0.7, 0, 0, 7); ctx.fill();
       ctx.strokeStyle = hexA(BIRD.ink, 0.5); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(-q.r * 1.8, 0); ctx.lineTo(q.r * 1.8, 0); ctx.stroke();
       ctx.restore();
+    } else if (q.shape === 'petal') {
+      const age = q.max - q.life;
+      ctx.globalAlpha = Math.min(1, q.life / 0.6);
+      ctx.save(); ctx.translate(x + Math.sin(age * 3 + q.rot) * 6, y); ctx.rotate(q.rot);
+      ctx.beginPath(); ctx.ellipse(0, 0, q.r * 1.5, q.r * 0.8, 0, 0, 7); ctx.fill(); ctx.restore();
     } else circle(ctx, x, y, q.r);
   }
   ctx.globalAlpha = 1;
@@ -1329,11 +1468,15 @@ function drawParticles() {
 function button(key, x, y, w, h, label, fn, opts = {}) {
   const { fill = '#FFD27A', color = '#4A3424', size = 13, active = true } = opts;
   hud[key] = { x, y, w, h, fn };
+  const pk = press.key === key ? (time - press.t) / 0.22 : 1;   // kort klem ved trykk
+  ctx.save();
+  if (pk < 1 && !reduceMotion) { const s = 1 - 0.08 * Math.sin(Math.PI * pk); ctx.translate(x + w / 2, y + h / 2); ctx.scale(s, s); ctx.translate(-x - w / 2, -y - h / 2); }
   ctx.fillStyle = hexA(UI_INK, 0.25); rr(x, y + 3, w, h, h / 2); ctx.fill();
   ctx.fillStyle = active ? fill : 'rgba(255,248,236,.6)'; rr(x, y, w, h, h / 2); ctx.fill();
   if (active) { ctx.fillStyle = 'rgba(255,255,255,.35)'; rr(x + 5, y + 3, w - 10, h * 0.36, h / 2); ctx.fill(); }
   ctx.strokeStyle = active ? UI_INK : hexA(UI_INK, 0.45); ctx.lineWidth = 1.6; rr(x, y, w, h, h / 2); ctx.stroke();
   text(label, x + w / 2, y + h / 2 + 0.5, size, { color: active ? color : hexA(UI_INK, 0.75), shadow: false, weight: 600 });
+  ctx.restore();
 }
 // kremfarget panel med «strikkesøm» innenfor kanten
 function panel(x, y, w, h) {
@@ -1458,26 +1601,37 @@ function render() {
   }
 
   if (state === State.PLAY || state === State.DEAD) {
-    const pop = 1 + scorePop * 0.35;
+    const ds = time - scoreT, pop = ds < 0.8 && !reduceMotion ? 1 + 0.45 * Math.exp(-ds * 7) * Math.cos(ds * 22) : 1;
     ctx.save(); ctx.translate(W / 2, topY + 16); ctx.scale(pop, pop); text(String(score), 0, 0, 40, { stroke: true }); ctx.restore();
     drawActiveHud(topY + 46);
     if (state === State.PLAY && !paused) drawPauseButton(W - 46, safeTop + 12, 34);
   }
 
   if (state === State.OVER) {
-    const e = Math.min(1, overT / 0.5), ease = 1 - Math.pow(1 - e, 3);
-    const pw = 236, ph = 132, pxx = (W - pw) / 2, py = groundY * 0.46 - ph / 2 + (1 - ease) * 80;
+    const e = Math.min(1, overT / 0.55), ease = easeOutCubic(e), back = reduceMotion ? ease : easeOutBack(e);
+    const pw = 236, ph = 132, pxx = (W - pw) / 2, py = groundY * 0.46 - ph / 2 + (1 - back) * 80;
     ctx.fillStyle = `rgba(40,28,50,${(0.22 * ease).toFixed(3)})`; ctx.fillRect(0, 0, W, H);   // demp bakgrunnen bak panelet
-    text('Å nei!', W / 2, py - 34 - (1 - ease) * 40, 30, { color: '#FFA28C', stroke: true });
+    const tk = Math.min(1, Math.max(0, (overT - 0.1) / 0.45)), ts = reduceMotion ? 1 : easeOutBack(tk);
+    ctx.save(); ctx.translate(W / 2, py - 34); ctx.scale(ts, ts);
+    text(overTitle, 0, 0, 30, { color: newBest ? '#FFD27A' : '#FFA28C', stroke: true, alpha: Math.min(1, tk * 2) });
+    ctx.restore();
     panel(pxx, py, pw, ph);
-    const m = medalFor(score);
-    if (m) { drawMedal(pxx + 50, py + 64, m); text(m[2], pxx + 50, py + 103, 11, { color: UI_INK, shadow: false, weight: 600 }); }
-    else {
-      drawEgg(pxx + 50, py + 62);
-      text('Nesten!', pxx + 50, py + 101, 11, { color: UI_INK, shadow: false, weight: 600 });
-      text(`${10 - score} til bronse`, pxx + 50, py + 114, 9, { color: '#9A7B5E', shadow: false, weight: 600 });
+    // medaljen (eller egget) snurrer inn når opptellingen er ferdig
+    const mk = Math.min(1, Math.max(0, (overT - 0.55 - score / 30) / 0.45)), ms = reduceMotion ? mk : easeOutBack(mk);
+    const m = medalFor(score), mx = pxx + 50, my = py + 63;
+    if (mk > 0) {
+      ctx.save(); ctx.translate(mx, my); ctx.rotate((1 - mk) * -1.4); ctx.scale(ms, ms); ctx.translate(-mx, -my);
+      if (m) drawMedal(mx, py + 64, m); else drawEgg(mx, py + 62);
+      ctx.restore();
+      ctx.globalAlpha = mk;
+      if (m) text(m[2], mx, py + 103, 11, { color: UI_INK, shadow: false, weight: 600, alpha: mk });
+      else {
+        text('Nesten!', mx, py + 101, 11, { color: UI_INK, shadow: false, weight: 600, alpha: mk });
+        text(`${10 - score} til bronse`, mx, py + 114, 9, { color: '#9A7B5E', shadow: false, weight: 600, alpha: mk });
+      }
+      ctx.globalAlpha = 1;
     }
-    const shown = Math.min(score, Math.floor(Math.max(0, overT - 0.5) * 30));
+    const shown = overShown;
     text('Poeng', pxx + pw - 28, py + 30, 12, { align: 'right', color: '#9A7B5E', shadow: false, weight: 600 });
     text(String(shown), pxx + pw - 28, py + 54, 28, { align: 'right', color: UI_INK, shadow: false });
     text('Beste', pxx + pw - 28, py + 84, 12, { align: 'right', color: '#9A7B5E', shadow: false, weight: 600 });
@@ -1510,7 +1664,14 @@ function render() {
     ctx.fillStyle = tg; ctx.fillRect(0, 0, W, H);
   }
   if (paused) drawPauseOverlay(groundY);
-  if (transitionT > 0) { ctx.fillStyle = `rgba(40,28,50,${transitionT * 0.45})`; ctx.fillRect(0, 0, W, H); }
+  if (transitionT > 0) {   // overgang: en sirkel som åpner seg rundt fuglen (eller en enkel toning ved redusert bevegelse)
+    if (reduceMotion) { ctx.fillStyle = `rgba(40,28,50,${transitionT * 0.45})`; ctx.fillRect(0, 0, W, H); }
+    else {
+      const k = easeOutCubic(1 - transitionT), R = Math.hypot(W, H) * (0.12 + 0.88 * k);
+      ctx.fillStyle = `rgba(40,28,50,${(0.75 * (1 - k * 0.5)).toFixed(3)})`;
+      ctx.beginPath(); ctx.rect(-20, -20, W + 40, H + 40); ctx.arc(ip(bird.px, bird.x), ip(bird.py, bird.y), R, 0, Math.PI * 2); ctx.fill('evenodd');
+    }
+  }
   ctx.restore();
 }
 
@@ -1555,7 +1716,7 @@ if ('serviceWorker' in navigator) window.addEventListener('load', () => navigato
 
 document.documentElement.style.setProperty('--sky', T.skyTop);
 document.querySelector('meta[name=theme-color]').content = T.skyTop;
-resize(); goMenu();
+resize(); goMenu(); Sound.setNight(T.night);
 const start = () => requestAnimationFrame(loop);
 if (document.fonts && document.fonts.load) Promise.all([document.fonts.load("700 20px Fredoka"), document.fonts.load("600 14px Fredoka")]).finally(start); else start();
 </script>
