@@ -8,7 +8,8 @@ fargepalett og flisbredder.
 
 > **Status:** Fase A (signatur og identitet) er gjennomført i v3.6, fase B (variasjon uten
 > gjentakelse) i v3.7, fase G (dybde og kamera, lagt til etter ønske) i v3.8 og fase C (animasjon
-> med intensjon) i v3.9 og fase D (UI i verden og færre klisjeer) i v4.0. Se seksjon 8–12.
+> med intensjon) i v3.9, fase D (UI i verden og færre klisjeer) i v4.0 og fase E (lyd med ekte
+> opptak) i v4.1. Se seksjon 8–13.
 
 > Den første revisjonen ([`REVISJON.md`](REVISJON.md)) handlet om å gjøre spillet *ryddig, mykt og
 > koselig*. Det er gjort. Denne revisjonen spør om noe annet: **ser spillet ut som noe et menneske har
@@ -536,4 +537,49 @@ Tekst på treskiltet har kontrast på minst 4,9:1 (krav 4,5:1).
 | Grafikk: særpreg og originalitet | 8 | **8,5** |
 | **Menneskelig preg** | **7,5** | **8** |
 
-Det som gjenstår fra planen: fase E (lyd med ekte opptak) og fase F (en liten fortelling).
+Det som gjenstår fra planen etter fase D: fase E (lyd med ekte opptak) og fase F (en liten fortelling).
+
+---
+
+## 13. Status: fase E gjennomført (v4.1)
+
+| Tiltak | Hva som ble gjort |
+|---|---|
+| E1 Ekte opptak | Elleve fraser blåmeissang og -kall fra to CC0-opptak på xeno-canto (Frankrike og Tyskland), vind i trær med raslende løv, treknakk, dunk og knirk i tre, et glid over en leketøys-xylofon og én kalimbatone. Alt er klippet, renset for sus og brum og normalisert av `make_audio.py`, som kan kjøres på nytt. Kilder og lisenser står i `audio/KILDER.md`. |
+| E2 Brukt der det betyr noe | Blåmeisen synger fra ulike steder i skogen om dagen (tilfeldig frase, avstand og retning). Vinden er en sømløs sløyfe på 14 s. Treff mot en stamme gir et treknakk, game over-skiltet knirker i tauene, og knappene klikker som tre. Hvert 10. poeng svarer en dempet meis, og ny rekord gir xylofonglid og meisesang. |
+| E3 Kalimba som instrument | Melodien, poengtonene og de små arpeggioene spilles på kalimbaopptaket. Én tone spilles raskere eller langsommere for å gi alle tonehøyder. Nivået er kalibrert mot den gamle syntesen (+0,5 dB på poenglyden, +1 dB i menyen). |
+| E4 Lengre musikk | Formen er A – A' – B – A'' på 32 takter (cirka 87 s mot 22 s før). B er et lavere mellomspill med egne akkorder (B♭maj7 – C – Am7 – Dm9 – Gm7 …). Annenhver runde endres bass og kalimba-glimt. |
+| E5 Bro ved tid på døgnet | Når tiden på døgnet skifter, byttes resten av delen ut med en bro på to takter. Den faller mot kvelden og stiger mot morgenen, med xylofonglid. Deretter fortsetter formen. |
+| E6 Offline og reserve | Opptakene hentes når siden lastes og hurtigbufres av service workeren (v4.1.0). Til sammen er de 273 kB, under rammen på 400 kB. Hver lyd har den syntetiske versjonen som reserve, så spillet høres likt ut som før hvis opptakene ikke kan lastes. |
+
+**Før og etter:**
+
+- [`revisjon-2/fase-e/lydbilde.jpg`](revisjon-2/fase-e/lydbilde.jpg): spektrogram av lyden fra spillet.
+  Før er det rene sinustoner. Etter ses blåmeisens «si-si-sirrr» (4–8 kHz) og kalimbatonene over vinden.
+
+**Verifisering:**
+
+- 35 nye automatiske tester for fase E, blant annet:
+  - filstørrelse, kilder og lisenser
+  - at alle opptak dekodes og brukes der de skal
+  - ingen blåmeis om natten
+  - sløyfeskjøten i vinden
+  - lydnivå mot `main`
+  - reserve uten opptak
+  - musikkens form, toneart og broer
+  - offline fra hurtigbufferen
+  - ingen klipping
+- De eksisterende lydtestene består uendret.
+
+**Det som fortsatt er syntetisk:** flaksingen, såpeboblen, poengklikkene, padden, bassen, sirissene
+og ugla. Kalimbaopptaket er merket som allemannseie (Public Domain Mark) av opphavspersonen selv,
+ikke med CC0; det står i kildelisten.
+
+**Oppdaterte poeng:**
+
+| Område | Etter fase D | Etter fase E |
+|---|:-:|:-:|
+| Lyd og musikk | 6,5 | **8** |
+| **Menneskelig preg** | **8** | **8,5** |
+
+Det som gjenstår fra planen: fase F (en liten fortelling).

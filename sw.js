@@ -1,6 +1,6 @@
 /* Pixelfugl service worker – cache-first for appens egne filer (inkludert den
-   selvhostede fonten). Bump VERSION ved hver utgivelse. */
-const VERSION = 'pixelfugl-v4.0.0';
+   selvhostede fonten og lydopptakene). Bump VERSION ved hver utgivelse. */
+const VERSION = 'pixelfugl-v4.1.0';
 const CORE = [
   './',
   './index.html',
@@ -14,7 +14,12 @@ const CORE = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
-  './icons/apple-touch-icon.png'
+  './icons/apple-touch-icon.png',
+  './audio/meis.mp3',
+  './audio/vind.mp3',
+  './audio/tre.mp3',
+  './audio/kalimba.mp3',
+  './audio/xylofon.mp3'
 ];
 
 self.addEventListener('install', e => {
