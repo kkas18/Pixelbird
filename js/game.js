@@ -208,15 +208,20 @@ function scarfStep(dt) {
   if (!bird.scarf) bird.scarf = [4.4, 3.7].map(len => ({ len, pts: Array.from({ length: 4 }, (_, i) => ({ x: bird.x - 9 - i * len, y: bird.y + 5, ox: bird.x - 9 - i * len, oy: bird.y + 5 })) }));
   const a = scarfAnchor(bird.x, bird.y, bird.rot, bird.sx, bird.sy);
   const airX = state === State.DEAD || state === State.OVER ? 0 : -D.speed * timeScale;
+  // stoffet følger kroppen delvis (mest nær knuten): uten dette slenger kjeden fram som en pendel ved hvert flaks
+  const pa = bird.scarfA || a, mdx = a.x - pa.x, mdy = a.y - pa.y; bird.scarfA = a;
   bird.scarf.forEach((tail, ti) => {
     let prev = a;
     tail.pts.forEach((pt, i) => {
+      const follow = 0.75 - i * 0.15;
+      pt.x += mdx * follow; pt.ox += mdx * follow; pt.y += mdy * follow; pt.oy += mdy * follow;
       const vx = (pt.x - pt.ox) / dt, vy = (pt.y - pt.oy) / dt;
-      const ax = (airX - vx) * 6, ay = 300 - vy * 1.5 + Math.sin(time * 17 + i * 1.3 + ti * 2) * 90;
+      const ax = (airX - vx) * 11, ay = 210 - vy * 3 + Math.sin(time * 17 + i * 1.3 + ti * 2) * 70;   // lett stoff: vinden dominerer over tyngden
       pt.ox = pt.x; pt.oy = pt.y;
       pt.x += vx * dt + ax * dt * dt; pt.y += vy * dt + ay * dt * dt;
       const dx = pt.x - prev.x, dy = pt.y - prev.y, d = Math.hypot(dx, dy) || 1;
       pt.x = prev.x + dx / d * tail.len; pt.y = prev.y + dy / d * tail.len;
+      if (pt.x > a.x + 1) pt.x = lerp(pt.x, a.x + 1, 0.5);   // myk grense: snippene legger seg aldri fram foran knuten
       prev = pt;
     });
   });
