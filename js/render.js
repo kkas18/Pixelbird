@@ -935,7 +935,10 @@ function drawSky(groundY) {
   ctx.drawImage(scene.sky.c, 0, 0, scene.sky.w, scene.sky.h);
   if (T.night) {
     ctx.fillStyle = '#FFF3D6';
-    for (const s of stars) { ctx.globalAlpha = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(time * 2 + s.p)); circle(ctx, s.x, s.y, s.r); }
+    for (const s of stars) {   // de fleste lyser jevnt; en og annen blinker kort (ikke alle i takt)
+      const per = 5 + (s.p % 1) * 6, k = ((time + s.p * 3) % per) / 0.45;
+      ctx.globalAlpha = (0.55 + 0.35 * (s.p % 0.7)) * (k < 1 && !reduceMotion ? 1 - 0.75 * Math.sin(Math.PI * k) : 1); circle(ctx, s.x, s.y, s.r);
+    }
     ctx.globalAlpha = 1;
     const ph = (time % 13) / 13;   // stjerneskudd av og til
     if (ph < 0.06 && !reduceMotion) {
@@ -961,22 +964,21 @@ function drawSky(groundY) {
   // skyer (to lag) og luftballong
   for (const c of clouds) {
     const x = wrap(c.x - viewScroll * c.sp - time * c.drift, W + 260) - 130, S = scene.clouds[c.v];   // margen er bredere enn den største skyen, så ingen sky forsvinner synlig
-    const bob = reduceMotion ? 0 : Math.sin(time * 0.35 + c.x * 0.05) * 2;   // skyene svever rolig opp og ned
+    const bob = 0;   // skyene driver jevnt; de vugger ikke
     const k = c.s, pad = S.pad * k;   // skyene ligger langt unna: følger kameraet nesten fullt
     ctx.globalAlpha = c.far ? 0.8 : 1; blitWhole(S, x - pad, c.y + bob + camShift(c.far ? 0.03 : 0.07) - pad, S.w * k, S.h * k);
   }
   ctx.globalAlpha = 1;
-  if (groundY - safeTop > 400) {
-    const B = scene.balloon, bx = wrap(W * 0.25 - viewScroll * 0.02 - time * 4, W + 120) - 60, by = safeTop + 58 + Math.sin(time * 0.6) * 5;
-    ctx.drawImage(B.c, bx, by, B.w, B.h);
-  }
-  if (!T.night) {   // en liten fugleflokk krysser himmelen innimellom
-    const ph = (time % 26) / 26;
-    if (ph < 0.55) {
-      const x0 = W + 30 - ph / 0.55 * (W + 90), y0 = safeTop + 150;
+  const bp = balloonPos();   // stiger og synker i rolige trinn med pauser (som i termikk)
+  if (bp) { const B = scene.balloon; ctx.drawImage(B.c, bp.x, bp.y + camShift(0.02), B.w, B.h); }
+  const fp = flockPos();   // en liten fugleflokk krysser himmelen innimellom: flakser i støt og glir imellom
+  if (fp) {
+    const x0 = fp.x, y0 = fp.y + camShift(0.05);
+    {
       ctx.strokeStyle = hexA(T.ink, 0.55); ctx.lineWidth = 1.2; ctx.lineCap = 'round';
       [[0, 0], [12, -6], [22, 4]].forEach(([dx, dy], i) => {
-        const f = Math.sin(time * 9 + i) * 2.2, x = x0 + dx, y = y0 + dy + Math.sin(time * 1.5 + i) * 2;
+        const ph2 = (time * 0.8 + i * 0.23) % 1.7, flapping = ph2 < 0.65 && !reduceMotion;
+        const f = flapping ? Math.sin(ph2 * 30) * 2.4 : 0.5, x = x0 + dx, y = y0 + dy + (flapping ? 0 : (ph2 - 0.65) * 1.6);
         ctx.beginPath(); ctx.moveTo(x - 4, y - f); ctx.quadraticCurveTo(x - 2, y - 1, x, y); ctx.quadraticCurveTo(x + 2, y - 1, x + 4, y - f); ctx.stroke();
       });
     }
@@ -1013,11 +1015,18 @@ function nearMote(x, y, r, c, a = 1) {
   ctx.fillStyle = c; ctx.globalAlpha = 0.22 * a; circle(ctx, x, y, r * 4.2); ctx.globalAlpha = 0.3 * a; circle(ctx, x, y, r * 2.8);
   ctx.globalAlpha = 1;
 }
+// ildfluer blinker i små serier (to eller tre blink) med mørke pauser imellom, slik ekte ildfluer gjør
+function fireflyA(m) {
+  if (reduceMotion) return 0.6;
+  const per = 3 + m.f * 2, k = (time + m.p * 2) % per, n = 2 + (((m.p * 10) | 0) % 2);
+  for (let i = 0; i < n; i++) { const d = k - i * 0.32; if (d >= 0 && d < 0.2) return Math.sin(Math.PI * d / 0.2); }
+  return 0;
+}
 function drawMotes() {
   const k = moteKind();
   for (const m of dust) if (m.near) {
     const x = ip(m.px, m.x), y = ip(m.py, m.y);
-    if (k === 'firefly') { const a = Math.sin(time * m.f * 2 + m.p); if (a > 0.05) nearMote(x, y, m.r, '#FFF2A0', a); }
+    if (k === 'firefly') { const a = fireflyA(m); if (a > 0.05) nearMote(x, y, m.r, '#FFF2A0', a); }
     else nearMote(x, y, m.r, k === 'snow' ? (T.night ? '#E1E6FF' : '#FFFFFF') : k === 'pollen' ? '#FFFAEB' : (T.night ? mixHex(m.c, '#2A2C5A', 0.45) : m.c));
   }
   if (k === 'leaf' || k === 'petal') {   // løv og blomsterblader som snurrer mens de daler
@@ -1038,7 +1047,7 @@ function drawMotes() {
   if (k === 'firefly') {   // ildfluer som blinker
     for (const m of dust) {
       if (m.near) continue;
-      const a = Math.sin(time * m.f * 2 + m.p); if (a < 0.05) continue;
+      const a = fireflyA(m); if (a < 0.05) continue;
       const x = ip(m.px, m.x), y = ip(m.py, m.y);
       ctx.globalAlpha = a; ctx.drawImage(scene.glow.c, x - 7, y - 7, 14, 14);
       ctx.fillStyle = '#FFF6B0'; circle(ctx, x, y, 1.1);
@@ -1198,7 +1207,8 @@ function bubble(x, y, r, t) {
   ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.ellipse(x - r * 0.42, y - r * 0.48, r * 0.26, r * 0.15, -0.6, 0, 7); ctx.fill();
 }
 function drawPower(q) {
-  const P = POWERS[q.kind], pulse = 1 + Math.sin(q.t * 5) * 0.05;
+  // hjerteslag: to korte slag og en pause, i stedet for jevn pulsering
+  const P = POWERS[q.kind], beat = reduceMotion ? 0 : loopKeys([[0, 0], [0.09, 1, 'out'], [0.2, 0, 'in'], [0.3, 0.6, 'out'], [0.45, 0, 'in'], [1.3, 0]], q.t), pulse = 1 + beat * 0.07;
   ctx.fillStyle = P.glow; ctx.globalAlpha = 0.45; circle(ctx, q.x, q.y, POWER_R * 1.9); ctx.globalAlpha = 0.6; circle(ctx, q.x, q.y, POWER_R * 1.45); ctx.globalAlpha = 1;
   if (q.kind === 'shield') { bubble(q.x, q.y, POWER_R * pulse, q.t); return; }
   ctx.save(); ctx.translate(q.x, q.y); ctx.scale(pulse, pulse);
@@ -1219,7 +1229,7 @@ function drawPower(q) {
     ctx.fillStyle = '#9A6B3F'; ctx.beginPath(); ctx.ellipse(0, -3, 8.6, 4.6, 0, Math.PI, 0); ctx.quadraticCurveTo(0, -0.5, -8.6, -3); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#B9875A'; for (const [dx, dy] of [[-4, -4.5], [0, -5.5], [4, -4.5], [-2, -2.5], [2, -2.5]]) circle(ctx, dx, dy, 0.9);
     ctx.strokeStyle = '#7A5A44'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(0, -7.5); ctx.quadraticCurveTo(1, -10, 3, -10.5); ctx.stroke();
-    const tw = (Math.sin(q.t * 6) + 1) / 2;   // gnistre
+    const tw = beat;   // gnistrer i takt med hjerteslaget
     ctx.fillStyle = `rgba(255,255,255,${0.4 + tw * 0.6})`; starPath(8, -8, 2.2 + tw, 0); ctx.fill();
   }
   ctx.restore();
@@ -1232,7 +1242,7 @@ const ip = (prev, cur) => prev === undefined ? cur : prev + (cur - prev) * alpha
 function birdExpr() {
   if (state === State.DEAD || state === State.OVER) return 'dizzy';
   if (state === State.MENU && T.night) return 'sleep';
-  if (bird.happy > 0) return 'happy';
+  if (bird.happy > 0 || bird.preen > 0.5) return 'happy';   // lukker øynene fornøyd når den pirker i fjærene
   if (state === State.PLAY && bird.vy > 330) return 'wide';
   return 'normal';
 }
@@ -1316,8 +1326,9 @@ function birdShape(expr, look = wear, rot = 0) {   // look = pynt (garderobe)
   ctx.restore();
   // vinge (blå med hvitt vingebånd)
   const t = Math.min(bird.flapT, 0.3) / 0.3;
-  const wingA = flying ? -Math.sin(t * Math.PI) * 1.1 + 0.25
-    : state === State.OVER ? 0.35 : Math.sin(time * (expr === 'sleep' ? 3 : 10)) * 0.4 + 0.1;
+  // vingeslaget: raskt kraftslag ned, saktere opp igjen med en liten overskyting (vekt); løftet når den pirker i fjærene
+  const wingA = state === State.OVER ? 0.35
+    : keyframes([[0, 0.25], [0.07, -0.95, 'in'], [0.3, 0.25, 'back']], bird.flapT) * (1 - bird.preen) - bird.preen * 0.7;
   ctx.save(); ctx.translate(-4, 2); ctx.rotate(wingA);
   ctx.fillStyle = B.wing; ctx.strokeStyle = B.ink; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(-3, 0, 7, 4.4, 0.2, 0, 7); ctx.fill(); ctx.stroke();
   ctx.save(); ctx.clip();   // svingfjærene (mørkere) under et hvitt vingebånd langs midten
@@ -1328,7 +1339,8 @@ function birdShape(expr, look = wear, rot = 0) {   // look = pynt (garderobe)
   ctx.restore();
   ctx.restore();
   // ansikt i 3/4-vinkel: to øyne i øyestripen og et lite, mørkt nebb
-  eye(3, -3.4, 0.92, expr, bird.look); eye(9.6, -3.6, 0.8, expr, bird.look);
+  const up = bird.lookUp * 1.3;   // ser opp på noe som passerer
+  eye(3, -3.4 - up, 0.92, expr, bird.look); eye(9.6, -3.6 - up, 0.8, expr, bird.look);
   const open = state === State.PLAY ? (1 - t) * 1.4 : expr === 'dizzy' ? 0.7 : 0;
   ctx.strokeStyle = B.ink; ctx.lineWidth = 0.9;
   ctx.fillStyle = B.beak; ctx.beginPath(); ctx.moveTo(5.4, -0.9); ctx.quadraticCurveTo(7.8, -1.5, 9.8, 0.1 - open * 0.3); ctx.quadraticCurveTo(7.6, 1, 5.4, 0.8); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -1589,7 +1601,9 @@ function drawMedal(x, y, m) {
 // ingen medalje ennå: et lite egg som vugger (i stedet for en grå plassholder)
 function drawEgg(x, y) {
   ctx.fillStyle = hexA(UI_INK, 0.15); ctx.beginPath(); ctx.ellipse(x, y + 19, 12, 3, 0, 0, 7); ctx.fill();
-  ctx.save(); ctx.translate(x, y + 17); ctx.rotate(reduceMotion ? 0 : Math.sin(time * 2.4) * 0.08); ctx.translate(0, -17);
+  // egget ligger stille og rister innimellom i et kort støt (som om noe er på vei ut)
+  const wob = reduceMotion ? 0 : loopKeys([[0, 0], [1.8, 0], [1.92, -0.13, 'out'], [2.04, 0.11, 'inOut'], [2.16, -0.07, 'inOut'], [2.28, 0.03, 'inOut'], [2.45, 0, 'out'], [3.2, 0]], time);
+  ctx.save(); ctx.translate(x, y + 17); ctx.rotate(wob); ctx.translate(0, -17);
   ctx.fillStyle = '#FFF4DE'; ctx.beginPath(); ctx.moveTo(0, -18);
   ctx.bezierCurveTo(10, -18, 14, 2, 13.5, 6); ctx.bezierCurveTo(13, 14, 6, 18, 0, 18); ctx.bezierCurveTo(-6, 18, -13, 14, -13.5, 6); ctx.bezierCurveTo(-14, 2, -10, -18, 0, -18);
   ctx.closePath(); ctx.fill(); ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.6; ctx.stroke();
@@ -1737,7 +1751,7 @@ function render() {
   const topY = safeTop + 26;
 
   if (state === State.MENU) {
-    const ty = topY + 40 + Math.sin(time * 2.4) * 3;
+    const ty = topY + 40 + (reduceMotion ? 0 : keyframes([[0, -22], [0.6, 0, 'back']], menuT));   // faller på plass når menyen åpnes, står så stille
     const LG = scene.logo; ctx.drawImage(LG.c, Math.round(W / 2 - LG.w / 2), ty - 24, LG.w, LG.h);
     text(`${SEASONS[seasonName].label} i bjørkeskogen`, W / 2, ty + 34, 13, { weight: 600, stroke: true, shadow: false });
     if (wardrobe) { drawWardrobe(groundY); return finishFrame(groundY); }
@@ -1758,7 +1772,7 @@ function render() {
   if (state === State.READY) {
     text('Klar?', W / 2, topY + 40, 32, { color: '#FFD27A', stroke: true });
     text(D.label, W / 2, topY + 70, 13, { weight: 600, color: D.color, stroke: true, shadow: false });
-    const hy = groundY * 0.42 + 30 + Math.sin(time * 6) * 3;
+    const hy = groundY * 0.42 + 30 + (reduceMotion ? 0 : loopKeys([[0, 0], [0.55, 0], [0.64, 4, 'in'], [0.8, 0, 'out'], [1.2, 0]], time));   // trykker, venter, trykker
     ctx.fillStyle = '#FFF8EC'; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.5; rr(W / 2 + 36, hy, 20, 30, 10); ctx.fill(); ctx.stroke();
     ctx.fillStyle = UI_INK; rr(W / 2 + 44, hy + 5, 4, 10, 2); ctx.fill();
     text('Trykk', W / 2, groundY * 0.42 + 80, 14, { weight: 600, stroke: true });
