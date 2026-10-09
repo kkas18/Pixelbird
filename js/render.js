@@ -1159,7 +1159,10 @@ function drawMotes() {
 
 /* ---------- Bjørkestammer ---------- */
 function drawTrunkShadow(p, groundY) {
-  ctx.fillStyle = hexA(T.ink, 0.16); ctx.beginPath(); ctx.ellipse(p.x + PIPE_W / 2 + 4, groundY + 3, PIPE_W / 2 + 9, 3.5, 0, 0, 7); ctx.fill();
+  ctx.save(); ctx.translate(p.x + PIPE_W / 2 + 6, groundY + 5); ctx.scale(1, 0.15);
+  const shade = ctx.createRadialGradient(0, 0, 2, 0, 0, PIPE_W * 0.85);
+  shade.addColorStop(0, 'rgba(16,19,30,.45)'); shade.addColorStop(0.4, 'rgba(16,19,30,.25)'); shade.addColorStop(1, 'rgba(16,19,30,0)');
+  ctx.fillStyle = shade; circle(ctx, 0, 0, PIPE_W * 0.85); ctx.restore();
 }
 function drawTrunk(p, groundY) {
   const ry = END_H / 2 - 0.5, by = p.top + p.gap;
@@ -1583,10 +1586,17 @@ function birdShape(expr, look = wear, rot = 0) {   // look = pynt (garderobe)
   ctx.lineWidth = 2.1; ctx.beginPath(); ctx.moveTo(8, -1.5); ctx.quadraticCurveTo(9.6, -3.8, 13, -4.4); ctx.stroke();
   ctx.lineWidth = 1.9; ctx.beginPath(); ctx.moveTo(-11.5, -4.4); ctx.quadraticCurveTo(-8.5, 3.5, -1, 4.3); ctx.quadraticCurveTo(5, 4.6, 8.5, 3); ctx.stroke();
   ctx.fillStyle = B.mask; ctx.beginPath(); ctx.ellipse(7.6, 3.4, 2.6, 1.7, -0.2, 0, 7); ctx.fill();   // liten «hake»
-  // cel-skygge: to flate tonetrinn ut fra en fast lysretning (oppe til høyre), uansett hvordan fuglen roterer
+  // Smooth diffuse light and a soft rim make the body read as a round volume.
   const c = Math.cos(rot), s = Math.sin(rot), lx = -(SHADE_X * c + SHADE_Y * s), ly = -(-SHADE_X * s + SHADE_Y * c);
-  ctx.fillStyle = B.shade; ctx.beginPath(); ctx.rect(-R - 2, -R - 2, R * 2 + 4, R * 2 + 4); ctx.arc(lx * 2.2, ly * 2.2, R, 0, 7); ctx.fill('evenodd');
-  ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.beginPath(); ctx.rect(-R - 2, -R - 2, R * 2 + 4, R * 2 + 4); ctx.arc(-lx * 1.5, -ly * 1.5, R, 0, 7); ctx.fill('evenodd');
+  const shade = ctx.createLinearGradient(-lx * R, -ly * R, lx * R, ly * R);
+  shade.addColorStop(0, 'rgba(255,248,216,.25)');
+  shade.addColorStop(0.38, 'rgba(255,244,208,.04)');
+  shade.addColorStop(0.70, 'rgba(23,30,54,.13)');
+  shade.addColorStop(1, 'rgba(14,20,38,.50)');
+  ctx.fillStyle = shade; ctx.fillRect(-R, -R, R * 2, R * 2);
+  const sheen = ctx.createRadialGradient(-lx * R * 0.48, -ly * R * 0.48, 0, -lx * R * 0.48, -ly * R * 0.48, R * 0.65);
+  sheen.addColorStop(0, 'rgba(255,251,233,.20)'); sheen.addColorStop(1, 'rgba(255,251,233,0)');
+  ctx.fillStyle = sheen; ctx.fillRect(-R, -R, R * 2, R * 2);
   ctx.restore();
   // liten fjærtust i hetta (henger litt etter bevegelsen) – skjules under luer og krone
   if (!HIDES_CREST.has(look)) {
@@ -1713,7 +1723,8 @@ function accessory(id) {
     ctx.fillStyle = '#E9D2A6'; for (const x of [-7.5, -2.5, 2.5, 7.5]) circle(ctx, x, -7.3, 0.8);
   } else if (id === 'tophat') {   // flosshatt med rødt bånd, litt på skakke
     ctx.save(); ctx.rotate(-0.08); ctx.lineWidth = 1.2;
-    ctx.fillStyle = '#3A3340'; rr(-7, -26, 14, 16, 2); ctx.fill(); ctx.stroke();
+    const felt = ctx.createLinearGradient(-7, 0, 7, 0); felt.addColorStop(0, '#171C2C'); felt.addColorStop(0.3, '#343B50'); felt.addColorStop(0.72, '#535268'); felt.addColorStop(1, '#252838');
+    ctx.fillStyle = felt; rr(-7, -26, 14, 16, 2); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#E5574A'; ctx.fillRect(-7, -14.6, 14, 3);
     ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(-5, -24, 1.4, 8.5);
     ctx.fillStyle = '#4A4252'; ctx.beginPath(); ctx.ellipse(0, -26, 7, 1.6, 0, 0, 7); ctx.fill(); ctx.stroke();
@@ -2240,11 +2251,14 @@ function drawWorld(groundY, pv, qv) {
 }
 // fuglens skygge på bakken: mindre og svakere jo høyere den flyr (et sterkt dybdesignal)
 function drawBirdGroundShadow(groundY) {
-  const bx = ip(bird.px, bird.x), by = ip(bird.py, bird.y), hgt = groundY - by - BODY_R;
-  if (hgt < 0 || hgt > 320) return;
-  const k = 1 - hgt / 320;
-  ctx.fillStyle = hexA(T.ink, 0.22 * k * k);
-  ctx.beginPath(); ctx.ellipse(bx + 2, groundY + 2.5, BODY_R * (0.55 + 0.6 * k), 2.6 * (0.5 + 0.5 * k), 0, 0, 7); ctx.fill();
+  const bx = ip(bird.px, bird.x), by = ip(bird.py, bird.y), height = Math.max(0, groundY - by - BODY_R);
+  if (height > 440) return;
+  const proximity = 1 - height / 440, radius = BODY_R * (1.8 - proximity * 0.8);
+  ctx.save(); ctx.translate(bx + 7 + height * 0.018, groundY + 3); ctx.scale(1, 0.18);
+  const shade = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+  shade.addColorStop(0, 'rgba(16,19,30,' + (0.08 + 0.32 * proximity * proximity) + ')');
+  shade.addColorStop(1, 'rgba(16,19,30,0)'); ctx.fillStyle = shade;
+  circle(ctx, 0, 0, radius); ctx.restore();
 }
 let fadeCanvas = null;
 function fadeLayer() {   // offscreen-lerret i full skjermstørrelse for krysstoningen (lages ved behov)
@@ -2290,6 +2304,7 @@ function render() {
     ctx.translate(bx, by); ctx.scale(1.25, 1.25); ctx.translate(-bx, -by);
   }
   drawBird(); ctx.restore();
+  drawDepthForeground();
   for (const k in hud) delete hud[k];
 
   if (state === State.MENU) drawMenuScreen();
