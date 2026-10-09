@@ -104,13 +104,23 @@ Poeng fra alle vanlige runder samles (Zen teller ikke) og låser opp pynt:
 | Pynt | Krav |
 |------|------|
 | Bare skjerf | – |
+| Rosa sløyfe | 10 poeng totalt |
 | Strikkelue | 25 poeng totalt |
+| Fluesopphatt | 45 poeng totalt |
 | Blomst i fjærtoppen | 60 poeng totalt |
+| Solbriller | 80 poeng totalt |
+| Blomsterkrans | 100 poeng totalt |
 | Runde briller | 120 poeng totalt |
+| Vikinghjelm | 150 poeng totalt |
 | Nisselue | 200 poeng totalt |
+| Flosshatt | 300 poeng totalt |
 | Liten krone | gull (30 poeng) i én runde |
 
-Ny pynt vises på game over-skjermen («Ny pynt: …!»).
+Garderoben har to sider med seks ting på hver (bla med pilene). Ny pynt vises på
+game over-skjermen («Ny pynt: …!»).
+
+Spillet bruker ingen emojier: all tekst er vanlige bokstaver, tall og tegnsetting,
+og symboler som piler, hjerter og stjerner er tegnet som figurer.
 
 ## Hinder: bjørkestammer
 

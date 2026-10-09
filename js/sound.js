@@ -96,7 +96,7 @@ const Sound = (() => {
   /* ---------- Musikk: 8 takter i F-dur, 88 BPM, svak swing ---------- */
   const Music = (() => {
     const BPM = 88, STEPS = 64, eighth = 60 / BPM / 2, SWING = 0.16;
-    // Fmaj7 – Dm7 – B♭maj7 – Csus4 | Fmaj7 – Am7 – B♭add9 – C7
+    // Fmaj7 – Dm7 – Bbmaj7 – Csus4 | Fmaj7 – Am7 – Bbadd9 – C7
     const CHORDS = [[53, 57, 60, 64], [50, 57, 60, 65], [46, 53, 57, 62], [48, 53, 55, 60], [53, 57, 60, 64], [45, 52, 55, 60], [46, 53, 57, 60], [48, 52, 55, 58]];
     const ROOTS = [41, 38, 46, 48, 41, 45, 46, 48];
     // melodi for spilledåse (0 = pause), to fraser à 4 takter

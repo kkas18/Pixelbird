@@ -3,7 +3,7 @@
 'use strict';
 
 /* ============================================================
-   PIXELFUGL v3.4 – koselig bjørkeskog
+   PIXELFUGL v3.5 – koselig bjørkeskog
    – Tidsbasert fysikk (px/s, px/s²) med fast tidssteg 120 Hz,
      interpolert tegning mellom steg (jevnt på 60/90/120 Hz)
    – Forhåndstegnede parallakse-lag (fjell, fjord, hytter, bjørkeskog), bjørkestammer som hinder,
@@ -51,7 +51,7 @@ let best = +store.get(bestKey()) || 0;
 const POWERS = {
   shield: { label: 'Såpeboble',   color: '#7FD0F2', glow: 'rgba(127,208,242,.5)', dur: 0 },
   slow:   { label: 'Sneglefart',  color: '#B49BE8', glow: 'rgba(180,155,232,.5)', dur: 6 },
-  double: { label: 'Eikenøtt ×2', color: '#F2B544', glow: 'rgba(242,181,68,.5)',  dur: 8 }
+  double: { label: 'Dobbel eikenøtt', color: '#F2B544', glow: 'rgba(242,181,68,.5)',  dur: 8 }
 };
 
 /* ---------- Tema: varm pastell (dag) og koselig kveld (natt) ----------
@@ -91,7 +91,7 @@ const THEMES = {
 };
 
 /* ---------- Tid på døgnet i løpet av en runde ----------
-   Hvert 10. poeng glir tiden videre: dag → solnedgang → kveld → soloppgang → dag … (krysstoning 1,8 s) */
+   Hvert 10. poeng glir tiden videre: dag, solnedgang, kveld, soloppgang, dag … (krysstoning 1,8 s) */
 const CYCLE = ['day', 'sunset', 'night', 'sunset'];
 
 /* ---------- Årstider (etter dato; kan overstyres med localStorage «pf.season») ----------
@@ -120,13 +120,20 @@ function paletteFor(name) {
 
 /* ---------- Garderobe: pynt som låses opp med poeng (sum av alle runder) ---------- */
 const COSMETICS = [
-  { id: 'none',    label: 'Bare skjerf', need: 0 },
-  { id: 'beanie',  label: 'Strikkelue',  need: 25 },
-  { id: 'flower',  label: 'Blomst',      need: 60 },
-  { id: 'glasses', label: 'Briller',     need: 120 },
-  { id: 'santa',   label: 'Nisselue',    need: 200 },
-  { id: 'crown',   label: 'Krone',       need: 0, gold: true }   // gull (30 poeng) i én runde
+  { id: 'none',        label: 'Bare skjerf',    need: 0 },
+  { id: 'bow',         label: 'Sløyfe',         need: 10 },
+  { id: 'beanie',      label: 'Strikkelue',     need: 25 },
+  { id: 'toadstool',   label: 'Fluesopphatt',   need: 45 },
+  { id: 'flower',      label: 'Blomst',         need: 60 },
+  { id: 'sunglasses',  label: 'Solbriller',     need: 80 },
+  { id: 'flowercrown', label: 'Blomsterkrans',  need: 100 },
+  { id: 'glasses',     label: 'Briller',        need: 120 },
+  { id: 'viking',      label: 'Vikinghjelm',    need: 150 },
+  { id: 'santa',       label: 'Nisselue',       need: 200 },
+  { id: 'tophat',      label: 'Flosshatt',      need: 300 },
+  { id: 'crown',       label: 'Krone',          need: 0, gold: true }   // gull (30 poeng) i én runde
 ];
+const WARDROBE_PAGE = 6;   // ruter per side i garderoben
 let totalPoints = +store.get('pf.total') || 0, hasGold = store.get('pf.gold') === '1';
 let wear = store.get('pf.wear') || 'none';
 const isUnlocked = c => c.gold ? hasGold : totalPoints >= c.need;

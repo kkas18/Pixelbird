@@ -28,7 +28,7 @@ let paused = false, resumeT = 0;      // pause + nedtelling før spillet fortset
 let grace = 0, guidePipe = null;     // usårbarhet og glidemål (røret) etter skjoldtreff
 let alpha = 1, viewScroll = 0;        // interpolasjonsfaktor mellom forrige og nåværende fysikk-steg + interpolert scroll
 let deferredPrompt = null;
-let wardrobe = false, unlocked = [], unlockSounded = false;   // garderoben er åpen i menyen; pynt som ble låst opp i siste runde
+let wardrobe = false, wardrobePage = 0, unlocked = [], unlockSounded = false;   // garderoben er åpen i menyen; pynt som ble låst opp i siste runde
 const hud = {};
 
 /* ---------- Risting og fargetoning ----------
@@ -210,7 +210,7 @@ function hitsPipe(p, groundY) {
 /* ---------- Fuglens liv: ansikt, fjærtopp og skjerf ---------- */
 const KNOT = { x: -9, y: 5 };          // skjerfknuten (lokalt, bak på halsen)
 function animateBird(dt) {
-  // blunk hvert 2–5,5 s (blink går 1 → 0; lukkethet = sin(π·blink))
+  // blunk hvert 2–5,5 s (blink går fra 1 til 0; lukkethet = sin(pi * blink))
   if ((bird.blinkT -= dt) <= 0) { bird.blink = 1; bird.blinkT = 2 + Math.random() * 3.5; }
   bird.blink = Math.max(0, bird.blink - dt * 7);
   bird.happy = Math.max(0, bird.happy - dt);

@@ -201,15 +201,37 @@ function buildScene() {
     g.fillStyle = vg; g.fillRect(0, 0, W + 2, H + 2);
   });
   // sprites: tre skyformer, luftballong og glød (ildfluer/vinduer)
-  scene.clouds = [0, 1, 2].map(v => makeSprite(86, 44, g => {
-    const sets = [
-      [[22, 28, 12], [38, 20, 15], [56, 24, 13], [70, 30, 9], [44, 31, 11]],
-      [[18, 29, 10], [33, 21, 13], [51, 19, 15], [67, 28, 11], [42, 31, 10]],
-      [[24, 27, 11], [42, 22, 13], [59, 29, 10], [40, 31, 9]]
-    ][v];
-    g.fillStyle = T.cloudShade; for (const [x, y, k] of sets) circle(g, x, y + 4, k);
-    g.fillStyle = T.cloud; for (const [x, y, k] of sets) circle(g, x, y, k);
-    g.fillStyle = 'rgba(255,255,255,.5)'; circle(g, sets[1][0] - 4, sets[1][1] - 5, sets[1][2] * 0.35);
+  // fluffy skyer: mange puffer (store i midten, små «blomkål»-krøller langs kanten), myk dun-kant,
+  // skyggekant under, volumgradient fra lys topp mot mørkere bunn og lyse topper på hver puff
+  scene.clouds = [0, 1, 2].map(v => makeSprite(128, 72, (g, w, h) => {
+    const r = rng(301 + v * 37), base = h - 16, puffs = [];
+    const nb = 5 + (v % 2);   // bunnrad: brede puffer gir en myk, nesten flat underkant
+    for (let i = 0; i < nb; i++) puffs.push([18 + i * (w - 36) / (nb - 1), base - 2 - r() * 3, 11 + r() * 3]);
+    for (let i = 0; i < 4; i++) puffs.push([28 + i * (w - 56) / 3 + (r() - 0.5) * 6, base - 13 - r() * 5, 13 + r() * 4]);   // midtrad
+    const nt = v === 1 ? 3 : 2;   // topp: store puffer som bygger seg opp mot midten
+    for (let i = 0; i < nt; i++) puffs.push([w / 2 + (i - (nt - 1) / 2) * 22 + (r() - 0.5) * 8, base - 25 - r() * 6, 13 + r() * 5]);
+    for (const [x, y, k] of puffs.slice()) if (y < base - 8) {   // små krøller langs toppkanten
+      const ang = -Math.PI / 2 + (r() - 0.5) * 2.2;
+      puffs.push([x + Math.cos(ang) * k * 0.8, y + Math.sin(ang) * k * 0.8, k * 0.42]);
+    }
+    const fill = (col, dy = 0, grow = 0) => { g.fillStyle = col; for (const [x, y, k] of puffs) circle(g, x, y + dy, k + grow); };
+    g.globalAlpha = 0.35; fill(T.cloud, 0, 2.2); g.globalAlpha = 1;   // myk dun-kant
+    fill(T.cloudShade, 4);                                             // skyggesiden under
+    fill(T.cloud);                                                     // hovedfyll
+    g.save(); g.beginPath();
+    for (const [x, y, k] of puffs) { g.moveTo(x + k, y); g.arc(x, y, k, 0, TAU); }
+    g.clip();
+    const vg = g.createLinearGradient(0, base - 42, 0, base + 8);
+    vg.addColorStop(0, 'rgba(255,255,255,.55)'); vg.addColorStop(0.55, hexA(T.cloud, 0)); vg.addColorStop(1, hexA(T.cloudShade, 0.65));
+    g.fillStyle = vg; g.fillRect(0, 0, w, h);
+    // mykt lys på de største toppene: radialgradient som blekner ut (ingen skarpe prikker)
+    const hiA = T.night ? 0.2 : 0.55;
+    for (const [x, y, k] of puffs) if (y < base - 12 && k > 10) {
+      const hx = x - k * 0.25, hy = y - k * 0.3, hg = g.createRadialGradient(hx, hy, 0, hx, hy, k * 0.8);
+      hg.addColorStop(0, `rgba(255,255,255,${hiA})`); hg.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = hg; circle(g, hx, hy, k * 0.8);
+    }
+    g.restore();
   }));
   scene.balloon = makeSprite(30, 48, g => {
     g.strokeStyle = T.ink; g.lineWidth = 0.8;
@@ -279,7 +301,7 @@ function initAmbient() {
   stars = Array.from({ length: 50 }, () => ({ x: Math.random() * W, y: Math.random() * (groundY - 200), r: Math.random() < 0.3 ? 1.6 : 1, p: Math.random() * 10 }));
   initMotes();
   const span = Math.max(60, groundY - 310 - safeTop);
-  clouds = Array.from({ length: 6 }, (_, i) => ({ x: r() * (W + 160), y: safeTop + 34 + r() * span, s: i < 3 ? 0.55 + r() * 0.2 : 0.85 + r() * 0.3, sp: i < 3 ? 0.03 : 0.07, drift: 2 + r() * 3, v: i % 3, far: i < 3 }));
+  clouds = Array.from({ length: 6 }, (_, i) => ({ x: r() * (W + 260), y: safeTop + 34 + r() * span, s: i < 3 ? 0.4 + r() * 0.12 : 0.62 + r() * 0.22, sp: i < 3 ? 0.03 : 0.07, drift: 2 + r() * 3, v: i % 3, far: i < 3 }));
 }
 function initMotes() {
   const groundY = H - GROUND_H, k = moteKind();
@@ -326,8 +348,9 @@ function drawSky(groundY) {
   }
   // skyer (to lag) og luftballong
   for (const c of clouds) {
-    const x = wrap(c.x - viewScroll * c.sp - time * c.drift, W + 160) - 80, S = scene.clouds[c.v];
-    ctx.globalAlpha = c.far ? 0.8 : 1; ctx.drawImage(S.c, x, c.y, S.w * c.s, S.h * c.s);
+    const x = wrap(c.x - viewScroll * c.sp - time * c.drift, W + 260) - 130, S = scene.clouds[c.v];   // margen er bredere enn den største skyen, så ingen sky forsvinner synlig
+    const bob = reduceMotion ? 0 : Math.sin(time * 0.35 + c.x * 0.05) * 2;   // skyene svever rolig opp og ned
+    ctx.globalAlpha = c.far ? 0.8 : 1; ctx.drawImage(S.c, x, c.y + bob, S.w * c.s, S.h * c.s);
   }
   ctx.globalAlpha = 1;
   if (groundY - safeTop > 400) {
@@ -601,7 +624,7 @@ function birdShape(expr, look = wear) {   // look = pynt (garderobe)
   ctx.save(); ctx.clip(); ctx.fillStyle = B.belly; ctx.beginPath(); ctx.ellipse(3, 7.5, 9.5, 7, -0.2, 0, 7); ctx.fill(); ctx.restore();
   ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.stroke();
   // fjærtopp (henger litt etter bevegelsen) – skjules under luer og krone
-  if (look !== 'beanie' && look !== 'santa' && look !== 'crown') {
+  if (!HIDES_CREST.has(look)) {
     ctx.save(); ctx.translate(-1, -R + 1.5); ctx.rotate(-0.25 + bird.crest);
     ctx.strokeStyle = B.dark; ctx.lineWidth = 2.4;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-1, -6, -5, -6.5); ctx.moveTo(1.6, 0); ctx.quadraticCurveTo(2.6, -6.5, -0.4, -8.6); ctx.stroke();
@@ -634,6 +657,8 @@ function birdShape(expr, look = wear) {   // look = pynt (garderobe)
   ctx.fillStyle = B.beakDark; ctx.beginPath(); ctx.moveTo(5.6, 1.1); ctx.quadraticCurveTo(8, 1.5 + open, 9.6, 1.2 + open); ctx.quadraticCurveTo(7.5, 2.8 + open, 5.6, 1.9); ctx.closePath(); ctx.fill(); ctx.stroke();
   if (look !== 'none') accessory(look);
 }
+// hodeplagg som dekker fjærtoppen
+const HIDES_CREST = new Set(['beanie', 'santa', 'crown', 'toadstool', 'viking', 'tophat']);
 // pynt fra garderoben, i fuglens lokale koordinater (følger rotasjon og klem)
 function accessory(id) {
   const B = BIRD;
@@ -656,6 +681,49 @@ function accessory(id) {
     ctx.beginPath(); ctx.arc(3, -3.4, 3.4, 0, 7); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.arc(9.7, -3.6, 2.9, 0, 7); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(6.4, -3.8); ctx.lineTo(6.8, -3.8); ctx.moveTo(-0.4, -3.2); ctx.lineTo(-7, -2.2); ctx.stroke();
+  } else if (id === 'bow') {   // rosa sløyfe på toppen av hodet
+    ctx.save(); ctx.translate(3, -12.4); ctx.rotate(0.25); ctx.lineWidth = 1.1;
+    ctx.fillStyle = '#FF9EB5';
+    ctx.beginPath(); ctx.ellipse(-4.3, 0, 4.3, 2.8, -0.35, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(4.3, 0, 4.3, 2.8, 0.35, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#E86F8E'; ctx.beginPath(); ctx.ellipse(-4.6, 0.3, 1.8, 1, -0.35, 0, 7); ctx.fill(); ctx.beginPath(); ctx.ellipse(4.6, 0.3, 1.8, 1, 0.35, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, 1.9, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  } else if (id === 'toadstool') {   // fluesopphatt: rød hatt med hvite prikker
+    ctx.fillStyle = '#E5574A'; ctx.beginPath(); ctx.moveTo(-12.5, -6.5); ctx.bezierCurveTo(-12, -21.5, 12, -21.5, 12.5, -6.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#FFF1D6'; rr(-11.8, -8.2, 23.6, 3.2, 1.6); ctx.fill(); ctx.lineWidth = 0.9; ctx.stroke();
+    ctx.fillStyle = '#FFFFFF'; for (const [x, y, r] of [[-6, -12.5, 2], [1, -16.5, 2.3], [7, -11.5, 1.7], [-1, -11, 1.2], [-9.5, -9.6, 1]]) circle(ctx, x, y, r);
+  } else if (id === 'sunglasses') {   // mørke solbriller med glans
+    ctx.fillStyle = '#2E2A3A'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.ellipse(3, -3.4, 3.9, 3.1, 0, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(9.8, -3.6, 3.2, 2.7, 0, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(6.7, -3.9); ctx.lineTo(6.9, -3.9); ctx.moveTo(-0.8, -3.2); ctx.lineTo(-7, -2.2); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(1.7, -4.7, 1.2, 0.5, -0.5, 0, 7); ctx.fill(); ctx.beginPath(); ctx.ellipse(8.9, -4.8, 0.9, 0.4, -0.5, 0, 7); ctx.fill();
+  } else if (id === 'flowercrown') {   // blomsterkrans rundt toppen av hodet
+    const cols = ['#FF9EB5', '#FFE27A', '#FFFFFF', '#D9C6F7'];
+    for (let i = 0; i < 6; i++) {
+      const a = -2.6 + i * 0.38, x = Math.cos(a) * 12.2, y = Math.sin(a) * 12.2;
+      ctx.fillStyle = '#86C35C'; ctx.beginPath(); ctx.ellipse(Math.cos(a + 0.19) * 12.6, Math.sin(a + 0.19) * 12.6, 2.2, 1, a + 1.2, 0, 7); ctx.fill();
+      ctx.fillStyle = cols[i % cols.length]; ctx.lineWidth = 0.6;
+      for (let k = 0; k < 5; k++) { const b = k * Math.PI * 2 / 5; ctx.beginPath(); ctx.arc(x + Math.cos(b) * 1.5, y + Math.sin(b) * 1.5, 1.25, 0, 7); ctx.fill(); ctx.stroke(); }
+      ctx.fillStyle = '#F2B544'; circle(ctx, x, y, 0.9);
+    }
+  } else if (id === 'viking') {   // vikinghjelm med horn
+    ctx.fillStyle = '#FFF1D6';
+    ctx.beginPath(); ctx.moveTo(-8, -9); ctx.quadraticCurveTo(-16.5, -10, -17.5, -19.5); ctx.quadraticCurveTo(-13, -14, -6, -12.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(7, -10); ctx.quadraticCurveTo(15.5, -11, 16.5, -20.5); ctx.quadraticCurveTo(12, -14.5, 5, -13); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#B8C2CC'; ctx.beginPath(); ctx.moveTo(-10.5, -7); ctx.bezierCurveTo(-10, -20.5, 10, -20.5, 10.5, -7.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.ellipse(-3.5, -14.5, 2.6, 1.5, -0.3, 0, 7); ctx.fill();
+    ctx.fillStyle = '#9C7A4E'; rr(-11.6, -9.4, 23.2, 4.2, 1.6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#E9D2A6'; for (const x of [-7.5, -2.5, 2.5, 7.5]) circle(ctx, x, -7.3, 0.8);
+  } else if (id === 'tophat') {   // flosshatt med rødt bånd, litt på skakke
+    ctx.save(); ctx.rotate(-0.08); ctx.lineWidth = 1.2;
+    ctx.fillStyle = '#3A3340'; rr(-7, -26, 14, 16, 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#E5574A'; ctx.fillRect(-7, -14.6, 14, 3);
+    ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(-5, -24, 1.4, 8.5);
+    ctx.fillStyle = '#4A4252'; ctx.beginPath(); ctx.ellipse(0, -26, 7, 1.6, 0, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#3A3340'; ctx.beginPath(); ctx.ellipse(0, -10.6, 11.5, 2.6, 0, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.restore();
   } else if (id === 'crown') {   // liten gullkrone
     ctx.fillStyle = '#F2C14E'; ctx.beginPath();
     ctx.moveTo(-6, -10.5); ctx.lineTo(-6.8, -17.5); ctx.lineTo(-3, -14); ctx.lineTo(0, -19); ctx.lineTo(3, -14); ctx.lineTo(6.8, -17.5); ctx.lineTo(6, -10.5); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -795,12 +863,14 @@ function drawActiveHud(y) {
 // garderoben: rutenett med pynt; låst pynt vises gjennomsiktig med krav
 function drawWardrobe(groundY) {
   ctx.fillStyle = 'rgba(40,28,50,.4)'; ctx.fillRect(0, 0, W, H);
-  const pw = 256, ph = 248, px = (W - pw) / 2, py = Math.max(safeTop + 120, groundY * 0.52 - ph / 2);
+  const pages = Math.ceil(COSMETICS.length / WARDROBE_PAGE), page = Math.min(wardrobePage, pages - 1);
+  const pw = 256, ph = 274, px = (W - pw) / 2, py = Math.max(safeTop + 110, groundY * 0.52 - ph / 2);
   panel(px, py, pw, ph);
   text('Garderobe', W / 2, py + 25, 18, { color: UI_INK, shadow: false });
-  text(`${totalPoints} poeng samlet`, W / 2, py + 44, 10, { color: '#9A7B5E', shadow: false, weight: 600 });
+  const owned = COSMETICS.filter(isUnlocked).length;
+  text(`${totalPoints} poeng samlet, ${owned} av ${COSMETICS.length} låst opp`, W / 2, py + 44, 10, { color: '#9A7B5E', shadow: false, weight: 600 });
   const cw = 70, chh = 84, gx = 8, gy = 8, x0 = px + (pw - (cw * 3 + gx * 2)) / 2, y0 = py + 56;
-  COSMETICS.forEach((c, i) => {
+  COSMETICS.slice(page * WARDROBE_PAGE, (page + 1) * WARDROBE_PAGE).forEach((c, i) => {
     const cx = x0 + (i % 3) * (cw + gx), cy = y0 + Math.floor(i / 3) * (chh + gy), ok = isUnlocked(c), on = wear === c.id;
     hud['w_' + c.id] = { x: cx, y: cy, w: cw, h: chh, fn: () => { if (ok) setWear(c.id); } };
     ctx.fillStyle = on ? '#FFE7A8' : '#FFFDF7'; rr(cx, cy, cw, chh, 12); ctx.fill();
@@ -814,7 +884,21 @@ function drawWardrobe(groundY) {
       ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(cx + cw - 14, cy + 11, 3, Math.PI, 0); ctx.stroke();
     }
   });
+  // sidebytte: tegnede piler og prikker (ingen tegn eller emoji)
+  const ny = py + ph - 22;
+  arrowButton('w_prev', px + 18, ny - 11, 34, 22, -1, () => { wardrobePage = (page + pages - 1) % pages; });
+  arrowButton('w_next', px + pw - 52, ny - 11, 34, 22, 1, () => { wardrobePage = (page + 1) % pages; });
+  for (let i = 0; i < pages; i++) { ctx.fillStyle = i === page ? UI_INK : hexA(UI_INK, 0.25); circle(ctx, W / 2 + (i - (pages - 1) / 2) * 12, ny, 3.2); }
   button('w_done', (W - 120) / 2, py + ph + 14, 120, 36, 'Ferdig', () => { wardrobe = false; }, { size: 15 });
+}
+function arrowButton(key, x, y, w, h, dir, fn) {
+  hud[key] = { x, y, w, h, fn };
+  const pk = press.key === key ? (time - press.t) / 0.22 : 1, s = pk < 1 && !reduceMotion ? 1 - 0.1 * Math.sin(Math.PI * pk) : 1;
+  ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.scale(s, s);
+  ctx.fillStyle = '#FFF1D6'; rr(-w / 2, -h / 2, w, h, h / 2); ctx.fill(); ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.4; ctx.stroke();
+  ctx.fillStyle = UI_INK; ctx.lineJoin = 'round'; ctx.beginPath();
+  ctx.moveTo(dir * 5, 0); ctx.lineTo(-dir * 3, -5); ctx.lineTo(-dir * 3, 5); ctx.closePath(); ctx.fill();
+  ctx.restore();
 }
 function drawPauseButton(x, y, s) {
   hud.pause = { x, y, w: s, h: s, fn: pauseGame };
@@ -899,7 +983,7 @@ function render() {
     text('Vanskelighet', W / 2, y0 - 12, 11, { weight: 600, stroke: true, shadow: false });
     let i = 0;
     for (const k in DIFFS) { const on = k === diffName; button('d_' + k, x0 + i * (bw + gapX), y0, bw, bh, DIFFS[k].label, () => setDiff(k), { fill: DIFFS[k].color, active: on, size: 12 }); i++; }
-    button('wardrobe', (W - 132) / 2, y0 + bh + 12, 132, 28, 'Garderobe', () => { wardrobe = true; }, { fill: '#D9C6F7', size: 12 });
+    button('wardrobe', (W - 132) / 2, y0 + bh + 12, 132, 28, 'Garderobe', () => { wardrobe = true; wardrobePage = Math.floor(COSMETICS.findIndex(c => c.id === wear) / WARDROBE_PAGE); }, { fill: '#D9C6F7', size: 12 });
     const w3 = 80, g3 = 8, x3 = (W - (w3 * 3 + g3 * 2)) / 2, y3 = groundY + 32;
     button('sound', x3, y3, w3, 30, Sound.sfxMuted ? 'Lyd av' : 'Lyd på', () => Sound.toggleSfx(), { active: !Sound.sfxMuted, size: 12 });
     button('music', x3 + w3 + g3, y3, w3, 30, Sound.musMuted ? 'Musikk av' : 'Musikk', () => Sound.toggleMusic(), { active: !Sound.musMuted, fill: '#FFB8CB', size: 12 });
