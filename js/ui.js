@@ -6,11 +6,12 @@ const UI = { paper: '#F8EBD3', ink: '#4A3224', muted: '#7E6147', red: '#AC452D',
 let settingsOpen = false;
 
 function uiText(label, x, y, size, options = {}) {
-  const { serif = true, color = UI.ink, weight = 500, align = 'center', maxWidth = W - 40, shadow = false } = options;
+  const { serif = true, color = UI.ink, weight = 500, align = 'center', maxWidth = W - 40, shadow = false, outline = false } = options;
   ctx.save();
   ctx.font = `${serif ? 700 : weight} ${size}px ${serif ? 'Storybook, Georgia, serif' : 'Fredoka, system-ui, sans-serif'}`;
   ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillStyle = color;
   if (shadow) { ctx.shadowColor = 'rgba(28,19,30,.45)'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1; }
+  if (outline) { ctx.strokeStyle = T.night ? 'rgba(16,23,39,.72)' : 'rgba(255,245,218,.75)'; ctx.lineWidth = 1; ctx.strokeText(label, x, y, maxWidth); }
   ctx.fillText(label, x, y, maxWidth); ctx.restore();
 }
 
@@ -159,8 +160,8 @@ function drawReadyScreen() {
 function drawGameHud(groundY) {
   const y = safeTop + 50, ink = T.night ? UI.paper : UI.ink;
   const pop = reduceMotion ? 1 : keyframes([[0, 1.1], [0.2, 1, 'out']], time - scoreT);
-  uiText(D.zen ? 'Zen' : String(score), W / 2, y + 2, D.zen ? 28 : 47 * pop, { color: ink, shadow: T.night });
-  uiText(D.zen ? 'Bare fly' : `Beste: ${best}`, W / 2, y + 35, 14, { color: ink, shadow: T.night });
+  uiText(D.zen ? 'Zen' : String(score), W / 2, y + 2, D.zen ? 28 : 47 * pop, { color: ink, shadow: T.night, outline: true });
+  uiText(D.zen ? 'Bare fly' : `Beste: ${best}`, W / 2, y + 35, 14, { color: ink, shadow: T.night, outline: true });
   let yy = y + 66;
   if (placeIdx > 0 && time - placeT < 3 && !home) { uiCard(W / 2 - 65, yy - 12, 130, 24); uiText(ROUTE[placeIdx].name, W / 2, yy, 11); yy += 32; }
   for (const [key, value] of Object.entries(active)) {

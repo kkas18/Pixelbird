@@ -41,7 +41,7 @@ async function run() {
     const url = `http://127.0.0.1:${server.address().port}`;
     await page.goto(url); await page.waitForFunction(() => time > 0.8);
     assert.equal(await page.evaluate(() => wear), 'tophat');
-    assert.equal(await page.evaluate(() => hasPaintedForest() && !!ART.birch), true);
+    assert.equal(await page.evaluate(() => hasPaintedForest() && !!ART.birch && !!ART.foreground), true);
     assert.equal(await page.evaluate(() => best), 22);
     await page.getByRole('button', { name: 'Hard', exact: true }).click();
     assert.equal(await page.evaluate(() => diffName), 'hard');
@@ -127,6 +127,27 @@ async function run() {
       bird.rot = bird.pr = -0.15; render();
     });
     await shot('play');
+    if (process.env.DEPTH_PREVIEW_DIR) {
+      fs.mkdirSync(process.env.DEPTH_PREVIEW_DIR, { recursive: true });
+      // Controlled motion preview: the same renderer and collision dimensions,
+      // staged positions. Actual gameplay is exercised independently above.
+      for (let i = 0; i < 48; i++) {
+        await page.evaluate(i => {
+          hitStop = 1; scroll = prevScroll = i * 10;
+          pipes[0].x = pipes[0].px = 207 - i * 2;
+          render();
+        }, i);
+        await page.screenshot({ path: path.join(process.env.DEPTH_PREVIEW_DIR, String(i).padStart(3, '0') + '.png') });
+      }
+    }
+    await page.evaluate(() => { scroll = prevScroll = 800; render(); });
+    await shot('depth-scroll');
+    const phases = await page.evaluate(() => depthOffsets(depthScroll()));
+    assert(phases.sky < phases.mountains && phases.mountains < phases.woodland && phases.woodland < phases.foreground);
+    await page.evaluate(() => { pauseGame(); render(); });
+    const frozenDepth = await page.evaluate(() => depthScroll());
+    await page.waitForTimeout(150);
+    assert.equal(await page.evaluate(() => depthScroll()), frozenDepth);
     await page.evaluate(() => { goMenu(); transitionT = 0; render(); });
     // Native keyboard activation must run once, without the global Space handler flapping.
     const start = page.getByRole('button', { name: 'Spill', exact: true }); await start.focus();
@@ -137,7 +158,7 @@ async function run() {
     await context.setOffline(true); await page.reload(); await page.waitForFunction(() => time > 0.6);
     assert.equal(await page.evaluate(() => document.fonts.check('700 38px Storybook')), true);
     assert.equal(await page.getByRole('button', { name: 'Spill', exact: true }).count(), 1);
-    assert.equal(await page.evaluate(() => hasPaintedForest() && !!ART.birch), true);
+    assert.equal(await page.evaluate(() => hasPaintedForest() && !!ART.birch && !!ART.foreground), true);
     // A missing painting still permits startup, rendering and actual taps.
     const fallbackContext = await browser.newContext({ serviceWorkers: 'block', reducedMotion: 'reduce' });
     const fallback = await fallbackContext.newPage();
@@ -145,12 +166,22 @@ async function run() {
     await fallback.route('**/art/*.webp', route => route.abort());
     await fallback.goto(url); await fallback.waitForFunction(() => time > 0.6);
     assert.equal(await fallback.evaluate(() => hasPaintedForest()), false);
+    assert.equal(await fallback.evaluate(() => depthScroll()), 0);
     await fallback.getByRole('button', { name: 'Spill', exact: true }).click();
     await fallback.mouse.click(140, 430);
     assert.equal(await fallback.evaluate(() => state), 2);
     await fallbackContext.close();
+    const quietContext = await browser.newContext({ reducedMotion: 'reduce', serviceWorkers: 'block' });
+    const quiet = await quietContext.newPage();
+    quiet.on('pageerror', error => errors.push(error.message));
+    await quiet.addInitScript(() => localStorage.setItem('pf.season', 'autumn'));
+    await quiet.goto(url); await quiet.waitForFunction(() => time > 0.6);
+    assert.equal(await quiet.evaluate(() => hasPaintedForest() && !!ART.foreground), true);
+    await quiet.evaluate(() => { goReady(); goPlay(); scroll = prevScroll = 800; render(); });
+    assert.equal(await quiet.evaluate(() => depthScroll()), 0);
+    await quietContext.close();
     assert.deepEqual(errors, []);
-    console.log('PASS: menu, difficulty, settings, wardrobe, persistence, tap physics, pause/resume, death/retry, keyboard, five viewport sizes, offline paintings/font, and missing-art fallback.');
+    console.log('PASS: menu, difficulty, settings, wardrobe, persistence, tap physics, pause/resume, death/retry, keyboard, five viewport sizes, offline paintings/font, depth parallax and pause, reduced motion, and missing-art fallback.');
   } finally { await browser.close(); }
 }
 run().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => server.close());
