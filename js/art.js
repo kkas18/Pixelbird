@@ -23,7 +23,19 @@ const ART_JOB = {        // rolle: scene (landskap med jord nederst), props (for
   panoramaDay: { role: 'scene', play: true }, panoramaNight: { role: 'scene', play: true },
   woodland: { role: 'scene', play: true }, foreground: { role: 'props' }, birch: { role: 'bark' }
 };
-const RECOLOR_WORKER = `onmessage = e => { const m = e.data; recolor(m.data, m.w, m.h, m.season, m.role, m.play, m.night); postMessage({ id: m.id, data: m.data }, [m.data.buffer]); };
+// i tråden: helst hele jobben der (bildet inn som ImageBitmap, tegnes, fargelegges og sendes tilbake som ImageBitmap),
+// så hovedtråden ikke må hente ut eller legge tilbake pikslene; ellers bare pikselberegningen
+const RECOLOR_WORKER = `onmessage = async e => {
+  const m = e.data;
+  if (m.url) { try { m.bitmap = await createImageBitmap(await (await fetch(m.url)).blob()); } catch (err) { postMessage({ id: m.id }); return; } }   // hentes og dekodes her, ikke på hovedtråden
+  if (m.bitmap) {
+    const c = new OffscreenCanvas(m.bitmap.width, m.bitmap.height), g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(m.bitmap, 0, 0); m.bitmap.close();
+    const img = g.getImageData(0, 0, c.width, c.height);
+    if (!m.plain) { recolor(img.data, c.width, c.height, m.season, m.role, m.play, m.night); g.putImageData(img, 0, 0); }
+    const out = c.transferToImageBitmap(); postMessage({ id: m.id, bitmap: out }, [out]);
+  } else { recolor(m.data, m.w, m.h, m.season, m.role, m.play, m.night); postMessage({ id: m.id, data: m.data }, [m.data.buffer]); }
+};
 ${recolor.toString()}`;
 // én piksel om gangen, i ren JS (kjører i tråden); d er RGBA 0–255
 function recolor(d, w, h, season, role, play, night) {
@@ -69,31 +81,48 @@ function recolor(d, w, h, season, role, play, night) {
   }
 }
 let artWorker = null, artJobs = new Map(), artJobId = 0;
+function ensureArtWorker() {
+  if (artWorker) return artWorker;
+  artWorker = new Worker(URL.createObjectURL(new Blob([RECOLOR_WORKER], { type: 'text/javascript' })));
+  artWorker.onmessage = e => { const f = artJobs.get(e.data.id); artJobs.delete(e.data.id); if (f) f(e.data); };
+  artWorker.onerror = () => { for (const f of artJobs.values()) f(null); artJobs.clear(); };   // feil i tråden: originalbildene brukes
+  return artWorker;
+}
 function recolorImage(key) {
   const image = ART[key], job = ART_JOB[key];
-  if (!image || !job || (seasonName === 'autumn' && !job.play)) return Promise.resolve();   // høst uten demping: originalen
+  if (!image || !job) return Promise.resolve();
+  // høst uten demping: ingen fargelegging, men bildet dekodes én gang i tråden (ellers kan nettleseren dekode det
+  // store bildet på nytt mens det tegnes, og det gir hakk)
+  const plain = seasonName === 'autumn' && !job.play;
+  const base = { season: seasonName, role: job.role, play: !!job.play, night: /Night$|^night$/.test(key), plain };
+  // hele jobben i tråden når nettleseren kan: tråden henter og dekoder bildet selv (fra hurtigbufferen), fargelegger det
+  // og sender det tilbake som ImageBitmap, så hovedtråden verken dekoder eller flytter piksler
+  if (typeof Worker === 'function' && typeof OffscreenCanvas === 'function' && typeof createImageBitmap === 'function') {
+    return new Promise(resolve => {
+      const id = ++artJobId;
+      artJobs.set(id, reply => { if (reply && reply.bitmap) SEASON_ART[key] = reply.bitmap; resolve(); });
+      try { ensureArtWorker().postMessage({ id, url: new URL(image.src, location.href).href, ...base }); } catch (e) { artJobs.delete(id); resolve(); }
+    });
+  }
+  if (plain) return Promise.resolve();   // uten tråd: originalbildet brukes som det er
   const c = document.createElement('canvas'); c.width = image.width; c.height = image.height;
   const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(image, 0, 0);
   const img = g.getImageData(0, 0, c.width, c.height);
-  const msg = { id: ++artJobId, data: img.data, w: c.width, h: c.height, season: seasonName, role: job.role, play: !!job.play, night: /Night$|^night$/.test(key) };
+  const msg = { id: ++artJobId, data: img.data, w: c.width, h: c.height, ...base };
   return new Promise(resolve => {
     // dataene ble overført til tråden (bufferen her er tom), så det fargelagte bildet bygges av svaret
     const done = data => { try { g.putImageData(new ImageData(data, msg.w, msg.h), 0, 0); SEASON_ART[key] = c; } catch (e) {} resolve(); };
-    try {
-      if (!artWorker) {
-        artWorker = new Worker(URL.createObjectURL(new Blob([RECOLOR_WORKER], { type: 'text/javascript' })));
-        artWorker.onmessage = e => { const f = artJobs.get(e.data.id); artJobs.delete(e.data.id); if (f) f(e.data.data); };
-        artWorker.onerror = () => { for (const f of artJobs.values()) f(null); artJobs.clear(); };   // feil i tråden: originalbildene brukes
-      }
-      artJobs.set(msg.id, done); artWorker.postMessage(msg, [msg.data.buffer]);
-    } catch (e) { recolor(msg.data, msg.w, msg.h, msg.season, msg.role, msg.play, msg.night); done(msg.data); }   // uten tråd: her og nå
+    try { if (typeof Worker !== 'function') throw 0; artJobs.set(msg.id, reply => done(reply && reply.data)); ensureArtWorker().postMessage(msg, [msg.data.buffer]); }
+    catch (e) { artJobs.delete(msg.id); recolor(msg.data, msg.w, msg.h, msg.season, msg.role, msg.play, msg.night); done(msg.data); }   // uten tråd: her og nå
   });
 }
 // menymaleriene først (introen venter på dem), resten i bakgrunnen; returnerer når menyen er klar
 let seasonArtAll = Promise.resolve();
 function prepareSeasonArt() {
-  const menu = Promise.all(['day', 'night'].map(recolorImage));
-  seasonArtAll = menu.then(() => Promise.all(['panoramaDay', 'panoramaNight', 'woodland', 'foreground', 'birch'].map(recolorImage)));
+  const menu = Promise.all(['day', 'night', 'foreground'].map(recolorImage));   // alt som vises i menyen
+  // bildene bak spillet lages når introen er ferdig, så ingenting kommer i veien mens rammen åpner seg
+  const afterIntro = () => new Promise(resolve => { const wait = () => (typeof intro !== 'undefined' && intro) ? requestAnimationFrame(wait) : resolve(); wait(); });
+  seasonArtAll = menu.then(afterIntro).then(() => Promise.all(['panoramaDay', 'panoramaNight', 'woodland', 'birch'].map(recolorImage)));
   return menu;
 }
 // bildet for årstiden (eller originalen, så lenge fargeleggingen ikke er ferdig)
@@ -127,7 +156,7 @@ function drawPaintedBackdrop(groundY) {
   }
   // The moon/sun and falling leaves remain live, separate from the painting.
   const skyY = Math.min(groundY * 0.32, safeTop + 170), sx = W * 0.79, body = paintedSkyBody();
-  ctx.drawImage(body.c, sx - 70, skyY - 70, body.w, body.h);
+  ctx.drawImage(body.c, sx - 60, skyY - 60, body.w, body.h);
   if (T.night && !reduceMotion) {
     ctx.fillStyle = '#FFF1D1';
     for (const star of stars.slice(0, 12)) {
@@ -144,11 +173,11 @@ const skyBodyCache = new Map();
 function paintedSkyBody() {
   const key = `${T.night ? 'mane' : T.sunLow ? 'kveld' : 'sol'}|${dpr * scale}`;
   if (skyBodyCache.has(key)) return skyBodyCache.get(key);
-  const L = makeSprite(140, 140, g => {
-    const c = 70, r = rng(31);
-    const glow = (rad, col, a) => { const gr = g.createRadialGradient(c, c, 4, c, c, rad); gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(0, 0, 140, 140); };
+  const L = makeSprite(120, 120, g => {
+    const c = 60, r = rng(31);
+    const glow = (rad, col, a) => { const gr = g.createRadialGradient(c, c, 4, c, c, rad); gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(0, 0, 120, 120); };
     if (T.night) {   // månesigd: kald glød, blek kjerne og mørkere hav (maria)
-      glow(66, '214,222,255', 0.22); glow(30, '240,236,215', 0.25);
+      glow(58, '214,222,255', 0.22); glow(30, '240,236,215', 0.25);
       g.save(); g.beginPath(); g.arc(c, c, 14, 0, 7); g.clip();
       const body = g.createRadialGradient(c + 4, c - 5, 2, c, c, 15); body.addColorStop(0, '#FFF8E6'); body.addColorStop(1, '#E8D9B0');
       g.fillStyle = body; g.fillRect(c - 15, c - 15, 30, 30);
@@ -157,7 +186,7 @@ function paintedSkyBody() {
       g.restore();
     } else {
       const warm = T.sunLow ? '255,170,110' : '255,232,170';
-      glow(68, warm, T.sunLow ? 0.32 : 0.26); glow(34, T.sunLow ? '255,200,140' : '255,246,214', 0.35);
+      glow(58, warm, T.sunLow ? 0.32 : 0.26); glow(32, T.sunLow ? '255,200,140' : '255,246,214', 0.35);
       g.save(); g.beginPath(); g.arc(c, c, 15, 0, 7); g.clip();
       const body = g.createRadialGradient(c + 4, c - 5, 2, c, c, 16);
       body.addColorStop(0, T.sunLow ? '#FFE7C4' : '#FFFBEA'); body.addColorStop(0.7, T.sunLow ? '#F7B576' : '#FBE3A0'); body.addColorStop(1, T.sunLow ? '#E9925E' : '#F2CB78');

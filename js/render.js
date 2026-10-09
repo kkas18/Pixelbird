@@ -123,6 +123,11 @@ function paintLogoCell(g, layer, q) {
   else if (layer === 1) { g.fillStyle = UI_INK; g.fillRect(x - o + SHADE_X * o * 0.5, y - o + SHADE_Y * o * 0.5, s + o * 2, s + o * 2); }
   else { const c = LOGO_COLORS[q.ch] || LOGO_COLORS.X; g.fillStyle = c[0]; g.fillRect(x, y, s, s); stitch(g, x, y, s, c[1], c[2], q.jit); }
 }
+// logoen legges på hele skjermpiksler (som blitSurface), så nettleseren kopierer stingene rett over i stedet for å filtrere dem
+function blitLogo(c, x, y) {
+  const R = dpr * scale, LG = scene.logo;
+  ctx.drawImage(c, Math.round(x * R) / R, Math.round(y * R) / R, LG.w, LG.h);
+}
 function buildLogo() {
   const { rows, cells } = logoCells();
   return makeSprite(rows[0].length * LOGO_S + LOGO_PAD * 2, rows.length * LOGO_S + LOGO_PAD * 2 + 2, g => {
@@ -1779,9 +1784,12 @@ function drawBird() {
 
 // på maleriet: malt korn i fjærdrakten og varmt kantlys fra sola oppe til høyre, kjølig refleks nede til venstre
 // (vinklene trekker fra fuglens rotasjon, så lyset står fast i verden)
+let birdGrain = null;
 function birdPaintLight(br) {
   ctx.save(); ctx.beginPath(); ctx.arc(0, 0, BODY_R - 0.2, 0, 7); ctx.clip();
-  paperOn(ctx, 1.6);
+  // kornet fylles bare over fuglen (ikke hele lerretet bak klippen), med mønsteret skalert til tegneoppløsningen
+  if (!birdGrain || birdGrain.g !== ctx) { birdGrain = { g: ctx, p: ctx.createPattern(grain(), 'repeat') }; birdGrain.p.setTransform(new DOMMatrix().scale(1 / (dpr * scale))); }
+  ctx.globalAlpha *= 0.38; ctx.fillStyle = birdGrain.p; ctx.fillRect(-BODY_R, -BODY_R, BODY_R * 2, BODY_R * 2); ctx.globalAlpha /= 0.38;
   ctx.lineCap = 'round';
   ctx.strokeStyle = 'rgba(255,238,196,.55)'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(0, 0, BODY_R - 1.2, -1.35 - br, -0.15 - br); ctx.stroke();
   ctx.strokeStyle = 'rgba(40,40,90,.18)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, BODY_R - 0.5, 1.9 - br, 3.4 - br); ctx.stroke();
@@ -2426,8 +2434,8 @@ function introNeedle(t, lx, ly) {
 function drawIntroLogo(t, lx, ly) {
   const { order } = introPlan(), gfx = introGfx(), LG = scene.logo;
   while (gfx.done < order.length && order[gfx.done].t <= t) { const q = order[gfx.done++]; for (const L of [0, 1, 2]) paintLogoCell(gfx.layers[L].g, L, q); }
-  if (gfx.done >= order.length) return ctx.drawImage(LG.c, lx, ly, LG.w, LG.h);
-  for (const L of gfx.layers) ctx.drawImage(L.c, lx, ly, LG.w, LG.h);
+  if (gfx.done >= order.length) return blitLogo(LG.c, lx, ly);
+  for (const L of gfx.layers) blitLogo(L.c, lx, ly);
 }
 function drawFabric(cx, cy, sc, a = 1) {
   const gfx = introGfx(), F = gfx.fabric;
@@ -2439,7 +2447,7 @@ function drawIntro() {
   if (I.rm) {   // redusert bevegelse: logoen står ferdig sydd, og lin og ramme toner rolig bort
     const a = 1 - EASE.inOut(k);
     if (a > 0.002) { ctx.save(); ctx.globalAlpha = a; ctx.drawImage(gfx.linen.c, 0, 0, gfx.linen.w, gfx.linen.h); drawFabric(cx, cy, 1); hoopRing(cx, cy, 1, 1); ctx.restore(); }
-    ctx.drawImage(G.LG.c, G.lx, ly, G.LG.w, G.LG.h);
+    blitLogo(G.LG.c, G.lx, ly);
     return;
   }
   // lerretet åpner seg: rammen vokser forbi kameraet (stor nok til å dekke hele skjermen), stoffet inni toner bort
@@ -2469,7 +2477,7 @@ function render() {
   if (intro && introOpenK() <= 0) {   // introen: lerretet dekker alt, og verden tegnes ikke
     // unntak: ett bilde der menyen tegnes ferdig under linet (bilder i hurtigbufferen, lag til skjermkortet), mens
     // ingenting beveger seg: før nålen kommer inn, eller mens fuglen står på logoen
-    const still = intro.rm || intro.t < INTRO.stitch[0] - 0.2 || intro.t >= INTRO.fly[1];
+    const still = intro.rm || intro.t < INTRO.stitch[0] - 0.2 || intro.t >= INTRO.fly[1] + 0.08;   // (etter landingsklemmet)
     if (!(fontsReady && !intro.warm && still)) { for (const k in hud) delete hud[k]; drawIntro(); ctx.restore(); return; }   // ingen knapper under linet
     intro.warm = true;
   }
