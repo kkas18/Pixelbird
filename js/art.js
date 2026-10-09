@@ -271,7 +271,8 @@ const PAINTED_LM = {
 const paintedSpeed = kind => PAINTED_LM[kind].path ? 1 : DEPTH_SPEED.woodland;
 // grade: metning og kontrast som foran skogen (mindre dempet enn bildene bak spillet, for det står nærmere);
 // light: malt lys fra sola oppe til høyre og skygge nede til venstre (kjølig månelys om kvelden)
-function paintify(L, { soft = 0.6, haze = 0.05, sat = 0.86, contrast = 0.9, light = true } = {}) {
+// strokes: korte penselstrøk i lyst og mørkt over flatene, så de ikke står glatte som i en vektortegning
+function paintify(L, { soft = 0.6, haze = 0.05, sat = 0.86, contrast = 0.9, light = 1, strokes = true, seed = 11 } = {}) {
   const c = L.c, R = dpr * scale, w = c.width, h = c.height, g = c.getContext('2d', { willReadFrequently: true });
   g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
   if (soft && canFilter) {   // en uskarp kopi over originalen: kantene blir penselstrøk, ikke tusj
@@ -291,10 +292,19 @@ function paintify(L, { soft = 0.6, haze = 0.05, sat = 0.86, contrast = 0.9, ligh
   g.putImageData(img, 0, 0);
   g.globalCompositeOperation = 'source-atop';
   if (light) {
-    const lg = g.createLinearGradient(w, 0, 0, h);
-    lg.addColorStop(0, T.night ? 'rgba(178,192,255,.16)' : T.sunLow ? 'rgba(255,190,140,.24)' : 'rgba(255,240,200,.22)');
-    lg.addColorStop(0.55, 'rgba(0,0,0,0)'); lg.addColorStop(1, T.night ? 'rgba(14,16,40,.26)' : 'rgba(40,26,40,.2)');
+    const lg = g.createLinearGradient(w, 0, 0, h), k = v => (v * light).toFixed(3);
+    lg.addColorStop(0, T.night ? `rgba(178,192,255,${k(0.16)})` : T.sunLow ? `rgba(255,190,140,${k(0.24)})` : `rgba(255,240,200,${k(0.22)})`);
+    lg.addColorStop(0.55, 'rgba(0,0,0,0)'); lg.addColorStop(1, T.night ? `rgba(14,16,40,${k(0.26)})` : `rgba(40,26,40,${k(0.2)})`);
     g.fillStyle = lg; g.fillRect(0, 0, w, h);
+  }
+  if (strokes) {
+    const r = rng(seed), n = Math.round(w * h / (16 * R * R));
+    g.lineCap = 'round';
+    for (let i = 0; i < n; i++) {
+      const x = r() * w, y = r() * h, len = (1.4 + r() * 2.4) * R, a = r() * Math.PI, lightStroke = r() < 0.5;
+      g.strokeStyle = lightStroke ? 'rgba(255,248,230,.05)' : 'rgba(30,20,30,.06)'; g.lineWidth = (0.8 + r() * 0.9) * R;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); g.stroke();
+    }
   }
   g.restore();
   g.save(); g.globalCompositeOperation = 'source-atop'; paperOn(g, 1.2); g.restore();
@@ -306,12 +316,31 @@ function paintedProps() {
   const pT = T, sizes = {};
   for (const k in PAINTED_LM) sizes[k] = PAINTED_LM[k].s;
   T = { ...T, ink: mixHex(T.ink, T.night ? '#6A6E92' : '#9A8670', 0.25) };   // mykere strek
-  let marks;
-  try { marks = buildLandmarks(false, true, sizes); } finally { T = pT; }
+  let marks, home;
+  try {
+    marks = buildLandmarks(false, true, sizes);
+    // hytta og fuglebrettet (spilleplanet: nesten full styrke, men samme strek, lys og korn)
+    const pad = 12, oc = ctx;
+    home = makeSprite(HOME_W + pad * 2, HOME_H + pad * 2, g => { ctx = g; try { paintHome(pad, pad); } finally { ctx = oc; } });
+    home.pad = pad;
+  } finally { T = pT; }
   for (const k in PAINTED_LM) paintify(marks[k], PAINTED_LM[k].path ? { haze: 0, sat: 0.95, contrast: 0.96 } : {});
+  paintify(home, { haze: 0, sat: 0.95, contrast: 0.95, light: 1.6, seed: 60 });
+  // varmt lys fra vinduene om kvelden: en myk glorie (ferdig tegnet, legges over hytta)
+  const glow = makeSprite(72, 72, g => {
+    const gr = g.createRadialGradient(36, 36, 2, 36, 36, 36);
+    gr.addColorStop(0, 'rgba(255,214,140,.7)'); gr.addColorStop(0.35, 'rgba(255,190,110,.3)'); gr.addColorStop(1, 'rgba(255,170,90,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 72, 72);
+  });
+  // lysskjæret fra vinduene på bakken foran hytta
+  const spill = makeSprite(200, 24, g => {
+    const gr = g.createRadialGradient(100, 12, 4, 100, 12, 100);
+    gr.addColorStop(0, 'rgba(255,200,120,.3)'); gr.addColorStop(1, 'rgba(255,180,100,0)');
+    g.save(); g.translate(0, 12); g.scale(1, 0.12); g.translate(0, -12); g.fillStyle = gr; g.fillRect(0, -88, 200, 200); g.restore();
+  });
   const B = scene.balloon, bc = document.createElement('canvas'); bc.width = B.c.width; bc.height = B.c.height; bc.getContext('2d').drawImage(B.c, 0, 0);
   const balloon = paintify({ c: bc, w: B.w, h: B.h }, { haze: 0.14, sat: 0.8, contrast: 0.85 });
-  return (scene.painted = { marks, balloon });
+  return (scene.painted = { marks, balloon, home, glow, spill });
 }
 // landemerkene på enga (path = false) eller ved stien (path = true); bare i spill, for i menyen og på «Klar?»
 // står maleriet stille

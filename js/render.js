@@ -2196,8 +2196,15 @@ function paintRoadSign(ox, oy, bw, bh, postH, name, seed) {
 // (bildene hurtigbufres per palett, så den gamle tiden under en krysstoning får sine egne farger)
 const HOME_W = 196, HOME_H = 112, FEEDER_X = 24;   // fuglebrettets stolpe står FEEDER_X fra venstre kant
 function drawHome(x, groundY) {
-  const L = cachedSurface('hjem', HOME_W, HOME_H, 60, T.skyTop, (ox, oy) => paintHome(ox, oy));
+  // på maleriet: den malte utgaven (myk strek, malt lys og korn), med glødende vinduer om kvelden
+  const P = hasPaintedForest() ? paintedProps() : null;
+  const L = P ? P.home : cachedSurface('hjem', HOME_W, HOME_H, 60, T.skyTop, (ox, oy) => paintHome(ox, oy));
   ctx.drawImage(L.c, x - FEEDER_X - L.pad, groundY + 3 - HOME_H - L.pad, L.w, L.h);
+  if (P && T.windowLit) {
+    const G = P.glow, S = P.spill, hx = x - FEEDER_X;
+    ctx.drawImage(S.c, hx + 122 - 100, groundY - 10, S.w, S.h);
+    for (const wx of [85, 159]) ctx.drawImage(G.c, hx + wx - 36, groundY - 26 - 36, G.w, G.h);
+  }
   // røyk fra pipa: små dotter som stiger og blekner (ingen jevn sinus: hver dott har sin egen fase)
   if (!reduceMotion) for (let i = 0; i < 4; i++) {
     const k = ((time * 0.35 + i / 4) % 1), sx = x - FEEDER_X + 148 + k * 10 + Math.sin(i * 2.1) * 2, sy = groundY + 3 - HOME_H + 4 - k * 34;
