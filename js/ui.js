@@ -84,11 +84,17 @@ const settingsIcon = k => {
   ctx.closePath(); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, k * 0.3, 0, Math.PI * 2); ctx.stroke();
 };
 
+// logoen er «Pixelfugl» brodert i korssting, som et merke på maleriet (samme bilde som introen syr)
+const menuHeadY = () => safeTop + (H - safeTop - safeBottom) * 0.145;
+const menuLogoTop = () => Math.round(menuHeadY() - scene.logo.h / 2);
 function drawMenuScreen() {
   // Heading and controls have separate quiet areas; the landscape remains visible.
-  const usable = H - safeTop - safeBottom, headY = safeTop + usable * 0.145, width = Math.min(246, W - 32), x = (W - width) / 2;
-  uiText('Pixelfugl', W / 2, headY, 50, { color: T.night ? UI.paper : UI.ink, maxWidth: width + 12, shadow: T.night });
-  uiText(`${SEASONS[seasonName].label} i bjørkeskogen`, W / 2, headY + 31, 13, { color: T.night ? UI.paper : UI.ink, shadow: T.night });
+  const usable = H - safeTop - safeBottom, headY = menuHeadY(), width = Math.min(246, W - 32), x = (W - width) / 2;
+  const LG = scene.logo;
+  if (!intro) ctx.drawImage(LG.c, Math.round(W / 2 - LG.w / 2), menuLogoTop(), LG.w, LG.h);   // under introen tegner drawIntro logoen
+  ctx.save(); ctx.globalAlpha *= intro ? clamp((intro.t - introOpen()[1] + 0.2) / 0.25, 0, 1) : 1;   // undertittelen kommer når logoen er på plass
+  uiText(`${SEASONS[seasonName].label} i bjørkeskogen`, W / 2, headY + 38, 13, { color: T.night ? UI.paper : UI.ink, shadow: T.night });
+  ctx.restore();
   const bottom = safeTop + usable * 0.93, playY = safeTop + usable * 0.704;
   const selectY = playY - 49, cellW = (width - 8) / 4;
   ctx.fillStyle = '#59402D'; rr(x, selectY, width, 35, 9); ctx.fill();

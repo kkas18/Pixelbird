@@ -2300,7 +2300,7 @@ function introPlan() {
 // logoen: samme x som i menyen; midt på lerretet mens den sys (ly0), oppe på menyplassen etterpå (lyM)
 function introGeo() {
   const LG = scene.logo, P = introPlan().perch;
-  return { LG, lx: Math.round(W / 2 - LG.w / 2), ly0: Math.round(H * 0.4 - LG.h / 2), lyM: safeTop + 42,
+  return { LG, lx: Math.round(W / 2 - LG.w / 2), ly0: Math.round(H * 0.4 - LG.h / 2), lyM: menuLogoTop(),
     perchX: LOGO_PAD + P.i * LOGO_S + LOGO_S / 2, perchTop: LOGO_PAD + 2 };
 }
 // lin, aida i rammen og de tre lagene logoen sys inn i (lages ved oppstart og ved ny skjermstørrelse)
@@ -2441,7 +2441,10 @@ function drawIntro() {
   drawIntroLogo(t, G.lx, ly);
   const nd = introNeedle(t, G.lx, ly);
   if (nd) needle(nd.x, nd.y, nd.a, nd.col, nd.from ? nd.from.x : null, nd.from ? nd.from.y : null);
-  drawBird();
+  // fuglen vokser til menystørrelsen (1,25) mens den glir ned til hvileplassen
+  const gs = 1 + 0.25 * EASE.inOut(clamp((t - INTRO.glide[0]) / (INTRO.glide[1] - INTRO.glide[0]), 0, 1));
+  const bx = ip(bird.px, bird.x), by = ip(bird.py, bird.y);
+  ctx.save(); ctx.translate(bx, by); ctx.scale(gs, gs); ctx.translate(-bx, -by); drawBird(); ctx.restore();
 }
 
 function render() {

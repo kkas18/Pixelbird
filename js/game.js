@@ -611,7 +611,7 @@ function leaveHome() {
 /* ---------- Introen «Broderiet» (ved hver oppstart) ----------
    Lin med aida-ruter i en oval broderiramme: en nål syr logoen sting for sting, blåmeisen flyr inn og lander på
    den første «l»-en, og rammen vokser ut av skjermen mens logoen glir opp på plassen sin i menyen. Fuglen letter
-   og glir ned til hvileplassen. Alt regnes fra introens klokke, så et trykk (hopp over) bare spoler fram. */
+   og glir ned til hvileplassen midt i menyen. Alt regnes fra introens klokke, så et trykk (hopp over) bare spoler fram. */
 const INTRO = { stitch: [0.3, 1.3], fly: [1.2, 1.75], open: [1.95, 2.55], glide: [2.12, 2.66], end: 2.7 };
 const INTRO_RM = { open: [0.7, 1.1], end: 1.1 };   // redusert bevegelse: logoen står ferdig sydd, og lerretet toner bort
 function startIntro() {
@@ -640,7 +640,7 @@ function introStep(dt, idleY) {
   I.t = nt;
   const t = I.t;
   if (I.rm) {   // fuglen hviler der den skal være; ingen nål og ingen flukt
-    bird.x = BIRD_X; bird.y = idleY; bird.flapT += dt;
+    bird.x = W / 2; bird.y = idleY; bird.flapT += dt;
     if (t >= end) finishIntro(idleY);
     return;
   }
@@ -663,18 +663,18 @@ function introStep(dt, idleY) {
   } else if (t < g1) {   // letter og glir ned til hvileplassen
     if (!I.left) { I.left = true; I.from = { x: bird.x, y: bird.y }; bird.flapT = 0; }
     const k = (t - g0) / (g1 - g0), u = EASE.inOut(k), F = I.from;
-    const x = bez(F.x, (F.x + BIRD_X) / 2, BIRD_X, u), y = bez(F.y, Math.min(F.y, idleY) - 34, idleY, u);
+    const x = bez(F.x, (F.x + W / 2) / 2 - 30, W / 2, u), y = bez(F.y, Math.min(F.y, idleY) - 34, idleY, u);
     bird.rot = lerp(bird.rot, clamp((y - bird.y) / Math.max(1, Math.abs(x - bird.x)) * 0.5, -0.35, 0.35), 1 - Math.exp(-10 * dt));
     bird.x = x; bird.y = y;
     if (k < 0.35 && bird.flapT > 0.17) bird.flapT = 0;
-  } else { bird.x = BIRD_X; bird.y = idleY; bird.rot = lerp(bird.rot, 0, 1 - Math.exp(-8 * dt)); }
+  } else { bird.x = W / 2; bird.y = idleY; bird.rot = lerp(bird.rot, 0, 1 - Math.exp(-8 * dt)); }
   if (!I.opened && t >= INTRO.open[0]) { I.opened = true; Sound.introOpen(); }
   bird.sx = lerp(bird.sx, 1, 1 - Math.exp(-9 * dt)); bird.sy = lerp(bird.sy, 1, 1 - Math.exp(-9 * dt));
   if (t >= end) finishIntro(idleY);
 }
 function finishIntro(idleY = (H - GROUND_H) * 0.42) {
   intro = null; menuT = 1;   // logoen står allerede på plass (ingen fall)
-  bird.x = BIRD_X; bird.y = idleY; bird.hv = 0; bird.sx = bird.sy = 1; bird.hoverT = 0.2;
+  bird.x = W / 2; bird.y = idleY; bird.hv = 0; bird.sx = bird.sy = 1; bird.hoverT = 0.2;   // hvileplassen i menyen
   skyChrome();
 }
 

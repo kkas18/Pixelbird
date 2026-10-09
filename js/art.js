@@ -11,12 +11,99 @@ function loadArtwork() {
   })));
 }
 
-function hasPaintedForest() { return seasonName === 'autumn' && !!ART.night && !!ART.day; }
+/* ---------- Årstider og lesbarhet ----------
+   Maleriene er høst. For de andre årstidene fargelegges de i en egen tråd (Web Worker), så telefonen ikke hakker:
+   sommer og vår flytter høstløvet mot grønt (jorda og de røde bærene holdes utenfor), vinter blir kald og blek med
+   rimfrost på flatene som vender opp. Bildene bak selve spillet (panorama og skogslag) dempes i tillegg i alle
+   årstider (lavere metning og kontrast, et tynt dislag), så fuglen og stammene leses tydelig. Menymaleriet beholder
+   full styrke. Bjørka beholder barken (ellers ville kjukene blitt grønne) og får bare et kaldt skjær om vinteren. */
+const SEASON_ART = {};   // ferdig fargelagte lerreter for årstiden (og spillgraderingen)
+const ART_JOB = {        // rolle: scene (landskap med jord nederst), props (forgrunn), bark; play = dempes bak spillet
+  day: { role: 'scene' }, night: { role: 'scene' },
+  panoramaDay: { role: 'scene', play: true }, panoramaNight: { role: 'scene', play: true },
+  woodland: { role: 'scene', play: true }, foreground: { role: 'props' }, birch: { role: 'bark' }
+};
+const RECOLOR_WORKER = `onmessage = e => { const m = e.data; recolor(m.data, m.w, m.h, m.season, m.role, m.play, m.night); postMessage({ id: m.id, data: m.data }, [m.data.buffer]); };
+${recolor.toString()}`;
+// én piksel om gangen, i ren JS (kjører i tråden); d er RGBA 0–255
+function recolor(d, w, h, season, role, play, night) {
+  const green = season === 'summer' ? [92, 0.62, 0.86] : season === 'spring' ? [70, 0.55, 1] : null, winter = season === 'winter';
+  const haze = night ? [64, 70, 104] : [222, 226, 232];
+  for (let y = 0; y < h; y++) {
+    const yf = y / h, soil = role === 'scene' && yf > 0.87, land = role !== 'scene' || yf > 0.42;
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      let r = d[i], g = d[i + 1], b = d[i + 2];
+      if (d[i + 3] === 0) continue;
+      if (green && role !== 'bark' && !soil) {
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b), v = mx / 255, s = mx ? (mx - mn) / mx : 0;
+        if (s > 0.38 && v > 0.35 && mx !== mn) {
+          let hu = mx === r ? 60 * (((g - b) / (mx - mn)) % 6) : mx === g ? 60 * ((b - r) / (mx - mn) + 2) : 60 * ((r - g) / (mx - mn) + 4);
+          if (hu < 0) hu += 360;
+          if (hu > 14 && hu < 58) {   // høstløv: gult til oransje
+            const k = Math.min(1, (s - 0.38) / 0.25), h2 = hu + k * (green[0] + (hu - 35) * 0.35 - hu), s2 = s * (1 - k * (1 - green[1])), v2 = v * (1 - k * (1 - green[2]));
+            const c = v2 * s2, hp = h2 / 60, xx = c * (1 - Math.abs(hp % 2 - 1)), m = v2 - c;
+            const [r1, g1, b1] = hp < 1 ? [c, xx, 0] : hp < 2 ? [xx, c, 0] : hp < 3 ? [0, c, xx] : hp < 4 ? [0, xx, c] : hp < 5 ? [xx, 0, c] : [c, 0, xx];
+            r = (r1 + m) * 255; g = (g1 + m) * 255; b = (b1 + m) * 255;
+          }
+        }
+      } else if (winter) {
+        const lum = (0.3 * r + 0.59 * g + 0.11 * b) / 255;
+        if (role === 'bark') { r = r * 0.86 + lum * 255 * 0.1; g = g * 0.9 + lum * 255 * 0.08; b = Math.min(255, b * 0.96 + lum * 255 * 0.12); }
+        else {
+          const j = i + 8 * w < d.length ? i + 8 * w : i, below = (0.3 * d[j] + 0.59 * d[j + 1] + 0.11 * d[j + 2]) / 255;
+          const up = Math.min(1, Math.max(0, (lum - below) * 8));
+          const snow = land ? Math.min(1, up * 1.1 + Math.min(1, Math.max(0, (lum - 0.45) * 2.2)) * 0.8) * 0.85 : 0;
+          const cr = ((lum * 0.75 + r / 255 * 0.25) * 0.88 + 0.04), cg = ((lum * 0.75 + g / 255 * 0.25) * 0.95 + 0.04), cb = ((lum * 0.75 + b / 255 * 0.25) * 1.1 + 0.04);
+          r = (cr * (1 - snow) + 0.94 * snow) * 255; g = (cg * (1 - snow) + 0.96 * snow) * 255; b = (cb * (1 - snow) + 1.0 * snow) * 255;
+        }
+      }
+      if (play) {   // bak spillet: lavere metning og kontrast, og et tynt dislag
+        const l = 0.3 * r + 0.59 * g + 0.11 * b;
+        r = l + (r - l) * 0.74; g = l + (g - l) * 0.74; b = l + (b - l) * 0.74;
+        r = 140 + (r - 140) * 0.8; g = 140 + (g - 140) * 0.8; b = 140 + (b - 140) * 0.8;
+        r = r * 0.9 + haze[0] * 0.1; g = g * 0.9 + haze[1] * 0.1; b = b * 0.9 + haze[2] * 0.1;
+      }
+      d[i] = r < 0 ? 0 : r > 255 ? 255 : r; d[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g; d[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+    }
+  }
+}
+let artWorker = null, artJobs = new Map(), artJobId = 0;
+function recolorImage(key) {
+  const image = ART[key], job = ART_JOB[key];
+  if (!image || !job || (seasonName === 'autumn' && !job.play)) return Promise.resolve();   // høst uten demping: originalen
+  const c = document.createElement('canvas'); c.width = image.width; c.height = image.height;
+  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(image, 0, 0);
+  const img = g.getImageData(0, 0, c.width, c.height);
+  const msg = { id: ++artJobId, data: img.data, w: c.width, h: c.height, season: seasonName, role: job.role, play: !!job.play, night: /Night$|^night$/.test(key) };
+  return new Promise(resolve => {
+    // dataene ble overført til tråden (bufferen her er tom), så det fargelagte bildet bygges av svaret
+    const done = data => { try { g.putImageData(new ImageData(data, msg.w, msg.h), 0, 0); SEASON_ART[key] = c; } catch (e) {} resolve(); };
+    try {
+      if (!artWorker) {
+        artWorker = new Worker(URL.createObjectURL(new Blob([RECOLOR_WORKER], { type: 'text/javascript' })));
+        artWorker.onmessage = e => { const f = artJobs.get(e.data.id); artJobs.delete(e.data.id); if (f) f(e.data.data); };
+        artWorker.onerror = () => { for (const f of artJobs.values()) f(null); artJobs.clear(); };   // feil i tråden: originalbildene brukes
+      }
+      artJobs.set(msg.id, done); artWorker.postMessage(msg, [msg.data.buffer]);
+    } catch (e) { recolor(msg.data, msg.w, msg.h, msg.season, msg.role, msg.play, msg.night); done(msg.data); }   // uten tråd: her og nå
+  });
+}
+// menymaleriene først (introen venter på dem), resten i bakgrunnen; returnerer når menyen er klar
+let seasonArtAll = Promise.resolve();
+function prepareSeasonArt() {
+  const menu = Promise.all(['day', 'night'].map(recolorImage));
+  seasonArtAll = menu.then(() => Promise.all(['panoramaDay', 'panoramaNight', 'woodland', 'foreground', 'birch'].map(recolorImage)));
+  return menu;
+}
+// bildet for årstiden (eller originalen, så lenge fargeleggingen ikke er ferdig)
+function seasonImage(key) { return SEASON_ART[key] || ART[key]; }
+function hasPaintedForest() { return !!ART.night && !!ART.day && (seasonName === 'autumn' || (!!SEASON_ART.night && !!SEASON_ART.day)); }
 
 function drawPaintedBackdrop(groundY) {
   if (!hasPaintedForest()) return false;
   const traveling = state !== State.MENU;
-  const image = traveling ? (T.night ? ART.panoramaNight : ART.panoramaDay) : (T.night ? ART.night : ART.day);
+  const image = seasonImage(traveling ? (T.night ? 'panoramaNight' : 'panoramaDay') : (T.night ? 'night' : 'day'));
   if (!image || (traveling && !ART.woodland)) return false;
   ctx.save();
   const layers = paintedDepthLayers(image);
@@ -54,7 +141,7 @@ function drawPaintedBackdrop(groundY) {
 
 function paintBarkSprite(g, y0, y1) {
   if (!hasPaintedForest() || !ART.birch || y1 <= y0) return false;
-  const image = ART.birch;
+  const image = seasonImage('birch');
   // The interior bark slice stays within the exact physical trunk width. Caps
   // are rendered separately, so rings/moss are never stretched with the body.
   g.drawImage(image, image.width * 0.375, 0, image.width * 0.245, image.height * 0.78, 0, y0, PIPE_W, y1 - y0);
@@ -72,7 +159,7 @@ function paintBarkSprite(g, y0, y1) {
 
 function paintBirchCap(y, upper) {
   if (!hasPaintedForest() || !ART.birch) return false;
-  const image = ART.birch, height = 23;
+  const image = seasonImage('birch'), height = 23;
   ctx.save(); ctx.translate(PIPE_W / 2, y);
   if (upper) ctx.scale(1, -1);
   ctx.drawImage(image, image.width * 0.30, image.height * 0.80, image.width * 0.40, image.height * 0.15,
@@ -125,8 +212,9 @@ function paintedDepthLayers(image) {
 }
 const woodlandPaintCache = new Map();
 function paintedWoodlandLayer(night) {
-  if (woodlandPaintCache.has(night)) return woodlandPaintCache.get(night);
-  const image = ART.woodland, c = document.createElement('canvas');
+  const image = seasonImage('woodland'), key = `${night}|${image === ART.woodland ? 'org' : 'season'}`;
+  if (woodlandPaintCache.has(key)) return woodlandPaintCache.get(key);
+  const c = document.createElement('canvas');
   c.width = Math.min(3072, image.width); c.height = Math.round(c.width * image.height * 0.86 / image.width);
   const g = c.getContext('2d');
   g.drawImage(image, 0, 0, image.width, image.height * 0.86, 0, 0, c.width, c.height);
@@ -135,7 +223,7 @@ function paintedWoodlandLayer(night) {
     g.fillStyle = 'rgba(22,29,65,.28)'; g.fillRect(0, 0, c.width, c.height);
   }
   loopEdge(g, c.width, c.height); c.loopBlend = 0.06;
-  woodlandPaintCache.set(night, c); return c;
+  woodlandPaintCache.set(key, c); return c;
 }
 function drawDepthPlane(image, tileW, groundY, offset, cameraY = 0) {
   const top = cameraY - 4;
@@ -161,7 +249,7 @@ function drawDepthMist(y, h, opacity) {
 }
 function drawDepthForeground() {
   if (!hasPaintedForest() || !ART.foreground) return;
-  const image = ART.foreground, width = 420, height = 140;
+  const image = seasonImage('foreground'), width = 420, height = 140;
   const phase = wrap(depthScroll() * DEPTH_SPEED.foreground, width * 2);
   // The transparent prop layer is in front of the gameplay plane, entirely
   // below the bird's flight corridor. UI is composed afterward, in screen space.

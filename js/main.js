@@ -58,5 +58,5 @@ if ('serviceWorker' in navigator) window.addEventListener('load', () => navigato
 // mot menyen først når fontene og maleriene er klare (se introStep).
 resize(); startIntro(); goMenu(); Sound.setNight(T.night);
 const fontReady = document.fonts && document.fonts.load ? Promise.all([document.fonts.load("700 20px Fredoka"), document.fonts.load("600 14px Fredoka"), document.fonts.load("700 44px Storybook")]) : Promise.resolve();
-Promise.all([fontReady, loadArtwork()]).finally(() => { fontsReady = true; });
+Promise.all([fontReady, loadArtwork().then(prepareSeasonArt)]).finally(() => { fontsReady = true; });
 requestAnimationFrame(loop);
