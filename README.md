@@ -1,54 +1,50 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v5.1): en liten blåmeis med lusekofte-skjerf flyr
-hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Varm pastellstil med myke konturer, fjell og fjord,
+Et koselig flakse-spill (v9.0): en liten blåmeis med lusekofte-skjerf flyr
+hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Malt eventyrbokstil med fjell og fjord,
 røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
 månesigd. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
 vind i bjørk) og vibrasjon.
 Bygget som en installerbar PWA, optimalisert for Samsung Galaxy (portrett) og
 andre Android-telefoner.
 
-All grafikk er generert i koden – ingen bildefiler trengs utover ikonene. Lyden
+Høstlandskapet og bjørkestammene bruker lokale WebP-illustrasjoner (`art/`, ca. 3,0 MB). Fuglen, grensesnittet, partiklene og de øvrige årstidene tegnes i Canvas. Lyden
 er en blanding av syntese og noen få fritt lisensierte opptak (`audio/`, 273 kB
-i alt). Fonten (Fredoka) og opptakene ligger lokalt, så spillet ser og høres
+i alt). Fonten (Fredoka og Fraunces) og opptakene ligger lokalt, så spillet ser og høres
 likt ut også uten nett.
 
-## Stil: håndlaget og norsk
+## Stil: en roligere norsk eventyrbok
 
-Navnet «Pixelfugl» er tatt bokstavelig på norsk-håndarbeidsvis: **korssting er
-piksler i stoff**.
+Blåmeisen, lusekofte-skjerfet, bjørkeskogen, dyrene og reisen hjem er beholdt.
+Grensesnittet har én samlet visuell retning: varm elfenben, dempet rustrød,
+elegante serifoverskrifter og mindre papirkorn. Høstens dag- og kveldsmalerier, bjørkebarken, Fraunces-skriften og
+løvdekoren følger den godkjente designreferansen. Knapper, poeng og fuglen
+er fortsatt levende elementer, tegnet separat på Canvas.
 
-- **Logoen** er en egen pikselskrift der hver piksel er ett korssting (i-prikken er
-  et blått sting). Den bruker ikke fonten. Ved oppstart sys den for hånd i en broderiramme (se
-  «Oppstart og intro»).
-- **Medaljene** er broderte merker med en **selburose** (åttebladsrose) i korssting
-  og kant i plattsøm.
-- **Fuglen er en blåmeis**: blå hette, hvitt ansikt med mørk øyestripe og halsring,
-  gul buk, gulgrønn rygg og blå vinger med hvitt vingebånd.
-- **Skjerfet** er en lusekofte: rødt med hvite «lus» i korssting.
-- **Overskriftene** («Klar?», «Pause», «Garderobe», «Ny rekord!», «Å nei!» og de andre) er
-  brodert i den samme håndlagde skriften som logoen.
-- **Panelene er ting i verden:**
-  - Game over er et treskilt av furuplanker med spikre og malt rosemaling. Det henger i to tau
-    og svinger litt når det faller på plass.
-  - Garderoben er en knaggrekke der pynten henger på lapper med sydd kant.
-  - Pausemenyen ligger på et stykke bjørkenever.
-- **Knapper er treplanker** med avfasede kanter, årer og treplugger. Teksten er brent inn i det
-  umalte treet. Hovedvalget («Spill igjen», «Fortsett») er malt i tradisjonell rød linoljemaling,
-  som gamle kubbestoler og stabbursdører, og malingen er slitt der hendene tar.
-- **Vanskeligheten velges på en veiviser:** en stolpe med fire pilplanker, i samme stil som
-  veiskiltene på reisen. Den valgte er malt rød, og rekorden henger på en merkelapp under.
-- **Ikonknapper:** lyd, musikk, dag/natt og garderoben (lue) er runde trestykker (som snittflaten
-  på stammene) med tegnede ikoner, plassert nede til venstre. Pauseknappen og pilene i garderoben
-  er av samme slag.
-- **Tekst uten kontur:** hint, undertitler og stedsnavn står med blekk på små, revne papirlapper.
-  Power-ups og «Ny pynt» står på pappmerkelapper på hyssing, som på en gammel koffert.
-- **Poengtallet er brodert** i den samme korsstingskriften som logoen.
-- **Håndtegnet strek:** konturene er litt ujevne og tykkest på skyggesiden (lyset
-  kommer fra sola oppe til høyre). Ujevnheten er frøstyrt, så ingenting flimrer.
-- **Papirkorn** er bakt inn i himmel, landskap og paneler.
-- **Flate tonetrinn** (cel-skygge) i stedet for gradienter på fugl, stammer, skyer,
-  jord og sol.
+- **Start:** ett samlet nivåvalg og én tydelig «Spill»-knapp.
+- **Innstillinger:** lydeffekter, musikk, dag/kveld og garderoben er samlet.
+- **Spill:** lesbare poeng, en diskret pauseknapp og tydeligere bjørkestammer.
+- **Pause og resultater:** samme paneler, typografi og knapper som i menyen.
+- **Garderobe:** alle eksisterende plagg og opplåsingskrav er bevart.
+- **Tilgjengelige kontroller:** Canvas-knappene har samsvarende native
+  HTML-knapper med norske navn, valgt tilstand og synlig tastaturfokus.
+- **Offline:** Fredoka og den medfølgende Fraunces ligger lokalt.
+  Fontlisenser finnes i `fonts/`. Ingen eksterne font- eller bildekall.
+- **Lagring:** eksisterende rekorder, lydvalg, tema og pynt beholdes ved oppdatering.
+
+Se [landskapet i bevegelse](docs/CONTINUOUS-v9.md) for skjermbilder, bevegelsesdemo og verifikasjon.
+Den tidligere [referansetilpasningen](docs/REFERENCE-v7.md) viser utgangspunktet.
+
+## Dybde i 2.5D
+
+Spillet beholder 2D-styring og kollisjoner, mens tegningen får flere dybdeplan:
+kontinuerlig bevegelse i himmel, fjell og et eget skogslag, en nærforgrunn med steiner
+og løv, atmosfærisk dis, sylinderskygge på bjørkene og mykt lys på fuglen.
+Kameraet følger fuglen forsiktig i bakgrunnslagene; knapper og poeng står fast.
+Under spillingen ruller brede dag-/nattpanoramaer og et separat, transparent
+skogslag kontinuerlig i takt med flyturen. Myke overganger mellom landskapsdelene
+gir en sammenhengende verden. Menyen beholder originalmaleriet. Redusert bevegelse
+stopper parallakse og kameraforskyvning.
 
 ## Filer
 
@@ -59,16 +55,18 @@ piksler i stoff**.
 | `js/sound.js` | Musikk, lydeffekter og naturlyder (Web Audio: opptak med syntese som reserve) |
 | `js/game.js` | Spilltilstand, input, fysikk, tid på døgnet og oppdatering |
 | `js/render.js` | Tegning: forhåndstegnede lag, stammer, fugl, partikler og brukergrensesnitt |
+| `js/art.js` | Innlasting og tegning av malte høstlandskap og bjørkegrafikk |
+| `art/` | Komprimerte illustrasjoner til dag, kveld og bjørk; kilder i `art/README.md` |
+| `js/ui.js` | Menyer, innstillinger, garderobe, HUD, pause, resultater og tilgjengelige knapper |
 | `js/main.js` | Oppstart: skjermstørrelse, spill-løkke og PWA |
 | `manifest.webmanifest` | PWA-manifest: navn, ikoner, portrett, standalone |
 | `sw.js` | Service worker – spillet fungerer offline etter første besøk |
 | `icons/` | App-ikoner (192, 512, maskable 512, Apple touch, favicon) + skjermbilde |
-| `fonts/` | Fredoka (woff2, variabel vekt) + lisens (SIL OFL 1.1) |
+| `fonts/` | Fredoka og Fraunces, selvhostede fonter med SIL OFL-lisenser |
 | `audio/` | Lydopptak (mp3): blåmeis, vind, tre, kalimba og xylofon. Kilder og lisenser i `audio/KILDER.md` |
 | `docs/REVISJON.md` | Første revisjon: funn og plan (fase 1–4, gjennomført) |
 | `docs/REVISJON-2.md` | Andre revisjon: poeng og tiltak mot «AI-stil» (fase A–G) |
 | `docs/REVISJON-3.md` | Tredje revisjon: poeng for design, grafikk, animasjoner og spillfølelse (fase H) |
-| `docs/REVISJON-4.md` | Fjerde revisjon: poeng etter v5.0 med oppstarten fra telefonvideo, og introen (fase I) |
 | `.nojekyll` | Sørger for at GitHub Pages serverer alle filer som de er |
 | `make_icons.py` | Regenererer ikonene (blåmeisen foran en bjørkestamme; valgfritt, krever Pillow) |
 | `make_audio.py` | Bygger `audio/` fra originalopptakene: klipper, renser og koder (valgfritt, krever ffmpeg og numpy) |
@@ -90,50 +88,20 @@ også i en undermappe.
 1. Åpne adressen i **Chrome** eller **Samsung Internet**.
 2. Trykk **Installer Pixelfugl**-knappen nederst på startskjermen, eller velg
    *Legg til på startskjermen* / *Installer app* i nettlesermenyen.
-3. Appen åpnes uten nettleser-linjer, låst til portrett. Statuslinjen øverst får himmelens farge
-   (lys blå om dagen, mørk blå om natten), så den glir inn i bildet i stedet for å være en svart stripe.
-
-Hadde du installert en eldre versjon, kan telefonen fortsatt vise det gamle ikonet og en cyan
-oppstartsskjerm. Chrome oppdaterer dette selv etter en stund (ikonene har fått nye filnavn, så endringen
-oppdages), men det går raskest å fjerne appen fra startskjermen og installere den på nytt.
-
-## Oppstart og intro
-
-Fra du trykker på ikonet til menyen er alt i samme materiale:
-
-1. **Oppstartsskjermen** (Android) er lin (`#F1E6D0`) med ikonet: blåmeisen foran en bjørkestamme.
-2. **Siden** er lin fra første bilde, så det kommer ingen tom eller mørk ramme mens spillet lastes.
-3. **Introen «Broderiet»** (cirka 2,7 s):
-   - En oval broderiramme av bjørk med messingskrue settes på linet. Inne i rammen er stoffet aida,
-     med ruter som går nøyaktig opp med stingene.
-   - En synål syr «Pixelfugl» sting for sting, bokstav for bokstav, med tråd i samme farge som
-     stingene (blå for i-prikken). Hver bokstav gir en stille kalimbatone.
-   - Blåmeisen flyr inn og lander på den første «l»-en, med et kort meisekall.
-   - Rammen vokser ut forbi kameraet og åpner seg mot menyen. Logoen glir opp på plassen sin, og
-     fuglen letter og glir ned til hvileplassen. Den sydde logoen er den samme som i menyen, så det
-     er ingen hopp.
-4. **Menyen** vises først når fonten er lastet (høyst 2,5 s ventetid), så papirlappene aldri lagres
-   med feil skrift. Menyen tegnes én gang skjult under linet mens ingenting beveger seg, så åpningen
-   ikke hakker.
-
-Introen vises hver gang appen startes, men ikke når du går tilbake til menyen fra et spill. Et trykk
-eller en tast hopper over den (og starter ikke spillet). Ved redusert bevegelse står logoen ferdig
-sydd i rammen, og linet toner rolig bort på cirka 1 s. Lyden i introen spilles bare i den installerte
-appen, der Chrome tillater lyd før første trykk; i nettleseren er introen stille.
+3. Appen åpnes i fullskjerm uten nettleser-linjer, låst til portrett.
 
 ## Kontroller
 
-- **Trykk** hvor som helst på skjermen (eller mellomrom / pil opp) for å flakse. Under introen
-  hopper et trykk over den.
+- **Trykk** hvor som helst på skjermen (eller mellomrom / pil opp) for å flakse.
 - **Pause**: knappen øverst til høyre, eller Esc / P. Spillet pauses også automatisk
   når appen legges i bakgrunnen, og lyden stoppes. «Fortsett» gir en kort 3-2-1-nedtelling.
 - **Hjemme:** når fuglen har landet på fuglebrettet ved hytta, hviler den til du trykker. Da flyr den videre.
 - Etter game over: **Spill igjen** eller **Meny** (for å bytte nivå, lyd eller tema).
-- **Vanskelighet:** trykk på en pilplanke på veiviseren til høyre på startskjermen.
-- De runde trestykkene nede til venstre på startskjermen slår **lydeffekter** (høyttaler) og
-  **musikk** (note) av/på og velger om runden starter på **dag** (sol) eller **natt** (måne).
-  Av vises med en skrå strek over ikonet.
-- **Garderobe:** trestykket med lue på startskjermen. Velg pynt til fuglen (se under).
+- **Vanskelighet:** Lett / Normal / Hard / Zen i det samlede nivåvalget.
+- **Lyd:** høyttaleren på startskjermen slår lydeffekter av/på.
+- **Innstillinger:** tannhjulet åpner valg for lydeffekter, musikk og kveldsstemning.
+- **Garderobe:** åpnes fra innstillinger. Alle plagg og opplåsinger er beholdt.
+- **Tastatur i menyer:** Tab velger knapp, Enter/mellomrom aktiverer den, Esc lukker et panel.
 - Beste poengsum og samlede poeng lagres lokalt på enheten.
 
 Medaljer (broderte merker med selburose): 10 bronse, 20 sølv, 30 gull, 40 platina.
@@ -168,7 +136,7 @@ Hver runde er en reise fra fjellet ned til hytta. Underveis passerer fuglen ti s
 
 ## Vanskelighetsgrader
 
-Velges på veiviseren på startskjermen. Beste poengsum lagres per nivå.
+Velges i nivåvelgeren på startskjermen. Beste poengsum lagres per nivå.
 
 | Nivå | Gap (px) | Fart (px/s) | Maks sprang mellom gap (px) | Varianter fra poeng |
 |------|----------|-------------|-----------------------------|---------------------|

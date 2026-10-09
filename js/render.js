@@ -249,7 +249,7 @@ let grainPat = null;
 function paperOn(g, alpha) {
   if (!grainPat || grainPat.g !== g) grainPat = { g, p: g.createPattern(grain(), 'repeat') };
   const m = g.getTransform();
-  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha *= alpha; g.fillStyle = grainPat.p;
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha *= alpha * 0.24; g.fillStyle = grainPat.p;
   g.fillRect(0, 0, g.canvas.width, g.canvas.height); g.restore();
   g.setTransform(m);
 }
@@ -257,7 +257,7 @@ function paperOn(g, alpha) {
 function paper(g, alpha) {
   const c = g.canvas;
   g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
-  g.globalCompositeOperation = 'source-atop'; g.globalAlpha = alpha;
+  g.globalCompositeOperation = 'source-atop'; g.globalAlpha = alpha * 0.24;
   g.fillStyle = g.createPattern(grain(), 'repeat'); g.fillRect(0, 0, c.width, c.height);
   g.restore();
 }
@@ -553,7 +553,7 @@ function groundSeg(g, w, h, kind, seed) {
 }
 
 // sola står lavt bak fjellene i solnedgang, høyt ellers
-const sunPos = () => ({ sx: W - 64, sy: T.sunLow ? H - GROUND_H - 178 : safeTop + 104 });
+const sunPos = () => ({ sx: W - 64, sy: T.sunLow ? H - GROUND_H - 178 : safeTop + 164 });
 function buildScene(keepSharp = false) {
   const scene = {};
   const TAU = Math.PI * 2;
@@ -841,6 +841,7 @@ function foreClump(g, w, h, kind, seed) {
 }
 // forgrunnsklyngene glir forbi raskest (parallakse 1,45); bunnen ligger under skjermkanten, så kameraet aldri blotter den
 function drawForeground() {
+  ctx.save(); ctx.globalAlpha = 0.3;
   const off = wrap(viewScroll * 1.45, FORE_LEN), y0 = H + 4 + camShift(1.45);
   for (const { u, L } of scene.fore) for (const base of [0, FORE_LEN]) {
     const x = u + base - off - L.w / 2;
@@ -991,20 +992,20 @@ function lighthouseBeam(x, y) {
 /* ---------- Stemningselementer (live) ---------- */
 function initAmbient() {
   const groundY = H - GROUND_H, r = rng(91);
-  stars = Array.from({ length: 50 }, () => ({ x: Math.random() * W, y: Math.random() * (groundY - 200), r: Math.random() < 0.3 ? 1.6 : 1, p: Math.random() * 10 }));
+  stars = Array.from({ length: 28 }, () => ({ x: Math.random() * W, y: Math.random() * (groundY - 200), r: Math.random() < 0.12 ? 1 : 0.55, p: Math.random() * 10 }));
   initMotes();
   const span = Math.max(60, groundY - 310 - safeTop);
   clouds = Array.from({ length: 6 }, (_, i) => ({ x: r() * (W + 260), y: safeTop + 34 + r() * span, s: i < 3 ? 0.4 + r() * 0.12 : 0.62 + r() * 0.22, sp: i < 3 ? 0.03 : 0.07, drift: 2 + r() * 3, v: i % 3, far: i < 3 }));
 }
 function initMotes() {
   const groundY = H - GROUND_H, k = moteKind();
-  const n = { firefly: 14, pollen: 18, leaf: 16, petal: 18, snow: 46 }[k];
+  const n = { firefly: 9, pollen: 10, leaf: 8, petal: 10, snow: 28 }[k];
   dust = Array.from({ length: n }, () => ({
     x: Math.random() * W, y: moteY(groundY), r: k === 'snow' ? 0.8 + Math.random() * 1.6 : 0.8 + Math.random() * 1.2,
     vx: k === 'snow' ? 2 + Math.random() * 6 : 4 + Math.random() * 10, f: 0.5 + Math.random(), p: Math.random() * 6,
     fall: k === 'snow' ? 18 + Math.random() * 22 : 14 + Math.random() * 16, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 3,
     c: k === 'leaf' ? ['#F2994A', '#F7C548', '#E46B3C', '#D9A85E'][(Math.random() * 4) | 0] : ['#FFC6D6', '#FFE3EC', '#FF9EB5'][(Math.random() * 3) | 0],
-    near: Math.random() < 0.12   // noen få helt nær kameraet: store, uskarpe og raske
+    near: false   // noen få helt nær kameraet: store, uskarpe og raske
   }));
 }
 // tegn et flislag med scroll; snapper til skjermpiksler så flisene aldri får søm
@@ -1056,7 +1057,7 @@ function drawSky(groundY) {
     const x = wrap(c.x - viewScroll * c.sp - time * c.drift, W + 260) - 130, S = scene.clouds[c.v];   // margen er bredere enn den største skyen, så ingen sky forsvinner synlig
     const bob = 0;   // skyene driver jevnt; de vugger ikke
     const k = c.s, pad = S.pad * k;   // skyene ligger langt unna: følger kameraet nesten fullt
-    ctx.globalAlpha = c.far ? 0.8 : 1; blitWhole(S, x - pad, c.y + bob + camShift(c.far ? 0.03 : 0.07) - pad, S.w * k, S.h * k);
+    ctx.globalAlpha = c.far ? 0.35 : 0.5; blitWhole(S, x - pad, c.y + bob + camShift(c.far ? 0.03 : 0.07) - pad, S.w * k, S.h * k);
   }
   ctx.globalAlpha = 1;
   const bp = balloonPos();   // stiger og synker i rolige trinn med pauser (som i termikk)
@@ -1167,7 +1168,10 @@ function drawMotes() {
 
 /* ---------- Bjørkestammer ---------- */
 function drawTrunkShadow(p, groundY) {
-  ctx.fillStyle = hexA(T.ink, 0.16); ctx.beginPath(); ctx.ellipse(p.x + PIPE_W / 2 + 4, groundY + 3, PIPE_W / 2 + 9, 3.5, 0, 0, 7); ctx.fill();
+  ctx.save(); ctx.translate(p.x + PIPE_W / 2 + 6, groundY + 5); ctx.scale(1, 0.15);
+  const shade = ctx.createRadialGradient(0, 0, 2, 0, 0, PIPE_W * 0.85);
+  shade.addColorStop(0, 'rgba(16,19,30,.45)'); shade.addColorStop(0.4, 'rgba(16,19,30,.25)'); shade.addColorStop(1, 'rgba(16,19,30,0)');
+  ctx.fillStyle = shade; circle(ctx, 0, 0, PIPE_W * 0.85); ctx.restore();
 }
 function drawTrunk(p, groundY) {
   const ry = END_H / 2 - 0.5, by = p.top + p.gap;
@@ -1196,6 +1200,7 @@ function trunkBody(p, part, y0, y1, marks, ref, dir, seed) {
   if (y1 > y0) paintTrunk(ctx, marks, ref, dir, y0, y1, seed);
 }
 function paintTrunk(g, marks, ref, dir, y0, y1, seed) {
+  if (paintBarkSprite(g, y0, y1)) return;
   const w = PIPE_W, h = y1 - y0;
   // cel-skygge: lys fra høyre, så skyggesiden er til venstre (tre flate tonetrinn og en smal refleks i høyre kant)
   g.fillStyle = T.trunk; g.fillRect(0, y0, w, h);
@@ -1247,6 +1252,7 @@ function paintTrunk(g, marks, ref, dir, y0, y1, seed) {
 }
 // snittflate med årringer og en mosekant (høstløv på bevegelige stammer, lyng på smale)
 function trunkEnd(p, y, upper) {
+  if (paintBirchCap(y, upper)) return;
   const w = PIPE_W, cx = w / 2, rx = w / 2 + 1, ry = END_H / 2 - 0.5, r = rng(p.decor.moss + (upper ? 1 : 2));
   const autumn = p.variant === 'moving', heather = p.variant === 'narrow';
   const lip = autumn ? ['#F2994A', '#F7C548', '#E46B3C'] : [T.moss];
@@ -1527,7 +1533,7 @@ const ip = (prev, cur) => prev === undefined ? cur : prev + (cur - prev) * alpha
 
 function birdExpr() {
   if (state === State.DEAD || state === State.OVER) return 'dizzy';
-  if (state === State.MENU && T.night && !intro) return 'sleep';
+  if (state === State.MENU && T.night && !intro && !hasPaintedForest()) return 'sleep';
   if (bird.happy > 0 || bird.preen > 0.5) return 'happy';   // lukker øynene fornøyd når den pirker i fjærene
   if (state === State.PLAY && bird.vy > 330) return 'wide';
   return 'normal';
@@ -1589,10 +1595,17 @@ function birdShape(expr, look = wear, rot = 0) {   // look = pynt (garderobe)
   ctx.lineWidth = 2.1; ctx.beginPath(); ctx.moveTo(8, -1.5); ctx.quadraticCurveTo(9.6, -3.8, 13, -4.4); ctx.stroke();
   ctx.lineWidth = 1.9; ctx.beginPath(); ctx.moveTo(-11.5, -4.4); ctx.quadraticCurveTo(-8.5, 3.5, -1, 4.3); ctx.quadraticCurveTo(5, 4.6, 8.5, 3); ctx.stroke();
   ctx.fillStyle = B.mask; ctx.beginPath(); ctx.ellipse(7.6, 3.4, 2.6, 1.7, -0.2, 0, 7); ctx.fill();   // liten «hake»
-  // cel-skygge: to flate tonetrinn ut fra en fast lysretning (oppe til høyre), uansett hvordan fuglen roterer
+  // Smooth diffuse light and a soft rim make the body read as a round volume.
   const c = Math.cos(rot), s = Math.sin(rot), lx = -(SHADE_X * c + SHADE_Y * s), ly = -(-SHADE_X * s + SHADE_Y * c);
-  ctx.fillStyle = B.shade; ctx.beginPath(); ctx.rect(-R - 2, -R - 2, R * 2 + 4, R * 2 + 4); ctx.arc(lx * 2.2, ly * 2.2, R, 0, 7); ctx.fill('evenodd');
-  ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.beginPath(); ctx.rect(-R - 2, -R - 2, R * 2 + 4, R * 2 + 4); ctx.arc(-lx * 1.5, -ly * 1.5, R, 0, 7); ctx.fill('evenodd');
+  const shade = ctx.createLinearGradient(-lx * R, -ly * R, lx * R, ly * R);
+  shade.addColorStop(0, 'rgba(255,248,216,.25)');
+  shade.addColorStop(0.38, 'rgba(255,244,208,.04)');
+  shade.addColorStop(0.70, 'rgba(23,30,54,.13)');
+  shade.addColorStop(1, 'rgba(14,20,38,.50)');
+  ctx.fillStyle = shade; ctx.fillRect(-R, -R, R * 2, R * 2);
+  const sheen = ctx.createRadialGradient(-lx * R * 0.48, -ly * R * 0.48, 0, -lx * R * 0.48, -ly * R * 0.48, R * 0.65);
+  sheen.addColorStop(0, 'rgba(255,251,233,.20)'); sheen.addColorStop(1, 'rgba(255,251,233,0)');
+  ctx.fillStyle = sheen; ctx.fillRect(-R, -R, R * 2, R * 2);
   ctx.restore();
   // liten fjærtust i hetta (henger litt etter bevegelsen) – skjules under luer og krone
   if (!HIDES_CREST.has(look)) {
@@ -1719,7 +1732,8 @@ function accessory(id) {
     ctx.fillStyle = '#E9D2A6'; for (const x of [-7.5, -2.5, 2.5, 7.5]) circle(ctx, x, -7.3, 0.8);
   } else if (id === 'tophat') {   // flosshatt med rødt bånd, litt på skakke
     ctx.save(); ctx.rotate(-0.08); ctx.lineWidth = 1.2;
-    ctx.fillStyle = '#3A3340'; rr(-7, -26, 14, 16, 2); ctx.fill(); ctx.stroke();
+    const felt = ctx.createLinearGradient(-7, 0, 7, 0); felt.addColorStop(0, '#171C2C'); felt.addColorStop(0.3, '#343B50'); felt.addColorStop(0.72, '#535268'); felt.addColorStop(1, '#252838');
+    ctx.fillStyle = felt; rr(-7, -26, 14, 16, 2); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#E5574A'; ctx.fillRect(-7, -14.6, 14, 3);
     ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(-5, -24, 1.4, 8.5);
     ctx.fillStyle = '#4A4252'; ctx.beginPath(); ctx.ellipse(0, -26, 7, 1.6, 0, 0, 7); ctx.fill(); ctx.stroke();
@@ -1808,10 +1822,6 @@ function drawParticles() {
 function seedOf(str) { let h = 7; for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; }
 // knapp: en kort treplanke med årer, fas og treplugger; teksten er brent inn i treet. Hovedvalget
 // (standard) er malt i rød linoljemaling, som gamle kubbestoler og stabbursdører; resten er umalt furu.
-function button(key, x, y, w, h, label, fn, opts = {}) {
-  const { fill = null, size = 14 } = opts;
-  plank(key, x, y, w, h, label, fn, { paint: fill === null ? PAINT_RED : null, size });
-}
 const PAINT_RED = { body: '#A8432F', text: '#F7E9D2' };
 function plank(key, x, y, w, h, label, fn, opts = {}) {
   const { paint = null, size = 14, arrow = 0, peg = null } = opts;
@@ -1931,33 +1941,6 @@ function paintPaper(x, y, w, h, txt, size, seed) {
 }
 // veiviser i menyen: en stolpe med fire pilplanker (vanskelighetene); den valgte er malt rød, som merkingen langs
 // stiene. Hele veiviseren tegnes som ett bilde (per valg og rekord); trykkflatene registreres hvert bilde.
-function drawSignpost(groundY) {
-  const px = W - 74, ph = 25, gap = 7, keys = Object.keys(DIFFS), top = Math.round(Math.max(safeTop + 150, groundY * 0.5));
-  const bottom = top + keys.length * (ph + gap);
-  const rows = keys.map((k, i) => { const dir = i % 2 ? 1 : -1, w = 84; return { k, dir, w, y: top + i * (ph + gap), x: dir > 0 ? px - 12 : px - w + 12 }; });
-  for (const r of rows) hud['d_' + r.k] = { x: r.x, y: r.y, w: r.w, h: ph, fn: () => setDiff(r.k) };
-  const txt = D.zen ? 'Zen: bare kos' : best > 0 ? `Beste: ${best}` : 'Ingen rekord ennå', tw = tagSize(txt, 10).w;
-  signpostPole(px, top, groundY);
-  // bildet dekker bare plankene og lappen (stolpen ned til bakken er noen få streker og tegnes direkte)
-  const x0 = Math.floor(Math.min(px - 76, px - tw - 2)), y0 = top - 4, w = px + 76 - x0, h = bottom + 26 - y0;
-  const L = cachedSurface('veiviser', w, h, 5, `${diffName}|${txt}|${top}`, (ox, oy) => {
-    ctx.save(); ctx.translate(ox - x0, oy - y0); paintSignpost(px, bottom, rows, ph, txt, tw); ctx.restore();
-  });
-  blitSurface(L, x0, y0);
-}
-function signpostPole(px, top, groundY) {
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  ctx.fillStyle = hexA(UI_INK, 0.22); ctx.beginPath(); ctx.ellipse(px + 2, groundY + 3, 9, 2.4, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = '#9C7A55'; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.3;
-  ctx.beginPath(); ctx.moveTo(px - 3.5, groundY + 3); ctx.lineTo(px - 3.5, top - 6); ctx.lineTo(px, top - 11); ctx.lineTo(px + 3.5, top - 6); ctx.lineTo(px + 3.5, groundY + 3); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.strokeStyle = 'rgba(70,40,20,.3)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(px - 1, top); ctx.lineTo(px - 1, groundY); ctx.stroke();
-}
-function paintSignpost(px, bottom, rows, ph, txt, tw) {
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  for (const r of rows) paintPlank(r.x, r.y, r.w, ph, DIFFS[r.k].label, 12, r.k === diffName ? PAINT_RED : null, r.dir, px, seedOf('d_' + r.k));
-  tag(txt, px - 6 - tw / 2 + 8, bottom + 12, { size: 10, ax: px - 3, ay: bottom - 4 });
-}
-// kremfarget panel med «strikkesøm» innenfor kanten
 function panel(x, y, w, h) {
   ctx.fillStyle = hexA(UI_INK, 0.25); rr(x, y + 6, w, h, 18); ctx.fill();
   ctx.fillStyle = UI_INK; inkRR(ctx, x, y, w, h, 18, 2, Math.round(w * 7 + h), 0.45);
@@ -2128,83 +2111,6 @@ function drawEgg(x, y) {
   ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(-5, -9, 2.2, 4, 0.3, 0, 7); ctx.fill();
   ctx.restore();
 }
-// aktive power-ups: merkelapper med navnet; en rød tråd langs underkanten viser hvor mye tid som er igjen
-function drawActiveHud(y) {
-  const items = [];
-  if (active.shield) items.push(['shield', 1]);
-  if (active.slow > 0) items.push(['slow', active.slow / POWERS.slow.dur]);
-  if (active.double > 0) items.push(['double', active.double / POWERS.double.dur]);
-  let yy = y + 10;
-  for (const [k, frac] of items) {
-    const P = POWERS[k], { w, h } = tagSize(P.label, 11), x0 = W / 2 - w / 2;
-    tag(P.label, W / 2, yy, { size: 11, tilt: 0 });
-    if (frac < 1) { const pts = []; for (let x = x0 + 14; x <= x0 + 14 + (w - 20) * frac; x += 2) pts.push({ x, y: yy + h / 2 - 3 }); if (pts.length > 1) runningStitch(pts, '#C0392B', 41); }
-    yy += h + 8;
-  }
-}
-// garderoben: rutenett med pynt; låst pynt vises gjennomsiktig med krav
-function drawWardrobe(groundY) {
-  ctx.fillStyle = 'rgba(40,28,50,.4)'; ctx.fillRect(0, 0, W, H);
-  const pages = Math.ceil(COSMETICS.length / WARDROBE_PAGE), page = Math.min(wardrobePage, pages - 1);
-  const pw = 256, ph = 274, px = (W - pw) / 2, py = Math.max(safeTop + 110, groundY * 0.52 - ph / 2);
-  woodSign(px, py, pw, ph, 4711, false);   // en knaggrekke av furu: pynten henger på knagger
-  stitchHeading('Garderobe', W / 2, py + 24, 2.6, 'ink');
-  const owned = COSMETICS.filter(isUnlocked).length;
-  text(`${totalPoints} poeng samlet, ${owned} av ${COSMETICS.length} låst opp`, W / 2, py + 44, 10, { color: WOOD_TEXT, shadow: false, weight: 600 });
-  const cw = 70, chh = 84, gx = 8, gy = 8, x0 = px + (pw - (cw * 3 + gx * 2)) / 2, y0 = py + 56;
-  COSMETICS.slice(page * WARDROBE_PAGE, (page + 1) * WARDROBE_PAGE).forEach((c, i) => {
-    const cx = x0 + (i % 3) * (cw + gx), cy = y0 + Math.floor(i / 3) * (chh + gy), ok = isUnlocked(c), on = wear === c.id;
-    hud['w_' + c.id] = { x: cx, y: cy, w: cw, h: chh, fn: () => { if (ok) setWear(c.id); } };
-    // knagg og hyssing, og en stoffbit (lapp) med sydd kant som pynten ligger på
-    const kx = cx + cw / 2, ky = cy - 3;
-    ctx.strokeStyle = '#9C7A55'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(cx + 12, cy + 3); ctx.moveTo(kx, ky); ctx.lineTo(cx + cw - 12, cy + 3); ctx.stroke();
-    ctx.fillStyle = UI_INK; inkRR(ctx, cx, cy, cw, chh, 10, on ? 2 : 1.3, 300 + i, 0.3);
-    ctx.fillStyle = on ? '#FFE7A8' : '#FFFBF2'; rr(cx, cy, cw, chh, 10); ctx.fill();
-    runningStitch(rrPoints(cx + 4, cy + 4, cw - 8, chh - 8, 7, 1), on ? '#E2B24E' : '#E8D6B8', 77 + i);
-    ctx.fillStyle = '#7A5636'; circle(ctx, kx, ky, 3.4); ctx.fillStyle = '#A57A52'; circle(ctx, kx - 0.6, ky - 0.7, 2); nail(kx, ky);
-    ctx.save(); ctx.translate(cx + cw / 2, cy + 36); ctx.scale(1.25, 1.25); if (!ok) ctx.globalAlpha = 0.3;
-    birdShape('normal', c.id); ctx.restore(); ctx.globalAlpha = 1;
-    if (ok) text(c.label, cx + cw / 2, cy + 73, 9, { color: UI_INK, shadow: false, weight: 600 });
-    else {
-      text(c.gold ? 'Gull i én runde' : `${c.need} poeng`, cx + cw / 2, cy + 73, 9, { color: WOOD_TEXT, shadow: false, weight: 600 });
-      ctx.fillStyle = UI_INK; rr(cx + cw - 19, cy + 11, 10, 8, 2); ctx.fill();   // liten hengelås
-      ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(cx + cw - 14, cy + 11, 3, Math.PI, 0); ctx.stroke();
-    }
-  });
-  // sidebytte: tegnede piler og prikker (ingen tegn eller emoji)
-  const ny = py + ph - 22;
-  arrowButton('w_prev', px + 18, ny - 11, 34, 22, -1, () => { wardrobePage = (page + pages - 1) % pages; });
-  arrowButton('w_next', px + pw - 52, ny - 11, 34, 22, 1, () => { wardrobePage = (page + 1) % pages; });
-  for (let i = 0; i < pages; i++) { ctx.fillStyle = i === page ? UI_INK : hexA(UI_INK, 0.25); circle(ctx, W / 2 + (i - (pages - 1) / 2) * 12, ny, 3.2); }
-  button('w_done', (W - 120) / 2, py + ph + 14, 120, 36, 'Ferdig', () => { wardrobe = false; }, { size: 15 });
-}
-function arrowButton(key, x, y, w, h, dir, fn) {   // små trestykker med en pil, som de andre ikonknappene
-  logButton(key, x + w / 2, y + h / 2, h / 2 + 2, dir < 0 ? ICONS.left : ICONS.right, fn);
-}
-// ikonknapp: et rundt trestykke (som snittflaten på stammene) med bark, årringer og et tegnet ikon
-function logButton(key, cx, cy, r, icon, fn, on = true) {
-  hud[key] = { x: cx - r, y: cy - r, w: r * 2, h: r * 2, fn };
-  const pk = press.key === key ? (time - press.t) / 0.22 : 1, sc = pk < 1 && !reduceMotion ? 1 - 0.1 * Math.sin(Math.PI * pk) : 1;
-  // trestykket er likt hvert bilde (per ikon og av/på): tegnes én gang og gjenbrukes
-  // flaten er hele trestykket (2r × 2r); skyggen under får plass i kanten rundt
-  const L = cachedSurface('log', r * 2, r * 2, seedOf(key), `${icon.name}|${on}`, (px, py) => paintLog(px + r, py + r, r, icon, on, seedOf(key)));
-  if (sc === 1) return blitSurface(L, cx - r, cy - r);
-  ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.drawImage(L.c, -r - L.pad, -r - L.pad, L.w, L.h); ctx.restore();
-}
-function paintLog(cx, cy, r, icon, on, seed) {
-  ctx.save(); ctx.translate(cx, cy);
-  ctx.fillStyle = hexA(UI_INK, 0.25); ctx.beginPath(); ctx.ellipse(0, r * 0.25 + 2.5, r, r * 0.95, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = UI_INK; inkCircle(ctx, 0, 0, r, 1.5, seed, 0.35);
-  ctx.fillStyle = '#7A5636'; circle(ctx, 0, 0, r);                       // bark
-  ctx.fillStyle = on ? '#F2D9AE' : '#DCCDB6'; circle(ctx, 0, 0, r - 3.2);  // snittflaten
-  ctx.strokeStyle = on ? 'rgba(176,128,78,.45)' : 'rgba(140,120,100,.35)'; ctx.lineWidth = 0.8;
-  for (const k of [0.78, 0.55, 0.3]) { ctx.beginPath(); ctx.ellipse(0.6, 0.4, (r - 3.2) * k, (r - 3.2) * k * 0.94, 0.3, 0, 7); ctx.stroke(); }
-  ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(0, 0, r - 3.2, -2.6, -0.8); ctx.arc(0, 0, r - 7, -0.8, -2.6, true); ctx.fill();   // flatt lys oppe til høyre
-  ctx.strokeStyle = on ? UI_INK : hexA(UI_INK, 0.55); ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = 1.8; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  icon(r * 0.5);
-  if (!on) { ctx.strokeStyle = '#B5503C'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(-r * 0.48, r * 0.48); ctx.lineTo(r * 0.48, -r * 0.48); ctx.stroke(); }   // av: en skrå strek over
-  ctx.restore();
-}
 // ikonene (tegnet med streker, ingen tegn): høyttaler, note, sol, måne og pause
 const ICONS = {
   sound: k => { ctx.beginPath(); ctx.moveTo(-k * 0.9, -k * 0.35); ctx.lineTo(-k * 0.45, -k * 0.35); ctx.lineTo(0, -k * 0.85); ctx.lineTo(0, k * 0.85); ctx.lineTo(-k * 0.45, k * 0.35); ctx.lineTo(-k * 0.9, k * 0.35); ctx.closePath(); ctx.fill();
@@ -2227,43 +2133,6 @@ const ICONS = {
   }
 };
 // strikket vott som trykker (hintet på «Klar?»): lusekofte-mønster, vrangbord og tommel
-function mitten(x, y, press) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(-0.25); ctx.scale(1 - press * 0.04, 1 + press * 0.04);
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  ctx.fillStyle = hexA(UI_INK, 0.2); ctx.beginPath(); ctx.ellipse(1, 15, 9, 3, 0, 0, 7); ctx.fill();
-  const body = () => { ctx.beginPath(); ctx.moveTo(-7, 8); ctx.lineTo(-7.5, -6); ctx.quadraticCurveTo(-7.5, -15, 0, -15); ctx.quadraticCurveTo(7.5, -15, 7.5, -6); ctx.lineTo(7, 8); ctx.closePath(); };
-  ctx.fillStyle = '#FBF6EE'; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.ellipse(-8.5, -1, 3, 5, -0.5, 0, 7); ctx.fill(); ctx.stroke();   // tommel
-  body(); ctx.fill(); ctx.stroke();
-  ctx.save(); body(); ctx.clip();
-  ctx.fillStyle = '#B5503C'; for (let yy = -11; yy < 6; yy += 4.4) for (let xx = -6 + ((yy / 4.4) & 1) * 2; xx < 7; xx += 4) circle(ctx, xx, yy, 0.9);   // lusekofte-prikker
-  ctx.fillStyle = '#2C4F7A'; ctx.fillRect(-8, -4.5, 16, 1.4);
-  ctx.restore();
-  ctx.fillStyle = '#B5503C'; rr(-8, 7, 16, 6, 2); ctx.fill(); ctx.stroke();   // vrangbord
-  ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 0.8; ctx.beginPath(); for (let xx = -6; xx <= 6; xx += 2.4) { ctx.moveTo(xx, 8.5); ctx.lineTo(xx, 11.5); } ctx.stroke();
-  ctx.restore();
-}
-function drawPauseButton(x, y, s) {
-  logButton('pause', x + s / 2, y + s / 2, s / 2, ICONS.pause, pauseGame);
-}
-function drawPauseOverlay(groundY) {
-  ctx.fillStyle = 'rgba(40,28,50,.38)'; ctx.fillRect(0, 0, W, H);
-  if (resumeT > 0) {   // nedtelling 3-2-1 før spillet fortsetter
-    const n = Math.ceil(resumeT / 0.5), f = (resumeT % 0.5) / 0.5, pop = 1 + f * f * 0.5;
-    ctx.save(); ctx.translate(W / 2, groundY * 0.42); ctx.scale(pop, pop); stitchHeading(String(n), 0, 0, 6, 'gold', 0.4 + 0.6 * (1 - f * f)); ctx.restore();   // brodert nedtelling
-    return;
-  }
-  const cy = groundY * 0.36, bw = 120, bh = 38, y = cy + 40;
-  birchBark((W - 200) / 2, cy - 38, 200, 212, 8128);   // et stykke bjørkenever bak pausemenyen
-  stitchHeading('Pause', W / 2, cy - 6, 3.6, 'gold');
-  rosemal(W / 2, cy + 22, 1, false);
-  button('resume', (W - bw) / 2, y, bw, bh, 'Fortsett', resumeGame, { size: 15 });
-  button('pmenu', (W - bw) / 2, y + bh + 14, bw, bh, 'Meny', goMenu, { fill: '#FFF8EC', size: 15 });
-  const jl = journeyLines(score, homeReached());   // hvor på veien hjem fuglen er
-  text(jl.line.replace('Du kom', 'Du er kommet'), W / 2, y + bh * 2 + 34, 11, { color: UI_INK, shadow: false, weight: 600 });
-  if (jl.next) text(jl.next, W / 2, y + bh * 2 + 49, 10, { color: WOOD_TEXT, shadow: false, weight: 600 });
-}
-
 /* ---------- Reisen hjem: veiskilt, hytta og fuglebrettet ---------- */
 // veiskilt ved stien: en stolpe med en pilformet planke og stedsnavnet malt på
 function roadSign(x, groundY, name, seed) {
@@ -2378,25 +2247,27 @@ function drawRoute(x0, x1, y, reached, homeNow) {
 const homeReached = () => !!home && (home.phase === 'rest' || home.phase === 'done');
 
 function drawWorld(groundY, pv, qv) {
-  drawSky(groundY);
-  drawScenery(groundY);
+  const painted = drawPaintedBackdrop(groundY);
+  if (!painted) { drawSky(groundY); drawScenery(groundY); }
   drawMotes();
   for (const p of pv) drawTrunkShadow(p, groundY);
   for (const p of pv) drawTrunk(p, groundY);
   for (const q of qv) drawPower(q);
-  drawGround(groundY);
-  drawLandmarks(groundY, 1);
+  if (!painted) { drawGround(groundY); drawLandmarks(groundY, 1); }
   drawJourney(groundY);
   drawBirdGroundShadow(groundY);
-  drawForeground();   // forgrunnen: nærmest kameraet, raskest
+  if (!painted) drawForeground();
 }
 // fuglens skygge på bakken: mindre og svakere jo høyere den flyr (et sterkt dybdesignal)
 function drawBirdGroundShadow(groundY) {
-  const bx = ip(bird.px, bird.x), by = ip(bird.py, bird.y), hgt = groundY - by - BODY_R;
-  if (hgt < 0 || hgt > 320) return;
-  const k = 1 - hgt / 320;
-  ctx.fillStyle = hexA(T.ink, 0.22 * k * k);
-  ctx.beginPath(); ctx.ellipse(bx + 2, groundY + 2.5, BODY_R * (0.55 + 0.6 * k), 2.6 * (0.5 + 0.5 * k), 0, 0, 7); ctx.fill();
+  const bx = ip(bird.px, bird.x), by = ip(bird.py, bird.y), height = Math.max(0, groundY - by - BODY_R);
+  if (height > 440) return;
+  const proximity = 1 - height / 440, radius = BODY_R * (1.8 - proximity * 0.8);
+  ctx.save(); ctx.translate(bx + 7 + height * 0.018, groundY + 3); ctx.scale(1, 0.18);
+  const shade = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+  shade.addColorStop(0, 'rgba(16,19,30,' + (0.08 + 0.32 * proximity * proximity) + ')');
+  shade.addColorStop(1, 'rgba(16,19,30,0)'); ctx.fillStyle = shade;
+  circle(ctx, 0, 0, radius); ctx.restore();
 }
 let fadeCanvas = null;
 function fadeLayer() {   // offscreen-lerret i full skjermstørrelse for krysstoningen (lages ved behov)
@@ -2607,114 +2478,23 @@ function render() {
     ctx = mainCtx; T = cur.T; scene = cur.scene;
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1 - k; ctx.drawImage(off.c, 0, 0); ctx.restore();
   }
+  ctx.drawImage(scene.vignette.c, 0, 0, scene.vignette.w, scene.vignette.h);
   drawParticles();
-  if (!intro || intro.rm) drawBird();   // under introen tegnes fuglen over lerretet (drawIntro)
+  if (!intro || intro.rm) {   // under introen tegnes fuglen over lerretet (drawIntro)
+    ctx.save();
+    if (state === State.MENU) {
+      const bx = ip(bird.px, bird.x), by = ip(bird.py, bird.y);
+      ctx.translate(bx, by); ctx.scale(1.25, 1.25); ctx.translate(-bx, -by);
+    }
+    drawBird(); ctx.restore();
+  }
+  drawDepthForeground();
   for (const k in hud) delete hud[k];
 
-  const topY = safeTop + 26;
-
-  if (state === State.MENU) {
-    const ty = topY + 40 + (reduceMotion ? 0 : keyframes([[0, -22], [0.6, 0, 'back']], menuT));   // faller på plass når menyen åpnes, står så stille
-    const LG = scene.logo;
-    if (!intro) ctx.drawImage(LG.c, Math.round(W / 2 - LG.w / 2), ty - 24, LG.w, LG.h);   // under introen tegner drawIntro logoen
-    paperLabel(`${SEASONS[seasonName].label} i bjørkeskogen`, W / 2, ty + 36, { size: 12, alpha: intro ? clamp((intro.t - introOpen()[1] + 0.2) / 0.25, 0, 1) : 1 });
-    if (wardrobe) { drawWardrobe(groundY); return finishFrame(groundY); }
-    // asymmetrisk: hintet til venstre under fuglen, veiviseren med vanskelighetene til høyre
-    paperLabel('Trykk for å flakse', 78, groundY * 0.42 + 42, { size: 13 });
-    drawSignpost(groundY);
-    const y3 = groundY + 46;   // fire trestykker nede til venstre, litt forskjøvet i høyden
-    logButton('sound', 34, y3, 19, ICONS.sound, () => Sound.toggleSfx(), !Sound.sfxMuted);
-    logButton('music', 80, y3 + 6, 19, ICONS.music, () => Sound.toggleMusic(), !Sound.musMuted);
-    logButton('theme', 126, y3 - 2, 19, themeName === 'day' ? ICONS.sun : ICONS.moon, toggleTheme);
-    logButton('wardrobe', 172, y3 + 4, 19, ICONS.hat, () => { wardrobe = true; wardrobePage = Math.floor(COSMETICS.findIndex(c => c.id === wear) / WARDROBE_PAGE); });
-  }
-
-  if (state === State.READY) {
-    stitchHeading('Klar?', W / 2, topY + 40, 3.8, 'gold');
-    paperLabel(`${D.label} – fra fjellet hjem til hytta`, W / 2, topY + 76, { size: 12 });
-    const press = reduceMotion ? 0 : loopKeys([[0, 0], [0.55, 0], [0.64, 1, 'in'], [0.8, 0, 'out'], [1.2, 0]], time);   // trykker, venter, trykker
-    mitten(W / 2 + 44, groundY * 0.42 + 26 + press * 4, press);
-    paperLabel('Trykk', W / 2 + 44, groundY * 0.42 + 70, { size: 13 });
-  }
-
-  if (state === State.PLAY || state === State.DEAD) {
-    // poengtallet er brodert som logoen; et nytt poeng «sys inn» med et kort støt (nøkkelbilder, ingen vibring)
-    const ds = time - scoreT, pop = reduceMotion ? 1 : keyframes([[0, 1.3], [0.16, 0.95, 'out'], [0.3, 1, 'inOut']], ds);
-    ctx.save(); ctx.translate(W / 2, topY + 16); ctx.scale(pop, pop); stitchHeading(String(score), 0, 0, 4.2, 'gold'); ctx.restore();
-    // et nytt sted på veien hjem: navnet står kort under poengene (skiltet står i verden)
-    const pk = time - placeT, showPlace = placeIdx > 0 && pk < 3 && !home;
-    if (showPlace) paperLabel(ROUTE[placeIdx].name, W / 2, topY + 50, { size: 12, alpha: Math.min(1, pk * 4, (3 - pk) * 2) });
-    drawActiveHud(topY + 50 + (showPlace ? 24 : 0));
-    if (home && home.phase === 'rest') {
-      const hy = Math.max(topY + 90, groundY * 0.32);   // under månen og sola
-      stitchHeading('Hjemme!', W / 2, hy, 3.4, 'gold', Math.min(1, home.t * 3));
-      if (home.t > 0.9) paperLabel('Trykk for å fly videre', W / 2, hy + 36, { size: 13, alpha: Math.min(1, (home.t - 0.9) * 3) });
-    }
-    if (state === State.PLAY && !paused) drawPauseButton(W - 46, safeTop + 12, 34);
-  }
-
-  if (state === State.OVER) {
-    const e = Math.min(1, overT / 0.55), ease = easeOutCubic(e), back = reduceMotion ? ease : easeOutBack(e);
-    const pw = 236, ph = 172, pxx = (W - pw) / 2, py = groundY * 0.46 - ph / 2 + (1 - back) * 80;
-    ctx.fillStyle = `rgba(40,28,50,${(0.22 * ease).toFixed(3)})`; ctx.fillRect(0, 0, W, H);   // demp bakgrunnen bak panelet
-    const tk = Math.min(1, Math.max(0, (overT - 0.1) / 0.45)), ts = reduceMotion ? 1 : easeOutBack(tk);
-    // skiltet henger i to tau og svinger litt etter at det har falt på plass (pendel rundt festet langt oppe)
-    const swing = reduceMotion ? 0 : keyframes([[0.3, 0], [0.55, 0.026, 'out'], [0.85, -0.016, 'inOut'], [1.15, 0.008, 'inOut'], [1.45, 0, 'inOut']], overT);
-    ctx.save(); ctx.translate(W / 2, py - 300); ctx.rotate(swing); ctx.translate(-W / 2, -(py - 300));
-    rope(pxx + 14, -20, py + 4); rope(pxx + pw - 14, -20, py + 4);   // utenfor tittelen
-    ctx.save(); ctx.translate(W / 2, py - 34); ctx.scale(ts, ts);
-    stitchHeading(overTitle, 0, 0, 3.4, newBest ? 'gold' : 'coral', Math.min(1, tk * 2));
-    ctx.restore();
-    woodSign(pxx, py, pw, ph, 2024);
-    if (unlocked.length && overT > 1) {   // ny pynt låst opp: en merkelapp knyttet til tauet
-      const uk = Math.min(1, (overT - 1) / 0.4), us = reduceMotion ? 1 : easeOutBack(uk);
-      const label = `Ny pynt: ${unlocked[0].label}${unlocked.length > 1 ? ` +${unlocked.length - 1}` : ''}`;
-      const tw = tagSize(label, 11).w, tx = Math.min(W - tw / 2 - 6, pxx + 22 + tw / 2), tyy = py - 70;
-      ctx.save(); ctx.translate(pxx + 14, tyy); ctx.scale(us, us); ctx.translate(-(pxx + 14), -tyy);
-      tag(label, tx, tyy, { size: 11, ax: pxx + 14, ay: tyy - 6 });
-      ctx.restore();
-    }
-    // medaljen (eller egget) snurrer inn når opptellingen er ferdig
-    const mk = Math.min(1, Math.max(0, (overT - 0.55 - score / 30) / 0.45)), ms = reduceMotion ? mk : easeOutBack(mk);
-    const m = medalFor(score), mx = pxx + 50, my = py + 63;
-    if (mk > 0) {
-      ctx.save(); ctx.translate(mx, my); ctx.rotate((1 - mk) * -1.4); ctx.scale(ms, ms); ctx.translate(-mx, -my);
-      if (m) drawMedal(mx, py + 64, m); else drawEgg(mx, py + 62);
-      ctx.restore();
-      ctx.globalAlpha = mk;
-      if (m) text(m[2], mx, py + 103, 11, { color: UI_INK, shadow: false, weight: 600, alpha: mk });
-      else {
-        text('Nesten!', mx, py + 101, 11, { color: UI_INK, shadow: false, weight: 600, alpha: mk });
-        text(`${10 - score} til bronse`, mx, py + 114, 9, { color: WOOD_TEXT, shadow: false, weight: 600, alpha: mk });
-      }
-      if (m) nail(mx, py + 41);   // merket er spikret fast på skiltet
-      ctx.globalAlpha = 1;
-    }
-    const shown = overShown;
-    text('Poeng', pxx + pw - 28, py + 30, 12, { align: 'right', color: WOOD_TEXT, shadow: false, weight: 600 });
-    text(String(shown), pxx + pw - 28, py + 54, 28, { align: 'right', color: UI_INK, shadow: false });
-    text('Beste', pxx + pw - 28, py + 84, 12, { align: 'right', color: WOOD_TEXT, shadow: false, weight: 600 });
-    text(String(best), pxx + pw - 28, py + 108, 28, { align: 'right', color: UI_INK, shadow: false });
-    if (newBest && shown === score) {
-      stitchHeading('Ny!', pxx + pw - 103, py + 83, 1.7, 'coral');   // brodert rett på skiltet
-    }
-    ctx.fillStyle = D.color; ctx.strokeStyle = UI_INK; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(pxx + 30, py + 22, 3.6, 0, 7); ctx.fill(); ctx.stroke();   // malt prikk i nivåets farge
-    text(D.label, pxx + 38, py + 22, 11, { color: UI_INK, shadow: false, weight: 600, align: 'left' });
-    // reisen: hvor langt fuglen kom, og ruten hjem brodert på skiltet (fuglen flytter seg mens poengene telles)
-    const wasHome = homeReached(), jl = journeyLines(score, wasHome);
-    runningStitch([{ x: pxx + 18, y: py + 122 }, { x: pxx + pw - 18, y: py + 122 }], 'rgba(156,122,85,.55)', 12);
-    text(jl.line, W / 2, py + 135, 12, { color: UI_INK, shadow: false, weight: 600 });
-    drawRoute(pxx + 26, pxx + pw - 26, py + 154, Math.min(shown, score), wasHome && shown >= HOME);
-    if (jl.next) text(jl.next, W / 2, py + 165, 9.5, { color: WOOD_TEXT, shadow: false, weight: 600 });
-    ctx.restore();   // slutt på svingen
-    // tydelige valg i stedet for «trykk hvor som helst»: spill igjen, eller tilbake til menyen
-    if (overT > 0.9) {
-      const k = Math.min(1, (overT - 0.9) / 0.3), slide = (1 - (1 - Math.pow(1 - k, 3))) * 24;
-      const bh = 38, b1 = 128, b2 = 92, gap = 10, x0 = (W - b1 - b2 - gap) / 2, by = py + ph + 22 + slide;
-      button('again', x0, by, b1, bh, 'Spill igjen', goReady, { size: 15 });
-      button('menu', x0 + b1 + gap, by, b2, bh, 'Meny', goMenu, { fill: '#FFF8EC', size: 15 });
-    }
-  }
+  if (state === State.MENU) drawMenuScreen();
+  else if (state === State.READY) drawReadyScreen();
+  else if (state === State.PLAY || state === State.DEAD) drawGameHud(groundY);
+  else if (state === State.OVER) drawResultsScreen();
 
   finishFrame(groundY);
 }
@@ -2727,10 +2507,9 @@ function edgeTint(rgb, a, inner) {
 // felles avslutning av bildet: vignett, effekter, pause og overgang
 function finishFrame(groundY) {
   // vignett: varm og lys om dagen, mørkeblå om natten
-  ctx.drawImage(scene.vignette.c, 0, 0, scene.vignette.w, scene.vignette.h);
   if (state === State.PLAY && active.slow > 0) edgeTint('180,155,232', 0.3, 0.3);   // lilla kant i sakte film
   if (fx.tint > 0) edgeTint(fx.rgb, fx.tint * 0.45, 0.2);   // myk farget kant ved treff (erstatter hvit fullskjerm-blits)
-  if (paused) drawPauseOverlay(groundY);
+  if (paused) drawPauseScreen();
   if (transitionT > 0 && !intro) {   // overgang: en sirkel som åpner seg rundt fuglen (eller en enkel toning ved redusert bevegelse)
     if (reduceMotion) { ctx.fillStyle = `rgba(40,28,50,${transitionT * 0.45})`; ctx.fillRect(0, 0, W, H); }
     else {
@@ -2740,5 +2519,6 @@ function finishFrame(groundY) {
     }
   }
   if (intro) drawIntro();   // introen ligger øverst: lerretet åpner seg over menyen (og er overgangen ved oppstart)
+  syncControls();
   ctx.restore();
 }

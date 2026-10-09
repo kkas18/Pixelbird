@@ -1,15 +1,25 @@
 /* Pixelfugl service worker – cache-first for appens egne filer (inkludert den
    selvhostede fonten og lydopptakene). Bump VERSION ved hver utgivelse. */
-const VERSION = 'pixelfugl-v5.1.0';
+const VERSION = 'pixelfugl-v10.0.0';
 const CORE = [
   './',
   './index.html',
   './manifest.webmanifest',
   './fonts/fredoka-latin.woff2',
+  './fonts/fraunces-storybook.ttf',
+  './art/forest-night.webp',
+  './art/forest-day.webp',
+  './art/birch.webp',
+  './art/foreground-depth.webp',
+  './art/panorama-night.webp',
+  './art/panorama-day.webp',
+  './art/woodland-scroll.webp',
   './js/config.js',
   './js/sound.js',
   './js/game.js',
   './js/render.js',
+  './js/art.js',
+  './js/ui.js',
   './js/main.js',
   './icons/pixelfugl-192.png',
   './icons/pixelfugl-512.png',
