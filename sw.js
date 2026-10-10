@@ -1,35 +1,22 @@
-/* Pixelfugl service worker – cache-first for appens egne filer (inkludert den
-   selvhostede fonten og lydopptakene). Bump VERSION ved hver utgivelse. */
-const VERSION = 'pixelfugl-v10.1.0';
+/* Pixelfugl service worker – cache-first for appens egne filer. Alt (skrift, figurer og lyd) lages i koden,
+   så skriptene og ikonene er alt som trengs uten nett. Bump VERSION ved hver utgivelse. */
+const VERSION = 'pixelfugl-v11.0.0';
 const CORE = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './fonts/fredoka-latin.woff2',
-  './fonts/fraunces-storybook.ttf',
-  './art/forest-night.webp',
-  './art/forest-day.webp',
-  './art/birch.webp',
-  './art/foreground-depth.webp',
-  './art/panorama-night.webp',
-  './art/panorama-day.webp',
-  './art/woodland-scroll.webp',
   './js/config.js',
+  './js/pixel.js',
   './js/sound.js',
   './js/game.js',
   './js/render.js',
-  './js/art.js',
   './js/ui.js',
   './js/main.js',
-  './icons/pixelfugl-192.png',
-  './icons/pixelfugl-512.png',
-  './icons/pixelfugl-maskable-512.png',
-  './icons/apple-touch-icon.png',
-  './audio/meis.mp3',
-  './audio/vind.mp3',
-  './audio/tre.mp3',
-  './audio/kalimba.mp3',
-  './audio/xylofon.mp3'
+  './icons/arkade-192.png',
+  './icons/arkade-512.png',
+  './icons/arkade-maskable-512.png',
+  './icons/arkade-apple-touch.png',
+  './icons/arkade-favicon-48.png'
 ];
 
 self.addEventListener('install', e => {

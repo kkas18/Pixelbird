@@ -4,8 +4,8 @@
 
 /* ---------- Størrelse ---------- */
 function resize() {
-  // maks 2x skjermpiksler: ~42 % færre piksler på 2,6x-telefoner, uten synlig forskjell i den myke tegnestilen
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // maks 3x skjermpiksler: pikslene i figurene og skriften legges på hele skjermpiksler, så de blir skarpe
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
   const vw = window.innerWidth, vh = window.innerHeight;
   // Keep the same portrait physics; short/landscape screens show more world
   // horizontally, with enough vertical space for every menu and touch target.
@@ -18,10 +18,6 @@ function resize() {
   canvas.width = Math.round(vw * dpr); canvas.height = Math.round(vh * dpr);
   canvas.style.width = vw + 'px'; canvas.style.height = vh + 'px';
   const groundY = H - GROUND_H;
-  // ny størrelse: alle ferdig tegnede scener må lages på nytt
-  sceneCache = {}; worldFade = null;
-  const sc = sceneFor(curTheme); T = sc.T; scene = sc.scene;
-  initAmbient();
   if (bird && (state === State.MENU || state === State.READY)) {
     bird.y = bird.py = groundY * 0.42;
     bird.x = bird.px = state === State.MENU ? W / 2 : BIRD_X;
@@ -53,10 +49,7 @@ installBtn.addEventListener('click', async () => { if (!deferredPrompt) return; 
 window.addEventListener('appinstalled', () => installBtn.classList.remove('show'));
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 
-// oppstart: lin fra første bilde (samme farge som oppstartsskjermen), så introen. Introen trenger verken fonten
-// eller maleriene (logoen er brodert), så den starter med en gang og dekker innlastingen; lerretet åpner seg
-// mot menyen først når fontene og maleriene er klare (se introStep).
-resize(); startIntro(); goMenu(); Sound.setNight(T.night);
-const fontReady = document.fonts && document.fonts.load ? Promise.all([document.fonts.load("700 20px Fredoka"), document.fonts.load("600 14px Fredoka"), document.fonts.load("700 44px Storybook")]) : Promise.resolve();
-Promise.all([fontReady, loadArtwork().then(prepareSeasonArt)]).finally(() => { fontsReady = true; });
+// oppstart: svart fra første bilde (samme farge som oppstartsskjermen), så arkadeintroen. Alt tegnes i koden,
+// så det er ingenting å vente på.
+resize(); startIntro(); goMenu(); skyChrome();
 requestAnimationFrame(loop);
