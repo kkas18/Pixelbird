@@ -1,21 +1,21 @@
 {
   "name": "Pixelfugl",
   "short_name": "Pixelfugl",
-  "description": "Et koselig flakse-spill: en liten blåmeis i lusekofte-skjerf flyr hjem gjennom bjørkeskogen. Trykk for å flakse.",
+  "description": "Et arkadespill: en liten blåmeis med rødt skjerf flyr hjem gjennom en blå labyrint og spiser prikker. Trykk for å flakse.",
   "lang": "nb",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#F1E6D0",
-  "theme_color": "#F1E6D0",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "categories": ["games", "entertainment"],
   "icons": [
-    { "src": "icons/pixelfugl-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/pixelfugl-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/pixelfugl-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icons/arkade-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/arkade-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/arkade-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "screenshots": [
-    { "src": "icons/screenshot-portrait.png", "sizes": "540x1170", "type": "image/png", "form_factor": "narrow", "label": "Pixelfugl i spill" }
+    { "src": "icons/arkade-skjermbilde.png", "sizes": "540x1170", "type": "image/png", "form_factor": "narrow", "label": "Pixelfugl i spill" }
   ]
 }
