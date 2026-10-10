@@ -1,489 +1,255 @@
 # Pixelfugl
 
-Et koselig flakse-spill (v10.1): en liten blåmeis med lusekofte-skjerf flyr
-hjem gjennom en norsk bjørkeskog, fra fjellet ned til hytta. Malt eventyrbokstil med fjell og fjord,
-røde hytter med torvtak og pipe-røyk, luftballong, ildfluer om kvelden og en
-månesigd. Dag/natt-tema, musikk på kalimba, ekte naturopptak (blåmeis og
-vind i bjørk) og vibrasjon.
-Bygget som en installerbar PWA, optimalisert for Samsung Galaxy (portrett) og
-andre Android-telefoner.
+Et arkadespill (v11): en liten blåmeis med rødt lusekofte-skjerf flyr hjem gjennom en blå labyrint, fra
+fjellet ned til hytta. Den flyr som i et klassisk flakse-spill: ett trykk gir ett løft, og tyngden drar ned.
+I åpningene i veggene ligger prikker den kan spise. Svart skjerm, doble blå labyrintvegger, pikselskrift og
+chiptune, som på en gammel arkademaskin.
+Bygget som en installerbar PWA, optimalisert for Samsung Galaxy (portrett) og andre Android-telefoner.
 
-Landskapet og bjørkestammene bruker lokale WebP-malerier (`art/`, ca. 3,0 MB). Maleriene er høst, og de
-andre årstidene fargelegges i koden, så stilen er den samme hele året. Fuglen, grensesnittet og partiklene
-tegnes i Canvas. Lyden
-er en blanding av syntese og noen få fritt lisensierte opptak (`audio/`, 273 kB
-i alt). Fonten (Fredoka og Fraunces) og opptakene ligger lokalt, så spillet ser og høres
-likt ut også uten nett.
+Alt tegnes og spilles i koden: figurene er pikselgrafikk fra rutenett, skriften er en egen 5 × 7-pikselskrift
+med Æ, Ø og Å, og musikken og lydeffektene lages i Web Audio. Det er ingen bilder, fonter eller lydopptak å
+laste, så første besøk er cirka 110 kB (v10.1 var 3,6 MB).
 
-## Stil: en roligere norsk eventyrbok
+## Stil: arkade, men vår egen
 
-Blåmeisen, lusekofte-skjerfet, bjørkeskogen, dyrene og reisen hjem er beholdt.
-Grensesnittet har én samlet visuell retning: varm elfenben, dempet rustrød,
-serifoverskrifter og papirkorn. Høstens dag- og kveldsmalerier, bjørkebarken og
-løvdekoren følger den godkjente designreferansen. Materialene er håndarbeid, tre og papir
-(se [revisjon 5](docs/REVISJON-5.md) og [revisjon 6](docs/REVISJON-6.md)):
+Uttrykket er en hyllest til de gamle labyrintspillene fra arkadehallene, ikke en kopi av noen av dem. Figuren,
+musikken og lydene er laget for Pixelfugl. Det er ingen gul rund figur med kilemunn, ingen spøkelser og ingen
+kjente melodier eller lyder fra andre spill.
 
-- **Logoen** er «Pixelfugl» brodert i korssting, som et merke på maleriet. Hver piksel er ett sting, og
-  i-prikken er et blått sting. Introen syr den ved oppstart.
-- **Nivåvalget** er en tresprosse av valnøtt, med et rødt innlegg under valgt nivå.
-- **Avkrysningsfeltene** i innstillingene er aida-ruter med et rødt korssting.
-- **Tekst står aldri rett på maleriet:** hint og stedsnavn står på papirlapper, rekorden og power-ups på
-  merkelapper.
-- **Kortene** (pause, innstillinger og resultater) har sydd kant, som broderiet i logoen.
-- **Malt lys:** fuglen får malt korn og varmt kantlys fra sola, og sola og månen er malt med glød og
-  penselstrøk, så de passer til maleriet.
-- **Lesbarhet:** bak selve spillet dempes maleriet (lavere metning og kontrast, et tynt dislag), så fuglen
-  og stammene leses tydelig. Menyen viser maleriet i full styrke.
-- **Det tegnede inn i maleriet:** landemerkene, ballongen og hytta er tegnet i koden, men får maleriets
-  behandling: myke kanter i stedet for tusj, dempede farger, malt lys fra sola, korte penselstrøk og korn.
-- **Stammene følger lyset:** bjørkebarken blir kjølig og månelys om kvelden og varm i solnedgangen.
+- **Blåmeisen** er en rund 8-bits figur sett fra siden:
+  - blå hette, hvitt ansikt med svart øyestripe, gult bryst og rødt skjerf som blafrer bak
+  - tre vingestillinger
+  - nebbet åpner seg når den spiser
+  - øynene kan blunke, smile og bli svimle
+  Når den vipper, roteres den i kunstpiksler, så pikslene forblir firkantede og skarpe.
+- **Veggene** er doble blå streker med pikselrunde ender mot åpningen, som veggene i en labyrint.
+- **Bakgrunnen** er en svak, mørkeblå labyrint som glir sakte forbi. Gulvet har en korridor med prikker som
+  glir i spillets fart.
+- **Logoen** «PIXELFUGL» er tykke pikselbokstaver, gule over og oransje under, med blå kontur og dybde.
+- **Alle menyer** har doble labyrintrammer, pikselskrift og pikselikoner. Ingen tekst er glattet.
+- **Skarpe piksler:** hver kunstpiksel legges på hele skjermpiksler, så pikslene er like store og skarpe også
+  når skjermen har en skjev skalering. Lerretet tegnes i full skjermoppløsning (opptil 3×).
+- **Retro-skjerm** (valg i innstillingene, på som standard): svake skannlinjer og mørke hjørner.
 
-Strukturen er:
+Se [revisjon 7](docs/REVISJON-7.md) for bilder, før og etter, og hvorfor.
 
-- **Start:** ett samlet nivåvalg og én tydelig «Spill»-knapp.
-- **Innstillinger:** lydeffekter, musikk, dag/kveld og garderoben er samlet.
-- **Spill:** lesbare poeng, en diskret pauseknapp og tydeligere bjørkestammer.
-- **Pause og resultater:** samme paneler, typografi og knapper som i menyen.
-- **Garderobe:** alle eksisterende plagg og opplåsingskrav er bevart.
-- **Tilgjengelige kontroller:** Canvas-knappene har samsvarende native
-  HTML-knapper med norske navn, valgt tilstand og synlig tastaturfokus.
-- **Offline:** Fredoka og den medfølgende Fraunces ligger lokalt.
-  Fontlisenser finnes i `fonts/`. Ingen eksterne font- eller bildekall.
-- **Lagring:** eksisterende rekorder, lydvalg, tema og pynt beholdes ved oppdatering.
+## Slik spiller du
 
-Se [landskapet i bevegelse](docs/CONTINUOUS-v9.md) for skjermbilder, bevegelsesdemo og verifikasjon.
-Den tidligere [referansetilpasningen](docs/REFERENCE-v7.md) viser utgangspunktet.
+- **Trykk** hvor som helst (eller mellomrom / pil opp) for å flakse. Fly gjennom åpningene i veggene.
+- **Prikkene:** hver åpning har tre prikker. Spis alle tre, så gir veggen ett ekstra poeng. Prikkene på rad
+  gir stigende toner, og en full rad gir en rask arpeggio og «+1».
+- **Ting i åpningene** (fra 3 poeng):
 
-## Dybde i 2.5D
+  | Ting | Virkning |
+  |---|---|
+  | Kraftprikk (stor, blinkende) | skjold: tåler ett treff, fuglen blinker og glir inn i åpningen |
+  | Snegle | sakte film i 6 sekunder |
+  | Gyllen eikenøtt | dobbel poeng i 8 sekunder (også for en full prikkrad) |
 
-Spillet beholder 2D-styring og kollisjoner, mens tegningen får flere dybdeplan:
-kontinuerlig bevegelse i himmel, fjell og et eget skogslag, en nærforgrunn med steiner
-og løv, atmosfærisk dis, sylinderskygge på bjørkene og mykt lys på fuglen.
-Kameraet følger fuglen forsiktig i bakgrunnslagene; knapper og poeng står fast.
-Under spillingen ruller brede dag-/nattpanoramaer og et separat, transparent
-skogslag kontinuerlig i takt med flyturen. Myke overganger mellom landskapsdelene
-gir en sammenhengende verden. Menyen beholder originalmaleriet. Redusert bevegelse
-stopper parallakse og kameraforskyvning.
+- **Poengtavla:** poengene midt øverst, rekorden øverst til venstre (som på en arkademaskin) og pause øverst
+  til høyre. Aktive ting vises med en stolpe for tiden som er igjen.
+- **Pause:** knappen øverst til høyre, eller Esc / P. Spillet pauses også når appen legges i bakgrunnen.
+  «Fortsett» gir en 3-2-1-nedtelling.
+- **Vanskelighet:** Lett, Normal, Hard og Zen i nivåvalget i menyen. Rekorden lagres per nivå.
+- **Lyd:** høyttaleren i menyen slår lydeffektene av og på. Tannhjulet åpner innstillingene: lydeffekter,
+  musikk, retro-skjerm og garderoben.
+- **Tastatur i menyer:** Tab velger knapp, Enter eller mellomrom trykker, Esc lukker et panel.
 
-## Filer
-
-| Fil | Formål |
-|-----|--------|
-| `index.html` | Siden: lerret, stil og innlasting av skriptene |
-| `js/config.js` | Konstanter, lagring, vanskelighetsgrader, power-ups, tema, årstider og garderobe |
-| `js/sound.js` | Musikk, lydeffekter og naturlyder (Web Audio: opptak med syntese som reserve) |
-| `js/game.js` | Spilltilstand, input, fysikk, tid på døgnet og oppdatering |
-| `js/render.js` | Tegning: forhåndstegnede lag, stammer, fugl, partikler og brukergrensesnitt |
-| `js/art.js` | Innlasting av maleriene, fargelegging per årstid i en egen tråd, og tegning av landskap og bjørk |
-| `art/` | Komprimerte illustrasjoner til dag, kveld og bjørk; kilder i `art/README.md` |
-| `js/ui.js` | Menyer, innstillinger, garderobe, HUD, pause, resultater og tilgjengelige knapper |
-| `js/main.js` | Oppstart: skjermstørrelse, spill-løkke og PWA |
-| `manifest.webmanifest` | PWA-manifest: navn, ikoner, portrett, standalone |
-| `sw.js` | Service worker – spillet fungerer offline etter første besøk |
-| `icons/` | App-ikoner (192, 512, maskable 512, Apple touch, favicon) + skjermbilde |
-| `fonts/` | Fredoka og Fraunces, selvhostede fonter med SIL OFL-lisenser |
-| `audio/` | Lydopptak (mp3): blåmeis, vind, tre, kalimba og xylofon. Kilder og lisenser i `audio/KILDER.md` |
-| `docs/REVISJON.md` | Første revisjon: funn og plan (fase 1–4, gjennomført) |
-| `docs/REVISJON-2.md` | Andre revisjon: poeng og tiltak mot «AI-stil» (fase A–G) |
-| `docs/REVISJON-3.md` | Tredje revisjon: poeng for design, grafikk, animasjoner og spillfølelse (fase H) |
-| `docs/REVISJON-4.md` | Fjerde revisjon: poeng etter v5.0 med oppstarten fra telefonvideo, og introen (fase I) |
-| `docs/REVISJON-5.md` | Femte revisjon: poeng for designet fra ChatGPT (v9), og det harmoniserte maleriet (fase J) |
-| `docs/REVISJON-6.md` | Sjette revisjon: poeng etter v10, og landemerkene, lyset, vinteren og hjemkomsten i maleriet (fase K) |
-| `.nojekyll` | Sørger for at GitHub Pages serverer alle filer som de er |
-| `make_icons.py` | Regenererer ikonene (blåmeisen foran en bjørkestamme; valgfritt, krever Pillow) |
-| `make_audio.py` | Bygger `audio/` fra originalopptakene: klipper, renser og koder (valgfritt, krever ffmpeg og numpy) |
-
-## Publisering på GitHub Pages
-
-1. Opprett et nytt repo, f.eks. `pixelfugl`.
-2. Last opp alle filene (inkludert mappen `icons/` og `.nojekyll`) til rot-nivået i repoet.
-3. Gå til **Settings → Pages**. Under *Build and deployment* velger du
-   **Deploy from a branch**, branch `main`, mappe `/ (root)`. Lagre.
-4. Etter ett–to minutter er spillet live på  
-   `https://<brukernavn>.github.io/pixelfugl/`
-
-Alle stier i manifest og service worker er relative (`./`), så det fungerer
-også i en undermappe.
-
-## Installere på Samsung / Android
-
-1. Åpne adressen i **Chrome** eller **Samsung Internet**.
-2. Trykk **Installer Pixelfugl**-knappen nederst på startskjermen, eller velg
-   *Legg til på startskjermen* / *Installer app* i nettlesermenyen.
-3. Appen åpnes uten nettleser-linjer, låst til portrett. Statuslinjen øverst får himmelens farge
-   (lys blå om dagen, mørk blå om natten), så den glir inn i bildet i stedet for å være en svart stripe.
-
-Hadde du installert en eldre versjon, kan telefonen fortsatt vise det gamle ikonet og en cyan
-oppstartsskjerm. Chrome oppdaterer dette selv etter en stund (ikonene har fått nye filnavn, så endringen
-oppdages), men det går raskest å fjerne appen fra startskjermen og installere den på nytt.
-
-## Oppstart og intro
-
-Fra du trykker på ikonet til menyen er alt i samme materiale:
-
-1. **Oppstartsskjermen** (Android) er lin (`#F1E6D0`) med ikonet: blåmeisen foran en bjørkestamme.
-2. **Siden** er lin fra første bilde, så det kommer ingen tom eller mørk ramme mens spillet lastes.
-3. **Introen «Broderiet»** (cirka 2,7 s):
-   - En oval broderiramme av bjørk med messingskrue settes på linet. Inne i rammen er stoffet aida,
-     med ruter som går nøyaktig opp med stingene.
-   - En synål syr «Pixelfugl» sting for sting, bokstav for bokstav, med tråd i samme farge som
-     stingene (blå for i-prikken). Hver bokstav gir en stille kalimbatone.
-   - Blåmeisen flyr inn og lander på den første «l»-en, med et kort meisekall.
-   - Rammen vokser ut forbi kameraet og åpner seg mot maleriet. Logoen glir opp på plassen sin, og
-     fuglen letter og glir ned til hvileplassen. Den sydde logoen er den samme som i menyen, så det
-     er ingen hopp.
-4. **Mens introen går**, hentes maleriene. De dekodes og fargelegges for årstiden i en egen tråd (Web
-   Worker), så introen aldri hakker. Bildene bak selve spillet gjøres ferdig etter introen.
-5. **Menyen** vises først når fonten og menymaleriet er klare (høyst 2,5 s ventetid ved landingen), så
-   papirlappene aldri lagres med feil skrift. Menyen tegnes én gang skjult under linet mens ingenting
-   beveger seg, så åpningen ikke hakker.
-
-Introen vises hver gang appen startes, men ikke når du går tilbake til menyen fra et spill. Et trykk
-eller en tast hopper over den (og starter ikke spillet). Under introen er knappelaget skjult, så et trykk
-aldri treffer en usynlig knapp. Ved redusert bevegelse står logoen ferdig sydd i rammen, og linet toner
-rolig bort på cirka 1 s. Lyden i introen spilles bare i den installerte appen, der Chrome tillater lyd før
-første trykk; i nettleseren er introen stille.
-
-## Kontroller
-
-- **Trykk** hvor som helst på skjermen (eller mellomrom / pil opp) for å flakse. I menyen starter et
-  trykk på maleriet spillet (ikke når et panel er åpent). Under introen hopper et trykk over den.
-- **Pause**: knappen øverst til høyre, eller Esc / P. Spillet pauses også automatisk
-  når appen legges i bakgrunnen, og lyden stoppes. «Fortsett» gir en kort 3-2-1-nedtelling.
-- **Hjemme:** når fuglen har landet på fuglebrettet ved hytta, hviler den til du trykker. Da flyr den videre.
-- Etter game over: **Spill igjen** eller **Meny** (for å bytte nivå, lyd eller tema).
-- **Vanskelighet:** Lett / Normal / Hard / Zen i det samlede nivåvalget.
-- **Lyd:** høyttaleren på startskjermen slår lydeffekter av/på.
-- **Innstillinger:** tannhjulet åpner valg for lydeffekter, musikk og kveldsstemning.
-- **Garderobe:** åpnes fra innstillinger. Alle plagg og opplåsinger er beholdt.
-- **Tastatur i menyer:** Tab velger knapp, Enter/mellomrom aktiverer den, Esc lukker et panel.
-- Beste poengsum og samlede poeng lagres lokalt på enheten.
-
-Medaljer (broderte merker med selburose): 10 bronse, 20 sølv, 30 gull, 40 platina.
+Medaljer på resultatskjermen: 10 bronse, 20 sølv, 30 gull og 40 platina.
 
 ## Reisen hjem
 
-Hver runde er en reise fra fjellet ned til hytta. Underveis passerer fuglen ti steder:
+Hver runde er en reise fra fjellet ned til hytta. Når fuglen når et nytt sted, blinker navnet i et banner, og
+et lite signal spilles. På gulvet står neste sted («MOT ELGMYRA») og reisen som en rad med prikker: de som er
+passert er spist, og den lille blåmeisen står der den har kommet.
 
-| Poeng | Sted | I landskapet |
-|:-:|---|---|
-| 0 | Fjellet | start |
-| 5 | Bjørkelia | |
-| 10 | Elgmyra | elgen i skogkanten |
-| 15 | Seterbua | setra med kuene |
-| 20 | Tjernet | et lite tjern med siv |
-| 27 | Sauebeitet | sauen som beiter |
-| 34 | Stavkirka | stavkirka i lia |
-| 42 | Fyrlykta | fyret ute i fjorden |
-| 50 | Postkassa | postkassa ved stien |
-| 60 | Hytta | hjemme |
+| Poeng | Sted |
+|:-:|---|
+| 0 | Fjellet |
+| 5 | Bjørkelia |
+| 10 | Elgmyra |
+| 15 | Seterbua |
+| 20 | Tjernet |
+| 27 | Sauebeitet |
+| 34 | Stavkirka |
+| 42 | Fyrlykta |
+| 50 | Postkassa |
+| 60 | Hytta |
 
-- **Ved hvert sted** står et veiskilt mellom stammene, og navnet vises kort under poengene. Der stedet
-  har et landemerke, dukker det opp. De tilfeldige landemerkene hører alltid til steder fuglen allerede
-  har passert, så rekkefølgen stemmer.
-- **På maleriet** står landemerkene på enga foran skogen og følger den (fjorden er skjult bak skogen
-  mens man flyr, så fyret står på sitt eget skjær). Postkassa står ved stien. Tjernet vises ikke der,
-  siden maleriet har vann fra før. Reisen begynner med tom horisont.
-- **Hjemkomst ved 60 poeng:** stammene tar slutt, hytta med fuglebrettet glir inn, og verden bremser
-  jevnt til brettet står rett under fuglen. Fuglen lander, pikker i frøene og hviler så lenge du vil.
-  Et trykk sender den videre; stammene kommer tilbake, og poengene teller videre.
-- **Game over forteller hvor langt du kom:** «Du kom forbi Tjernet» og «5 til Sauebeitet», med ruten
-  brodert på skiltet og en liten blåmeis der reisen sluttet. Etter hytta står det «Du kom hjem til
-  hytta!» og hvor langt fuglen fløy videre.
-- **Pause** viser også hvor på veien hjem fuglen er.
+**Hjemkomst ved 60 poeng:**
+
+1. Veggene tar slutt, og en rød pikselhytte med torvtak, lyse vinduer og røyk fra pipa glir inn.
+2. Verden bremser til fuglebrettet står rett under fuglen.
+3. Fuglen lander på brettet og pikker i frøene. «HJEMME!» står så lenge du vil.
+4. Et trykk sender den videre, og poengene teller videre.
+
+Resultatskjermen og pausen forteller hvor langt fuglen kom.
+
+## Oppstart og intro
+
+Oppstartsskjermen, siden og spillet er svarte fra første bilde. Introen tar 2,6 sekunder:
+
+1. Labyrintrammen tegnes rundt skjermen, fra midten øverst.
+2. Logoen kommer bokstav for bokstav, med ett blipp per bokstav.
+3. Blåmeisen flyr inn langs en rad med prikker under logoen og spiser dem. Så glir den ned på plassen sin.
+4. Menyen toner fram.
+
+Et trykk eller en tast hopper over introen (og starter ikke spillet). Under introen er knappene skjult. Ved
+redusert bevegelse toner menyen rolig fram på et halvt sekund. Lyden i introen spilles bare i den installerte
+appen, der Chrome tillater lyd før første trykk.
+
+## Musikk og lyd
+
+Chiptune i Web Audio, som en gammel lydbrikke:
+
+- to pulsbølger, med pulsbredde 12,5 %, 25 % eller 50 %, til melodi og akkorder
+- en trekantbølge til bass
+- støy til trommer
+
+All musikk er skrevet for Pixelfugl.
+
+- **Menyen:** en rolig sløyfe i G-dur, 100 BPM, med lange akkorder og bass på grunntone og kvint.
+- **Spillet:** en lys sløyfe i D-dur, 144 BPM, del A to ganger og så del B. Brutte akkorder, oktavsprett i
+  bassen, stortromme, skarptromme og hi-hat.
+- **Sakte film** senker tempoet og demper diskanten.
+- **Game over:** en kort melodi i moll. Etter en liten pause tar menysløyfa over.
+
+**Lydeffekter:**
+
+| Hendelse | Lyd |
+|---|---|
+| flaks | et kort «bwipp» som glir opp |
+| prikk | et lite pip, stigende for hver prikk på rad |
+| full rad | en rask arpeggio |
+| poeng | to toner som stiger med poengene på rad |
+| nytt sted | et lite signal |
+| hvert 10. poeng | en fanfare |
+| ny rekord og hjemkomst | en seiersmelodi |
+| ting | en stige opp i trinn |
+| skjoldtreff | et smell |
+| tett forbi | et lyst sus |
+| treff | smell og fall |
+| tellingen på resultatskjermen | blipp |
+| fyrverkeri | små smell |
+
+En begrenser til slutt hindrer klipping.
 
 ## Vanskelighetsgrader
 
-Velges i nivåvelgeren på startskjermen. Beste poengsum lagres per nivå.
-
-| Nivå | Gap (px) | Fart (px/s) | Maks sprang mellom gap (px) | Varianter fra poeng |
+| Nivå | Åpning (px) | Fart (px/s) | Maks sprang mellom åpninger (px) | Varianter fra poeng |
 |------|----------|-------------|-----------------------------|---------------------|
 | Lett | 152 | 118 | 150 | 14 |
 | Normal | 130 | 136 | 135 | 8 |
 | Hard | 112 | 160 | 120 | 4 |
 | Zen | 165 | 108 | 140 | – |
 
-**Zen** er for ren kos: fuglen kan ikke dø. Treffer den en stamme, spretter den mykt
-inn i åpningen; treffer den bakken, spretter den opp igjen. Ingen game over, ingen
-rekord og ingen skjold (det trengs ikke). Gå ut via pause → Meny.
-
-Gapet krymper litt med poengsummen, men aldri under 92 px. Gapene plasseres i en
-fast sone på 400 px over bakken, så vanskeligheten er lik på alle skjermhøyder.
-
-## Tid på døgnet og årstider
-
-Hvert 10. poeng glir tiden videre: **dag → solnedgang → kveld → soloppgang → dag …**
-(starter på det du har valgt i menyen). Hele verden tones mykt over i løpet av
-1,8 sekunder, og musikk og naturlyder følger med (kveldsvariant om natten).
-
-Årstiden følger datoen:
-
-| Årstid | Måneder | Kjennetegn |
-|--------|---------|------------|
-| Vår | mars–mai | lyst, friskt grønt løv i maleriet, blomsterblader i lufta (ildfluer om kvelden) |
-| Sommer | juni–august | grønt løv i maleriet, pollen i lufta (ildfluer om kvelden) |
-| Høst | september–november | maleriet slik det er: oransje og gule trær, løv som faller |
-| Vinter | desember–februar | kaldt og blekt maleri med rimfrost på flatene som vender opp; snøfall |
-
-Maleriene er høst. De andre årstidene fargelegges i koden, piksel for piksel, i en egen tråd (Web Worker)
-mens introen går:
-
-- Om sommeren og våren flyttes høstløvet mot grønt. Jorda og de røde bærene holdes utenfor.
-- Om vinteren blir alt kaldt og blekt, og flatene som vender opp (tak, steiner, trekroner) får rimfrost.
-  Rimfrosten regnes ut fra lysstyrken jevnet ut over noen piksler, så den legger seg mykt og ikke som støy
-  på hver kant. Vannet får ikke rim. De varme lysene om kvelden (vinduer, lykter), den røde hytta og
-  rognebærene beholder fargen.
-- Bjørka beholder barken, og får bare et kaldt skjær om vinteren.
-
-Uten Web Worker gjøres det samme på hovedtråden. Kan ikke maleriene lastes, tegnes landskapet i koden, i den
-eldre pastellstilen (se «Landskapet»).
-
-For å teste en annen årstid: sett `localStorage.setItem('pf.season', 'winter')`
-(`spring`, `summer`, `autumn` eller `winter`) og last siden på nytt.
+- **Varianter:** vegger som beveger seg opp og ned, og smalere åpninger (20 % mindre).
+- **Zen:** fuglen kan ikke dø. Treffer den en vegg, spretter den mykt inn i åpningen. Treffer den gulvet,
+  spretter den opp igjen. Gå ut via pause og «Meny».
+- **Åpningene:** de krymper litt med poengsummen, men aldri under 92 px. De ligger i en fast sone på
+  400 px over gulvet, så vanskeligheten er lik på alle skjermhøyder.
 
 ## Garderobe
 
-Poeng fra alle vanlige runder samles (Zen teller ikke) og låser opp pynt:
+Poeng fra alle vanlige runder samles og låser opp pynt. Pynten er tegnet i piksler på figuren.
 
 | Pynt | Krav |
 |------|------|
 | Bare skjerf | – |
-| Rosa sløyfe | 10 poeng totalt |
+| Sløyfe | 10 poeng totalt |
 | Strikkelue | 25 poeng totalt |
 | Fluesopphatt | 45 poeng totalt |
-| Blomst i hetta | 60 poeng totalt |
+| Blomst | 60 poeng totalt |
 | Solbriller | 80 poeng totalt |
 | Blomsterkrans | 100 poeng totalt |
-| Runde briller | 120 poeng totalt |
+| Briller | 120 poeng totalt |
 | Vikinghjelm | 150 poeng totalt |
 | Nisselue | 200 poeng totalt |
 | Flosshatt | 300 poeng totalt |
-| Liten krone | gull (30 poeng) i én runde |
+| Krone | gull (30 poeng) i én runde |
 
-Garderoben har to sider med seks ting på hver (bla med pilene). Ny pynt vises på
-game over-skjermen («Ny pynt: …!»).
+Garderoben har to sider med seks ting på hver. Ny pynt vises på resultatskjermen.
 
-Spillet bruker ingen emojier: all tekst er vanlige bokstaver, tall og tegnsetting,
-og symboler som piler, hjerter og stjerner er tegnet som figurer.
-
-## Landskapet
-
-Maleriene er hovedlandskapet, med landemerkene, ballongen og fugleflokken tegnet inn (se «Reisen hjem»). Kan
-de ikke lastes, tegnes landskapet i koden, laget for at øyet ikke skal se gjentakelse:
-
-- **Bakken** er satt sammen av 14 bakkestykker i tilfeldig rekkefølge, og samme stykke kommer
-  aldri igjen før minst fire andre har passert. Stykkene har hvert sitt innhold: tuer, en
-  bjørkestubbe, en stor mosegrodd stein, blåbærlyng (bær om sommeren, røde blader om høsten), en
-  tråkket sti, en maurtue, kantareller, og blåklokker med prestekrager. Gresskanten har ujevne buer,
-  og skjøtene er sømløse.
-- **Fjellene** har én tydelig hovedtopp med bratt vegg og lang skulder, et skar, mindre nabotopper
-  og smale snøfonner i søkkene.
-- **Husene i åsen** er forskjellige: en rød hytte med vimpel, et okergult gårdshus med flaggstang,
-  en hvit seterbu med vedstabel og et stabbur på stolper. Åsene er to skjermbredder lange, og skog
-  og busker står i klynger med glenner imellom.
-- **Sjeldne landemerker** dukker opp omtrent hvert 30.–60. sekund, aldri det samme som de to
-  forrige: stavkirke, fyr (med lysstråle om kvelden), seter med kuer, elg i skogkanten, en sau som
-  beiter og en postkasse ved stien. Hvert landemerke står plantet på sitt eget parallakse-lag.
-
-## Dybde
-
-Spillet er fortsatt tegnet i lag, men har de signalene øyet bruker for å se dybde i et kamerabilde:
-
-- **Dybdeskarphet:** fuglen, stammene og bakken er skarpe. Bakgrunnen blir gradvis uskarpere
-  jo lenger unna den er (fjell mest, så åser, skog og busker), og skyer og landemerker følger
-  avstanden sin.
-- **Luftperspektiv:** mer dis jo lenger unna.
-- **Forgrunn:** noen få uskarpe gresstuster, bregner og blader nederst, helt nær kameraet.
-  De glir forbi raskere enn alt annet og dekker aldri fuglen eller stammene.
-- **Kameraet følger fuglen litt i høyden** (maks 8 px), og lagene forskyves etter avstand.
-- **Fokustrekk:** i menyen ligger fokus på landskapet, som da er skarpt. Når runden starter,
-  glir fokus over til fuglen.
-- **Partikler og skygge:** noen få partikler ligger helt nær kameraet (store, myke og raske),
-  og fuglen har en skygge på bakken som blir mindre og svakere jo høyere den flyr.
-
-Uskarpheten lages én gang når scenen tegnes, i lav oppløsning, så den koster nesten ingenting
-per bilde og bruker lite minne. Nettlesere uten innebygd uskarphet på lerretet får den laget i
-JavaScript. Med «redusert bevegelse» står kameraet stille, og fokus skifter uten glidning.
-
-## Hinder: bjørkestammer
-
-Hver stamme er unik (barkmerker, kjuker, kvister, fluesopp, av og til en ugle
-som titter ut), men ser lik ut hele veien gjennom skjermen. Barken er som ekte bjørk: merker i
-klynger med bar bark imellom, mørke «belter», små lenticeller og mørke, avsmalnende kiler
-(«barter») med en kvist i toppen der greiner har sittet.
-Alle stammene er like brede og står rett, så treffsonen er rettferdig.
-
-- **Høstløv på kanten** – stammen beveger seg opp og ned.
-- **Lyng i mosen** (lilla blomster) – smalere åpning (20 % mindre gap).
-
-**Ekorn på stammene.** Omtrent hver femte stamme har et ekorn. Det er ingen ekorn om natten,
-for da sover de og ugla har tatt over. Om vinteren har ekornene gråbrun vinterpels. Ekornet er bare
-pynt og hindrer aldri fuglen.
-
-- **Klatring:** ekornet holder seg alltid på barken. Det klatrer på kanten av stammen i korte rykk med
-  stopp, med hodet først opp eller ned, og det løsner små barkflak når det løper.
-- **På snittflaten:** ekornet kan sitte oppå den nedre stammen og gnage på en kongle, med en
-  haleflikk innimellom.
-- **Når fuglen kommer nær,** hopper ekornet ned og smetter rundt stammen, så bare halen stikker fram.
-  Når fuglen har passert, titter hodet fram igjen.
-- **Redusert bevegelse:** ekornene står stille.
-
-**Flaggspett.** Omtrent hver tiende stamme har en flaggspett, men ikke om natten.
-
-- Den henger på kanten av stammen med den stive halen som støtte og hakker i korte trommevirvler,
-  så flis spruter. Trommingen høres som raske små treknakk.
-- Den flytter seg bare oppover, i små hopp, slik spetter gjør.
-- Når fuglen kommer nær, stivner den et øyeblikk og flyr av gårde i bølgeflukt.
-
-**Snegle.** Omtrent hver tiende stamme har en snegle, også om kvelden. Om vinteren sover sneglene.
-
-- Den kryper sakte oppover den nedre stammen (cirka 3 px/s) og legger igjen et blankt slimspor.
-- Når fuglen kommer, trekker den seg inn i huset. Etterpå kommer følehornene forsiktig ut igjen.
-
-Det er aldri mer enn ett dyr per stamme. Alle dyrene holder seg på barken, er aldri i gapet og hindrer
-aldri fuglen.
-
-## Power-ups
-
-Dukker opp i gapet fra 3 poeng. Fly gjennom for å plukke opp.
-
-- **Såpeboble** (skjold) – tåler ett treff: boblen spretter, fuglen blinker, er
-  usårbar i 0,8 s og glir mykt inn i gapet.
-- **Snegl** (sakte film) – 6 sekunder med 55 % fart.
-- **Gyllen eikenøtt** (dobbel) – 8 sekunder med 2 poeng per stamme.
-
-Navnet flyter opp på en merkelapp når du plukker en power-up. Aktive effekter henger som
-merkelapper under poengsummen, med en rød tråd i tråklesting som viser tiden som er igjen.
-
-## Fuglen
-
-- En blåmeis (se «Stil» over). Øynene sitter i den mørke øyestripen, med en lys kant
-  så de er lette å lese.
-- Blunker og ser seg rundt i menyen. I landskapet tegnet i koden sover den om natten, med hodet
-  litt ned, lukkede øyne og rolig pust.
-- På maleriet får den malt korn i fjærdrakten, varmt kantlys fra sola oppe til høyre og en kjølig refleks
-  nede til venstre.
-- Lukker øynene glad (^ ^) når den får poeng, og sperrer dem opp i fritt fall.
-- Skjerfsnippene er en liten fysikksimulering (Verlet) som blafrer i fartsvinden.
-- Ved krasj: fuglen klemmes flat, mister noen fjær, spretter og blir sittende oppreist og
-  svimmel (spiraløyne).
-
-## Grafikk og ytelse
-
-De statiske bakgrunnslagene (fjell og fjord, åser med hytter, bjørkeskog, busker,
-bakke), himmelen og vignetten tegnes én gang til offscreen-lerreter og blittes
-hvert bilde. Bare det som beveger seg tegnes live. Tegneoppløsningen er begrenset
-til 2× skjermpiksler. Spillet holder 60 bilder/s på en 2,6×-skjerm, også uten GPU.
-
-Planker, merkelapper, papirlapper, trestykker, kortene, logoen, tresprossen og veiviseren tegnes én gang
-(med hellingen innbakt) og legges på hele skjermpiksler. Da kan nettleseren kopiere pikslene rett over i
-stedet for å filtrere hvert av dem.
-
-Maleriene hentes, dekodes og fargelegges i en egen tråd, som sender ferdige bilder (ImageBitmap) tilbake.
-Hovedtråden stopper derfor ikke mens introen beveger seg. Meny, spill og game over tegnes like raskt som i
-v9 (median av vekselvise målinger).
-
-Det som hører til en tid på døgnet (de malte landemerkene, hytta og den tonede bjørkebarken) lages ferdig
-mens fuglen venter på «Klar?», så byttet fra dag til kveld midt i runden ikke hakker.
+Spillet bruker ingen emojier eller symboltegn: all tekst er bokstaver, tall og tegnsetting i pikselskriften,
+og ikoner er tegnet som pikselfigurer.
 
 ## Fysikk
 
-Tidsbasert modell med fast steg på 120 Hz (uavhengig av skjermens
-oppdateringsfrekvens). Tegningen interpoleres mellom to fysikk-steg, så
-bevegelsen er jevn på 60, 90 og 120 Hz-skjermer:
+Tidsbasert modell med fast steg på 120 Hz (uavhengig av skjermens oppdateringsfrekvens). Tegningen
+interpoleres mellom to fysikk-steg, så bevegelsen er jevn på 60, 90 og 120 Hz-skjermer.
 
 - Tyngdekraft og flaks i px/s², luftmotstand og terminalfart (560 px/s).
 - Fast flaks-impuls: hvert trykk gir nøyaktig samme løft, uansett rytme.
-- Rotasjon som fjær mot målvinkel med demping, squash-and-stretch på fuglen.
-- Presis sirkel-mot-avrundet-rektangel-kollisjon (hettene har runde hjørner).
-- Ved krasj spretter fuglen av røret, tumler og spretter én gang i bakken.
-  Skjermen rister i en dempet svingning bort fra treffet (av ved «redusert
-  bevegelse»), og kanten tones mykt i stedet for en hvit blits.
+- Rotasjon som en fjær mot målvinkelen, med demping. Tegningen rundes til trinn på 7,5 grader.
+- Kollisjon mellom en sirkel og avrundede rektangler (veggene har runde ender). Veggen er tegnet like bred
+  som treffsonen.
+- Ved krasj står alt stille et øyeblikk (treffpause). Så spretter fuglen av veggen, tumler og spretter én
+  gang i gulvet. Skjermen rister bort fra treffet (av ved redusert bevegelse).
 
-## Musikk
+## Ytelse
 
-Musikken spilles i Web Audio og er i F-dur, 88 BPM, med lett swing. Melodien spilles på et
-ekte kalimbaopptak: én tone som spilles raskere eller langsommere for å gi alle tonehøyder. Under
-ligger en myk pad (Fmaj7 – Dm7 – B♭maj7 – Csus4 …) og etterklang.
+- Figurer, tekst, rammer, logoen og bakgrunnslabyrinten tegnes én gang per størrelse og legges på hele
+  skjermpiksler hvert bilde. Bildene som ikke er brukt på lengst, kastes først, så bakgrunnen aldri lages på
+  nytt midt i spillet.
+- I testen (Chromium uten skjermkort) bruker meny og spill 62–67 % kortere tegnetid enn v10.1.
+- 20 sekunder spill i sanntid gir ingen stopp over 50 ms (v10.1: 46).
 
-- **Form:** A – A' – B – A'', i alt 32 takter (cirka 87 s) før den gjentas. B-delen er et lavere
-  mellomspill med lengre toner. Annenhver runde endres basslinjen og kalimba-glimtene litt.
-- **Bro:** når tiden på døgnet skifter midt i en runde, spilles en kort bro på to takter: fallende mot
-  kvelden, stigende mot morgenen, med et glid over en leketøys-xylofon.
-- **Meny og spill:** på menyen spilles en enklere, varmere versjon. I spill kommer rund bass,
-  kalimba-glimt, en myk shaker og et rolig «hjerteslag» inn i stedet for trommer.
-- **Kveld:** om kvelden spilles en vuggevise-variant uten rytme, en oktav lavere.
-- Sakte film demper lyden. Musikken starter ved første trykk (nettlesere krever brukerhandling).
+## Filer
 
-**Lydeffekter:**
+| Fil | Formål |
+|-----|--------|
+| `index.html` | Siden: lerret, stil og innlasting av skriptene |
+| `js/config.js` | Konstanter, lagring, vanskelighetsgrader, ting i åpningene, garderobe og retro-skjerm |
+| `js/pixel.js` | Pikselgrunnlaget: arkadepaletten, pikselskriften, sprites fra rutenett og doble labyrintrammer |
+| `js/sound.js` | Chiptune: musikk og lydeffekter i Web Audio |
+| `js/game.js` | Spilltilstand, input, fysikk, prikker, reisen hjem, introen og oppdatering |
+| `js/render.js` | Tegning: labyrinten, veggene, prikkene, blåmeisen, hytta, logoen, introen og retro-skjermen |
+| `js/ui.js` | Meny, «KLAR!», poengtavla, pause, innstillinger, garderobe, resultat og de tilgjengelige knappene |
+| `js/main.js` | Oppstart: skjermstørrelse, spill-løkke og PWA |
+| `manifest.webmanifest` | PWA-manifest: navn, ikoner, portrett, standalone |
+| `sw.js` | Service worker: spillet fungerer uten nett etter første besøk |
+| `icons/` | App-ikoner (192, 512, maskerbar 512, Apple touch, favicon) og skjermbilde |
+| `make_icons.py` | Lager ikonene fra figuren i `js/render.js` (valgfritt, krever Pillow) |
+| `tests/ui-smoke.cjs` | Røyktest i Chromium: menyer, knapper, lagring, fysikk, pause, fem skjermstørrelser og uten nett |
+| `docs/` | Revisjonene (1–7) med funn, poeng og bilder |
+| `.nojekyll` | Sørger for at GitHub Pages serverer alle filer som de er |
 
-- mykt «fwip» når fuglen flakser
-- kalimbatone som stiger i skala for hvert poeng på rad
-- kalimba-arpeggio og en dempet blåmeis hvert 10. poeng
-- glid over en leketøys-xylofon og meisesang ved ny rekord
-- «plopp» når såpeboblen sprekker
-- treknakk når fuglen treffer en stamme, og et mykt dunk i bakken
-- knirk i tauene når game over-skiltet svinger
-- et lite treklikk på knappene
-- en liten «å nei»-melodi i dur på game over
-- små klikk når poengene telles opp
+## Tilgjengelighet
 
-**Naturlyder:** vind i bjørk (en sømløs sløyfe på 14 s) og blåmeis som synger fra ulike steder i
-skogen om dagen. Om kvelden er det svakere vind, sirisser og en ugle innimellom. «Musikk av» slår
-av både musikk og naturlyder.
+- Hver knapp på lerretet har en HTML-knapp med samme plass og et norsk navn, så menyene kan brukes med
+  tastatur og skjermleser. Valgt nivå og valgene i innstillingene har `aria-pressed`.
+- Synlig tastaturfokus (gul ramme).
+- «Redusert bevegelse» i systemet: ingen risting, introen toner bare fram, og ting blinker ikke.
 
-**Opptak og reserve:** opptakene (`audio/`, 273 kB) er CC0 eller merket som allemannseie; se
-[`audio/KILDER.md`](audio/KILDER.md). De hentes når siden lastes, dekodes ved første trykk, og
-service workeren hurtigbufrer dem for bruk uten nett. Til de er klare, eller om de ikke kan
-lastes, spilles den syntetiske versjonen av hver lyd.
+## Publisering på GitHub Pages
 
-Felles romklang og en begrenser (kompressor) på slutten hindrer klipping når
-mange lyder overlapper.
+1. Opprett et nytt repo, for eksempel `pixelfugl`.
+2. Last opp alle filene (inkludert mappen `icons/` og `.nojekyll`) til rot-nivået i repoet.
+3. Gå til **Settings → Pages**. Under *Build and deployment* velger du **Deploy from a branch**, branch
+   `main`, mappe `/ (root)`. Lagre.
+4. Etter ett–to minutter er spillet live på `https://<brukernavn>.github.io/pixelfugl/`.
 
-## Spillfølelse
+Alle stier i manifest og service worker er relative (`./`), så det fungerer også i en undermappe.
 
-- **Treffpause:** når fuglen treffer en stamme, står verden helt stille i 70 ms (50 ms i bakken) før
-  fuglen spretter av. Det gir treffet tyngde. Ikke ved redusert bevegelse.
-- **Tett forbi:** passerer fuglen en stamme med under 6 px klaring, kommer et vindsus, en liten, lys
-  klang og noen fjær som følger fuglen. Det står ingen tekst; lyden og fjærene sier det.
-- **Milepæler** (hver tiende stamme) og «+2» med gyllen eikenøtt broderes inn i stedet for å stå
-  som tekst.
+## Installere på Samsung / Android
 
-## Animasjoner
+1. Åpne adressen i **Chrome** eller **Samsung Internet**.
+2. Trykk **Installer Pixelfugl**-knappen nederst i menyen, eller velg *Legg til på startskjermen* /
+   *Installer app* i nettlesermenyen.
+3. Appen åpnes uten nettleserlinjer, låst til portrett, med svart statuslinje.
 
-Bevegelsene har pauser og intensjon i stedet for jevn vugging. De bygger på nøkkelbilder med
-pauser, myk start og stopp, overskyting og forberedelse.
+Hadde du installert en eldre versjon, kan telefonen en stund vise det gamle ikonet og den lyse
+oppstartsskjermen. Ikonene har nye filnavn, så Chrome oppdager endringen selv. Det går raskest å fjerne appen
+fra startskjermen og installere den på nytt.
 
-- **Fuglen i hvile** svever med små vingeslag. Hvert slag gir et lite løft, og den synker litt
-  imellom, i uregelmessig takt. Innimellom gjør den én liten handling:
-  - ser til siden og holder blikket
-  - pirker i fjærene med lukkede øyne
-  - blunker to ganger
-  - rister seg (med forberedelse)
-  - ser opp når ballongen eller fugleflokken passerer over den
+## Testene
 
-  Om natten sover den og flakser rolig.
-- **Vingeslaget** går raskt ned og saktere opp igjen, med en liten overskyting.
-- **Bakgrunnen:**
-  - Skyene driver jevnt.
-  - Ballongen stiger og synker i rolige trinn med pauser.
-  - Fugleflokken flakser i støt og glir imellom.
-  - Bare noen få stjerner blinker om gangen, og ildfluene blinker i små serier med mørke pauser.
-- **Brukergrensesnittet:**
-  - Logoen sys i introen ved oppstart og står så stille.
-  - Egget på game over rister i korte støt.
-  - En strikket vott trykker på «Klar?».
-  - Power-ups står i ro og slår som et hjerte.
-- Overgang mellom skjermer: en sirkel som åpner seg rundt fuglen.
-- Knapper klemmes litt når du trykker.
-- Poengtallet hopper ett hakk opp og setter seg når det øker; game over-panelet og tittelen spretter inn,
-  og medaljen (eller egget) snurrer inn når poengene er talt opp.
-- Ny rekord: «Ny rekord!» og en liten flokk meiser som letter, med blader som virvler opp etter dem.
-- Poeng gir bjørkefrø og et blad som virvler; et krasj gir fjær og barkstøv. Det er ingen
-  stjerner, hjerter eller utropsord som «Bonk!»; lyden og bevegelsen sier det.
-- Alt respekterer «redusert bevegelse» i systemet.
+```
+npm install --no-save playwright && npx playwright install chromium
+node tests/ui-smoke.cjs
+```
 
 ## Oppdatere
 
-Endre `VERSION` øverst i `sw.js` ved hver ny utgivelse, ellers kan installerte
-apper fortsette å bruke den gamle, cachede versjonen.
+Endre `VERSION` øverst i `sw.js` ved hver ny utgivelse, ellers kan installerte apper fortsette å bruke den
+gamle, hurtigbufrede versjonen.
